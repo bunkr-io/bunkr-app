@@ -127,7 +127,7 @@ function BankAccountsSection() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {activeAccounts.map((account) => (
           <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
-            <Card className="transition-colors hover:bg-muted/50 cursor-pointer">
+            <Card className="flex h-full flex-col transition-colors hover:bg-muted/50 cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   {account.name}
@@ -136,18 +136,18 @@ function BankAccountsSection() {
                   {account.type}
                 </span>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-1 flex-col justify-between">
                 <div className="text-2xl font-bold">
                   {new Intl.NumberFormat('fr-FR', {
                     style: 'currency',
                     currency: account.currency,
                   }).format(account.balance)}
                 </div>
-                {account.iban && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {account.iban.replace(/(.{4})/g, '$1 ').trim()}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground mt-1 min-h-4">
+                  {account.iban
+                    ? account.iban.replace(/(.{4})/g, '$1 ').trim()
+                    : '\u00A0'}
+                </p>
               </CardContent>
             </Card>
           </Link>
