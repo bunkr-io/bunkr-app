@@ -52,4 +52,17 @@ export default defineSchema({
   })
     .index('by_connectionId', ['connectionId'])
     .index('by_profileId', ['profileId']),
+
+  balanceSnapshots: defineTable({
+    bankAccountId: v.id('bankAccounts'),
+    profileId: v.id('profiles'),
+    balance: v.number(),
+    currency: v.string(),
+    date: v.string(),
+    timestamp: v.number(),
+    seed: v.optional(v.boolean()),
+  })
+    .index('by_bankAccountId_timestamp', ['bankAccountId', 'timestamp'])
+    .index('by_bankAccountId_date', ['bankAccountId', 'date'])
+    .index('by_profileId_timestamp', ['profileId', 'timestamp']),
 })

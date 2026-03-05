@@ -1,16 +1,29 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { CirclePlus } from 'lucide-react'
+import { CirclePlus, ChevronRight } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useQuery } from 'convex/react'
+import { api } from '../../convex/_generated/api'
 
+import { useProfile } from '~/contexts/profile-context'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '~/components/ui/collapsible'
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '~/components/ui/sidebar'
+import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 
 export function NavMain({
   items,
@@ -22,6 +35,24 @@ export function NavMain({
   }>
 }) {
   const [dialogOpen, setDialogOpen] = React.useState(false)
+  const { activeProfileId } = useProfile()
+  const bankAccounts = useQuery(
+    api.powens.listBankAccounts,
+    activeProfileId ? { profileId: activeProfileId } : 'skip',
+  )
+
+  const activeCategories = React.useMemo(() => {
+    if (!bankAccounts) return []
+    const found = new Set<string>()
+    for (const acct of bankAccounts) {
+      if (!acct.deleted && !acct.disabled) {
+        found.add(getCategoryKey(acct.type))
+      }
+    }
+    return Object.entries(ACCOUNT_CATEGORIES)
+      .filter(([key]) => found.has(key))
+      .map(([key, cat]) => ({ key, ...cat }))
+  }, [bankAccounts])
 
   return (
     <SidebarGroup>
@@ -39,16 +70,52 @@ export function NavMain({
           </SidebarMenuItem>
         </SidebarMenu>
         <SidebarMenu>
-          {items.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title} asChild>
-                <Link to={item.url}>
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {items.map((item) =>
+            item.title === 'Accounts' && activeCategories.length > 0 ? (
+              <Collapsible
+                key={item.title}
+                defaultOpen
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <SidebarMenuButton tooltip={item.title} asChild>
+                    <Link to="/accounts" search={{}}>
+                      {item.icon && <item.icon />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuAction className="data-[state=open]:rotate-90">
+                      <ChevronRight />
+                    </SidebarMenuAction>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {activeCategories.map((cat) => (
+                        <SidebarMenuSubItem key={cat.key}>
+                          <SidebarMenuSubButton asChild>
+                            <Link to="/accounts" search={{ type: cat.key }}>
+                              <cat.icon className="size-4" />
+                              <span>{cat.label}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+            ) : (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton tooltip={item.title} asChild>
+                  <Link to={item.url}>
+                    {item.icon && <item.icon />}
+                    <span>{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ),
+          )}
         </SidebarMenu>
       </SidebarGroupContent>
       <AddConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { SiteHeader } from '~/components/site-header'
@@ -9,6 +9,8 @@ import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
+import { BalanceChart } from '~/components/balance-chart'
+import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -29,25 +31,47 @@ function Dashboard() {
 
 function BankAccountsSection() {
   const { activeProfileId, isLoading: profileLoading } = useProfile()
+  const [period, setPeriod] = React.useState<Period>('1M')
+  const startTimestamp = React.useMemo(() => getStartTimestamp(period), [period])
   const bankAccounts = useQuery(
     api.powens.listBankAccounts,
     activeProfileId ? { profileId: activeProfileId } : 'skip',
   )
+  const snapshots = useQuery(
+    api.balanceSnapshots.listSnapshotsByProfile,
+    activeProfileId
+      ? { profileId: activeProfileId, startTimestamp }
+      : 'skip',
+  )
   const [dialogOpen, setDialogOpen] = React.useState(false)
+
+  const netWorthData = React.useMemo(() => {
+    if (!snapshots) return []
+    const dateMap = new Map<string, number>()
+    for (const s of snapshots) {
+      dateMap.set(s.date, (dateMap.get(s.date) ?? 0) + s.balance)
+    }
+    return [...dateMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, balance]) => ({ date, balance }))
+  }, [snapshots])
 
   if (profileLoading || bankAccounts === undefined) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map((i) => (
-          <Card key={i}>
-            <CardHeader>
-              <Skeleton className="h-4 w-32" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-24" />
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <Skeleton className="h-[250px] w-full" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-4 w-32" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     )
   }
@@ -75,14 +99,35 @@ function BankAccountsSection() {
     )
   }
 
+  const activeAccounts = bankAccounts.filter((a) => !a.deleted && !a.disabled)
+  const totalBalance = activeAccounts.reduce((sum, a) => sum + a.balance, 0)
+  const currency = activeAccounts[0]?.currency ?? 'EUR'
+
   return (
     <>
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold">Net Worth</h2>
+        <p className="text-3xl font-bold tabular-nums">
+          {new Intl.NumberFormat('fr-FR', {
+            style: 'currency',
+            currency,
+          }).format(totalBalance)}
+        </p>
+      </div>
+
+      <BalanceChart
+        data={netWorthData}
+        currency={currency}
+        isLoading={snapshots === undefined}
+        period={period}
+        onPeriodChange={setPeriod}
+      />
+
       <h2 className="text-lg font-semibold">Bank Accounts</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {bankAccounts
-          .filter((a) => !a.deleted && !a.disabled)
-          .map((account) => (
-            <Card key={account._id}>
+        {activeAccounts.map((account) => (
+          <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
+            <Card className="transition-colors hover:bg-muted/50 cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   {account.name}
@@ -105,7 +150,8 @@ function BankAccountsSection() {
                 )}
               </CardContent>
             </Card>
-          ))}
+          </Link>
+        ))}
       </div>
     </>
   )

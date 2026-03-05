@@ -2,7 +2,42 @@ import { v } from 'convex/values'
 import { action, internalMutation, internalQuery, query } from './_generated/server'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import type { MutationCtx } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
+
+async function recordBalanceSnapshot(
+  ctx: MutationCtx,
+  params: {
+    bankAccountId: Id<'bankAccounts'>
+    profileId: Id<'profiles'>
+    balance: number
+    currency: string
+  },
+) {
+  const now = new Date()
+  const date = now.toISOString().slice(0, 10)
+  const timestamp = now.getTime()
+
+  const existing = await ctx.db
+    .query('balanceSnapshots')
+    .withIndex('by_bankAccountId_date', (q) =>
+      q.eq('bankAccountId', params.bankAccountId).eq('date', date),
+    )
+    .first()
+
+  if (existing) {
+    await ctx.db.patch(existing._id, { balance: params.balance })
+  } else {
+    await ctx.db.insert('balanceSnapshots', {
+      bankAccountId: params.bankAccountId,
+      profileId: params.profileId,
+      balance: params.balance,
+      currency: params.currency,
+      date,
+      timestamp,
+    })
+  }
+}
 
 function getPowensConfig() {
   const baseUrl = process.env.POWENS_BASE_URL
@@ -276,6 +311,7 @@ export const upsertBankAccount = internalMutation({
       )
       .first()
 
+    let bankAccountId: Id<'bankAccounts'>
     if (existing) {
       await ctx.db.patch(existing._id, {
         name: args.name,
@@ -288,10 +324,19 @@ export const upsertBankAccount = internalMutation({
         deleted: args.deleted,
         lastSync: args.lastSync,
       })
-      return existing._id
+      bankAccountId = existing._id
+    } else {
+      bankAccountId = await ctx.db.insert('bankAccounts', args)
     }
 
-    return await ctx.db.insert('bankAccounts', args)
+    await recordBalanceSnapshot(ctx, {
+      bankAccountId,
+      profileId: args.profileId,
+      balance: args.balance,
+      currency: args.currency,
+    })
+
+    return bankAccountId
   },
 })
 
@@ -369,6 +414,7 @@ export const syncConnectionFromWebhook = internalMutation({
         )
         .first()
 
+      let bankAccountId: Id<'bankAccounts'>
       if (existing) {
         await ctx.db.patch(existing._id, {
           name: acct.name,
@@ -381,13 +427,21 @@ export const syncConnectionFromWebhook = internalMutation({
           deleted: acct.deleted,
           lastSync: acct.lastSync,
         })
+        bankAccountId = existing._id
       } else {
-        await ctx.db.insert('bankAccounts', {
+        bankAccountId = await ctx.db.insert('bankAccounts', {
           connectionId,
           profileId: args.profileId,
           ...acct,
         })
       }
+
+      await recordBalanceSnapshot(ctx, {
+        bankAccountId,
+        profileId: args.profileId,
+        balance: acct.balance,
+        currency: acct.currency,
+      })
     }
   },
 })
@@ -444,7 +498,7 @@ export const getConnectionInternal = internalQuery({
 export const deleteConnectionData = internalMutation({
   args: { connectionId: v.id('connections') },
   handler: async (ctx, args) => {
-    // Delete all bank accounts for this connection
+    // Delete all bank accounts and their snapshots for this connection
     const bankAccounts = await ctx.db
       .query('bankAccounts')
       .withIndex('by_connectionId', (q) =>
@@ -452,6 +506,15 @@ export const deleteConnectionData = internalMutation({
       )
       .collect()
     for (const ba of bankAccounts) {
+      const snapshots = await ctx.db
+        .query('balanceSnapshots')
+        .withIndex('by_bankAccountId_timestamp', (q) =>
+          q.eq('bankAccountId', ba._id),
+        )
+        .collect()
+      for (const snap of snapshots) {
+        await ctx.db.delete(snap._id)
+      }
       await ctx.db.delete(ba._id)
     }
     // Delete the connection itself
@@ -480,5 +543,14 @@ export const listBankAccounts = query({
       .query('bankAccounts')
       .withIndex('by_profileId', (q) => q.eq('profileId', args.profileId))
       .collect()
+  },
+})
+
+export const getBankAccount = query({
+  args: { bankAccountId: v.id('bankAccounts') },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+    return await ctx.db.get(args.bankAccountId)
   },
 })

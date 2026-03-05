@@ -14,7 +14,8 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
 import { Route as PowensCallbackRouteImport } from './routes/powens/callback'
 import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
-import { Route as AppAccountsRouteImport } from './routes/_app/accounts'
+import { Route as AppAccountsIndexRouteImport } from './routes/_app/accounts.index'
+import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts.$accountId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -40,53 +41,69 @@ const AppConnectionsRoute = AppConnectionsRouteImport.update({
   path: '/connections',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAccountsRoute = AppAccountsRouteImport.update({
-  id: '/accounts',
-  path: '/accounts',
+const AppAccountsIndexRoute = AppAccountsIndexRouteImport.update({
+  id: '/accounts/',
+  path: '/accounts/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
+  id: '/accounts/$accountId',
+  path: '/accounts/$accountId',
   getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/accounts': typeof AppAccountsRoute
   '/connections': typeof AppConnectionsRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
+  '/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/accounts/': typeof AppAccountsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/accounts': typeof AppAccountsRoute
   '/connections': typeof AppConnectionsRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/': typeof AppIndexRoute
+  '/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/accounts': typeof AppAccountsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
-  '/_app/accounts': typeof AppAccountsRoute
   '/_app/connections': typeof AppConnectionsRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/_app/accounts/': typeof AppAccountsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/accounts'
     | '/connections'
     | '/powens/callback'
     | '/sign-in/$'
+    | '/accounts/$accountId'
+    | '/accounts/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/accounts' | '/connections' | '/powens/callback' | '/sign-in/$' | '/'
+  to:
+    | '/connections'
+    | '/powens/callback'
+    | '/sign-in/$'
+    | '/'
+    | '/accounts/$accountId'
+    | '/accounts'
   id:
     | '__root__'
     | '/_app'
-    | '/_app/accounts'
     | '/_app/connections'
     | '/powens/callback'
     | '/sign-in/$'
     | '/_app/'
+    | '/_app/accounts/$accountId'
+    | '/_app/accounts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -132,26 +149,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppConnectionsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/accounts': {
-      id: '/_app/accounts'
+    '/_app/accounts/': {
+      id: '/_app/accounts/'
       path: '/accounts'
-      fullPath: '/accounts'
-      preLoaderRoute: typeof AppAccountsRouteImport
+      fullPath: '/accounts/'
+      preLoaderRoute: typeof AppAccountsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/accounts/$accountId': {
+      id: '/_app/accounts/$accountId'
+      path: '/accounts/$accountId'
+      fullPath: '/accounts/$accountId'
+      preLoaderRoute: typeof AppAccountsAccountIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
 }
 
 interface AppRouteChildren {
-  AppAccountsRoute: typeof AppAccountsRoute
   AppConnectionsRoute: typeof AppConnectionsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute
+  AppAccountsIndexRoute: typeof AppAccountsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppAccountsRoute: AppAccountsRoute,
   AppConnectionsRoute: AppConnectionsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,
+  AppAccountsIndexRoute: AppAccountsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
