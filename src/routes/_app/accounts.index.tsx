@@ -22,7 +22,6 @@ import { StackedBalanceChart } from '~/components/stacked-balance-chart'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { computePnL } from '~/lib/pnl'
-import { PnLBadge } from '~/components/pnl-badge'
 
 export const Route = createFileRoute('/_app/accounts/')({
   component: AccountsPage,
@@ -209,20 +208,13 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
   const currency = bankAccounts[0]?.currency ?? 'EUR'
   const aggregatePnl = computePnL(chartData)
 
+  const formattedTotal = new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency,
+  }).format(totalBalance)
+
   return (
     <>
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <p className="text-3xl font-bold tabular-nums">
-            {new Intl.NumberFormat('fr-FR', {
-              style: 'currency',
-              currency,
-            }).format(totalBalance)}
-          </p>
-          <PnLBadge pnl={aggregatePnl} currency={currency} />
-        </div>
-      </div>
-
       {categoryFilter ? (
         <BalanceChart
           data={chartData}
@@ -230,6 +222,8 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
           isLoading={snapshots === undefined}
           period={period}
           onPeriodChange={setPeriod}
+          title={categoryFilter && ACCOUNT_CATEGORIES[categoryFilter]?.label ? ACCOUNT_CATEGORIES[categoryFilter].label : 'Accounts'}
+          description={formattedTotal}
         />
       ) : (
         <StackedBalanceChart
@@ -239,6 +233,9 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
           isLoading={snapshots === undefined}
           period={period}
           onPeriodChange={setPeriod}
+          title="Accounts"
+          description={formattedTotal}
+          pnl={aggregatePnl}
         />
       )}
 

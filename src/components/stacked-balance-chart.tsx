@@ -8,9 +8,19 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from '~/components/ui/chart'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '~/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS, type Period } from '~/lib/chart-periods'
+import { PnLBadge } from '~/components/pnl-badge'
+import type { PnL } from '~/lib/pnl'
 
 interface CategorySeries {
   key: string
@@ -25,6 +35,9 @@ interface StackedBalanceChartProps {
   isLoading: boolean
   period: Period
   onPeriodChange: (period: Period) => void
+  title?: string
+  description?: string
+  pnl?: PnL | null
 }
 
 const currencyFormatter = (currency: string) => (value: number) =>
@@ -92,6 +105,125 @@ function StackedTooltipContent({
   )
 }
 
+function PeriodSelector({
+  period,
+  onPeriodChange,
+}: {
+  period: Period
+  onPeriodChange: (period: Period) => void
+}) {
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={period}
+      onValueChange={(val) => {
+        if (val) onPeriodChange(val as Period)
+      }}
+    >
+      {PERIODS.map((p) => (
+        <ToggleGroupItem key={p} value={p}>
+          {p}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
+
+function ChartContent({
+  data,
+  categories,
+  formatCurrency,
+  chartConfig,
+  isLoading,
+}: {
+  data: Record<string, string | number>[]
+  categories: CategorySeries[]
+  formatCurrency: (value: number) => string
+  chartConfig: ChartConfig
+  isLoading: boolean
+}) {
+  if (isLoading) {
+    return <Skeleton className="h-[250px] w-full" />
+  }
+
+  if (data.length < 2) {
+    return (
+      <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+        Not enough data to display a chart
+      </div>
+    )
+  }
+
+  return (
+    <ChartContainer
+      config={chartConfig}
+      className="aspect-auto h-[250px] w-full"
+    >
+      <AreaChart data={data} stackOffset="none">
+        <defs>
+          {categories.map((cat) => (
+            <linearGradient
+              key={cat.key}
+              id={`fill-${cat.key}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="5%" stopColor={cat.color} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={cat.color} stopOpacity={0.05} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={32}
+          tickFormatter={(val: string) => {
+            const d = new Date(val)
+            return d.toLocaleDateString('fr-FR', {
+              day: 'numeric',
+              month: 'short',
+            })
+          }}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tickFormatter={formatCurrency}
+          width={80}
+        />
+        <ChartTooltip
+          content={
+            <StackedTooltipContent
+              formatCurrency={formatCurrency}
+              categories={categories}
+            />
+          }
+        />
+        <ChartLegend content={<ChartLegendContent />} />
+        {categories.map((cat) => (
+          <Area
+            key={cat.key}
+            dataKey={cat.key}
+            type="natural"
+            stackId="1"
+            stroke={cat.color}
+            fill={`url(#fill-${cat.key})`}
+            strokeWidth={2}
+          />
+        ))}
+      </AreaChart>
+    </ChartContainer>
+  )
+}
+
 export function StackedBalanceChart({
   data,
   categories,
@@ -99,6 +231,9 @@ export function StackedBalanceChart({
   isLoading,
   period,
   onPeriodChange,
+  title,
+  description,
+  pnl,
 }: StackedBalanceChartProps) {
   const formatCurrency = React.useMemo(
     () => currencyFormatter(currency),
@@ -113,101 +248,46 @@ export function StackedBalanceChart({
     return config
   }, [categories])
 
+  if (title) {
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          {description && (
+            <CardDescription className="flex items-center gap-2">
+              {description}
+              <PnLBadge pnl={pnl ?? null} currency={currency} />
+            </CardDescription>
+          )}
+          <CardAction>
+            <PeriodSelector period={period} onPeriodChange={onPeriodChange} />
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <ChartContent
+            data={data}
+            categories={categories}
+            formatCurrency={formatCurrency}
+            chartConfig={chartConfig}
+            isLoading={isLoading}
+          />
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={period}
-          onValueChange={(val) => {
-            if (val) onPeriodChange(val as Period)
-          }}
-        >
-          {PERIODS.map((p) => (
-            <ToggleGroupItem key={p} value={p}>
-              {p}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        <PeriodSelector period={period} onPeriodChange={onPeriodChange} />
       </div>
-
-      {isLoading ? (
-        <Skeleton className="h-[250px] w-full" />
-      ) : data.length < 2 ? (
-        <div className="flex h-[250px] items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-          Not enough data to display a chart
-        </div>
-      ) : (
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
-        >
-          <AreaChart data={data} stackOffset="none">
-            <defs>
-              {categories.map((cat) => (
-                <linearGradient
-                  key={cat.key}
-                  id={`fill-${cat.key}`}
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="5%"
-                    stopColor={cat.color}
-                    stopOpacity={0.3}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={cat.color}
-                    stopOpacity={0.05}
-                  />
-                </linearGradient>
-              ))}
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(val: string) => {
-                const d = new Date(val)
-                return d.toLocaleDateString('fr-FR', {
-                  day: 'numeric',
-                  month: 'short',
-                })
-              }}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={formatCurrency}
-              width={80}
-            />
-            <ChartTooltip
-              content={<StackedTooltipContent formatCurrency={formatCurrency} categories={categories} />}
-            />
-            <ChartLegend content={<ChartLegendContent />} />
-            {categories.map((cat) => (
-              <Area
-                key={cat.key}
-                dataKey={cat.key}
-                type="natural"
-                stackId="1"
-                stroke={cat.color}
-                fill={`url(#fill-${cat.key})`}
-                strokeWidth={2}
-              />
-            ))}
-          </AreaChart>
-        </ChartContainer>
-      )}
+      <ChartContent
+        data={data}
+        categories={categories}
+        formatCurrency={formatCurrency}
+        chartConfig={chartConfig}
+        isLoading={isLoading}
+      />
     </div>
   )
 }

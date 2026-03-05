@@ -66,7 +66,7 @@ function BankAccountsSection() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-[250px] w-full" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 *:data-[slot=card]:shadow-xs">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
               <CardHeader>
