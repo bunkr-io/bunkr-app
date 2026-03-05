@@ -17,6 +17,7 @@ import { BalanceChart } from '~/components/balance-chart'
 import { DashboardCard } from '~/components/dashboard-card'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { computePnL } from '~/lib/pnl'
+import { fillMissingDates } from '~/lib/fill-missing-dates'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -57,9 +58,10 @@ function BankAccountsSection() {
     for (const s of snapshots) {
       dateMap.set(s.date, (dateMap.get(s.date) ?? 0) + s.balance)
     }
-    return [...dateMap.entries()]
+    const sorted = [...dateMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, balance]) => ({ date, balance }))
+    return fillMissingDates(sorted)
   }, [snapshots])
 
   if (profileLoading || bankAccounts === undefined) {

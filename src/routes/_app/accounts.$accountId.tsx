@@ -8,6 +8,7 @@ import { BalanceChart } from '~/components/balance-chart'
 import { Skeleton } from '~/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-react'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
+import { fillMissingDates } from '~/lib/fill-missing-dates'
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
   component: AccountDetailPage,
@@ -31,7 +32,9 @@ function AccountDetailPage() {
 
   const chartData = React.useMemo(() => {
     if (!snapshots) return []
-    return snapshots.map((s) => ({ date: s.date, balance: s.balance }))
+    return fillMissingDates(
+      snapshots.map((s) => ({ date: s.date, balance: s.balance })),
+    )
   }, [snapshots])
 
   return (

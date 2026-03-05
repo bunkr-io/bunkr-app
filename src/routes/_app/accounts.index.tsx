@@ -22,6 +22,7 @@ import { StackedBalanceChart } from '~/components/stacked-balance-chart'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { computePnL } from '~/lib/pnl'
+import { fillMissingDates, fillMissingDatesStacked } from '~/lib/fill-missing-dates'
 
 export const Route = createFileRoute('/_app/accounts/')({
   component: AccountsPage,
@@ -110,9 +111,10 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
         dateMap.set(s.date, (dateMap.get(s.date) ?? 0) + s.balance)
       }
     }
-    return [...dateMap.entries()]
+    const sorted = [...dateMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, balance]) => ({ date, balance }))
+    return fillMissingDates(sorted)
   }, [snapshots, bankAccounts, accountCategoryMap])
 
   // Stacked chart data: one key per category
@@ -127,7 +129,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       dateMap.set(s.date, entry)
     }
     const activeCategoryKeys = new Set(accountCategoryMap.values())
-    return [...dateMap.entries()]
+    const sorted = [...dateMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, values]) => {
         const row: Record<string, string | number> = { date }
@@ -136,6 +138,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
         }
         return row
       })
+    return fillMissingDatesStacked(sorted)
   }, [snapshots, bankAccounts, accountCategoryMap])
 
   // Category series config for the stacked chart
