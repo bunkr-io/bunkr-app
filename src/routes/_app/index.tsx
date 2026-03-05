@@ -9,16 +9,14 @@ import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
 import {
   Card,
-  CardAction,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '~/components/ui/card'
-import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { BalanceChart } from '~/components/balance-chart'
+import { DashboardCard } from '~/components/dashboard-card'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
+import { computePnL } from '~/lib/pnl'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -129,33 +127,33 @@ function BankAccountsSection() {
 
       <h2 className="text-lg font-semibold">Bank Accounts</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {activeAccounts.map((account) => (
-          <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
-            <Card className="@container/card h-full bg-gradient-to-t from-primary/5 to-card shadow-xs transition-colors hover:bg-muted/50 cursor-pointer dark:bg-card">
-              <CardHeader>
-                <CardDescription>{account.name}</CardDescription>
-                <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-                  {new Intl.NumberFormat('fr-FR', {
-                    style: 'currency',
-                    currency: account.currency,
-                  }).format(account.balance)}
-                </CardTitle>
-                <CardAction>
-                  <Badge variant="outline" className="capitalize">
-                    {account.type ?? 'unknown'}
-                  </Badge>
-                </CardAction>
-              </CardHeader>
-              <CardFooter className="flex-col items-start gap-1.5 text-sm">
-                <div className="text-muted-foreground">
-                  {account.iban
+        {activeAccounts.map((account) => {
+          const accountSnapshots = snapshots
+            ?.filter((s) => s.bankAccountId === account._id)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((s) => ({ balance: s.balance })) ?? []
+          const accountPnl = computePnL(accountSnapshots)
+
+          return (
+            <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
+              <DashboardCard
+                title={account.name}
+                value={new Intl.NumberFormat('fr-FR', {
+                  style: 'currency',
+                  currency: account.currency,
+                }).format(account.balance)}
+                pnl={accountPnl}
+                currency={account.currency}
+                description={
+                  account.iban
                     ? account.iban.replace(/(.{4})/g, '$1 ').trim()
-                    : '\u00A0'}
-                </div>
-              </CardFooter>
-            </Card>
-          </Link>
-        ))}
+                    : undefined
+                }
+                className="h-full transition-colors hover:bg-muted/50 cursor-pointer"
+              />
+            </Link>
+          )
+        })}
       </div>
     </>
   )

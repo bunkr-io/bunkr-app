@@ -9,6 +9,8 @@ import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-react'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
+import { computePnL } from '~/lib/pnl'
+import { PnLBadge } from '~/components/pnl-badge'
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
   component: AccountDetailPage,
@@ -72,6 +74,7 @@ function AccountDetailPage() {
                   <Badge variant="outline" className="capitalize">
                     {bankAccount.type ?? 'unknown'}
                   </Badge>
+                  <PnLBadge pnl={computePnL(chartData)} currency={bankAccount.currency} />
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {bankAccount.iban

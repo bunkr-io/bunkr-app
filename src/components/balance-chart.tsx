@@ -17,6 +17,8 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS, type Period } from '~/lib/chart-periods'
+import { computePnL } from '~/lib/pnl'
+import { PnLBadge } from '~/components/pnl-badge'
 
 const chartConfig = {
   balance: {
@@ -147,12 +149,19 @@ export function BalanceChart({
 }: BalanceChartProps) {
   const formatCurrency = React.useMemo(() => currencyFormatter(currency), [currency])
 
+  const pnl = React.useMemo(() => computePnL(data), [data])
+
   if (title) {
     return (
       <Card className="@container/card">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
+          {description && (
+            <CardDescription className="flex items-center gap-2">
+              {description}
+              <PnLBadge pnl={pnl} currency={currency} />
+            </CardDescription>
+          )}
           <CardAction>
             <PeriodSelector period={period} onPeriodChange={onPeriodChange} />
           </CardAction>

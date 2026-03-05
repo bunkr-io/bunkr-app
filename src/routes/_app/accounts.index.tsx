@@ -20,6 +20,8 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { BalanceChart } from '~/components/balance-chart'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
+import { computePnL } from '~/lib/pnl'
+import { PnLBadge } from '~/components/pnl-badge'
 
 export const Route = createFileRoute('/_app/accounts/')({
   component: AccountsPage,
@@ -153,16 +155,20 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
 
   const totalBalance = bankAccounts.reduce((sum, a) => sum + a.balance, 0)
   const currency = bankAccounts[0]?.currency ?? 'EUR'
+  const aggregatePnl = computePnL(chartData)
 
   return (
     <>
       <div className="space-y-2">
-        <p className="text-3xl font-bold tabular-nums">
-          {new Intl.NumberFormat('fr-FR', {
-            style: 'currency',
-            currency,
-          }).format(totalBalance)}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-3xl font-bold tabular-nums">
+            {new Intl.NumberFormat('fr-FR', {
+              style: 'currency',
+              currency,
+            }).format(totalBalance)}
+          </p>
+          <PnLBadge pnl={aggregatePnl} currency={currency} />
+        </div>
       </div>
 
       <BalanceChart
