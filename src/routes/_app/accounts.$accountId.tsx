@@ -5,12 +5,9 @@ import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { SiteHeader } from '~/components/site-header'
 import { BalanceChart } from '~/components/balance-chart'
-import { Badge } from '~/components/ui/badge'
 import { Skeleton } from '~/components/ui/skeleton'
 import { ArrowLeft } from 'lucide-react'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
-import { computePnL } from '~/lib/pnl'
-import { PnLBadge } from '~/components/pnl-badge'
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
   component: AccountDetailPage,
@@ -62,35 +59,18 @@ function AccountDetailPage() {
               Account not found.
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-2xl font-bold">
-                    {new Intl.NumberFormat('fr-FR', {
-                      style: 'currency',
-                      currency: bankAccount.currency,
-                    }).format(bankAccount.balance)}
-                  </h2>
-                  <Badge variant="outline" className="capitalize">
-                    {bankAccount.type ?? 'unknown'}
-                  </Badge>
-                  <PnLBadge pnl={computePnL(chartData)} currency={bankAccount.currency} />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {bankAccount.iban
-                    ? bankAccount.iban.replace(/(.{4})/g, '$1 ').trim()
-                    : bankAccount.number ?? ''}
-                </p>
-              </div>
-
-              <BalanceChart
-                data={chartData}
-                currency={bankAccount.currency}
-                isLoading={false}
-                period={period}
-                onPeriodChange={setPeriod}
-              />
-            </div>
+            <BalanceChart
+              data={chartData}
+              currency={bankAccount.currency}
+              isLoading={false}
+              period={period}
+              onPeriodChange={setPeriod}
+              title={bankAccount.name}
+              description={new Intl.NumberFormat('fr-FR', {
+                style: 'currency',
+                currency: bankAccount.currency,
+              }).format(bankAccount.balance)}
+            />
           )}
         </div>
       </div>
