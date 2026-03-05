@@ -46,13 +46,13 @@ This runs both the Vite dev server and the Convex dev process concurrently.
 
 ### Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server (Convex + Vite) |
-| `npm run build` | Production build |
-| `npm run start` | Start production server |
-| `npm run lint` | Type-check and lint |
-| `npm run format` | Format code with Prettier |
+| Command          | Description                      |
+| ---------------- | -------------------------------- |
+| `npm run dev`    | Start dev server (Convex + Vite) |
+| `npm run build`  | Production build                 |
+| `npm run start`  | Start production server          |
+| `npm run lint`   | Type-check and lint              |
+| `npm run format` | Format code with Prettier        |
 
 ## Project Structure
 
