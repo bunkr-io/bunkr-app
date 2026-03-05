@@ -6,6 +6,7 @@ import {
 } from '@tabler/icons-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
+import { Skeleton } from '~/components/ui/skeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +24,24 @@ import {
 
 export function NavUser() {
   const { isMobile } = useSidebar()
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
   const { signOut } = useClerk()
+
+  if (!isLoaded) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className="flex items-center gap-2 px-2 py-2">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <div className="grid flex-1 gap-1">
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="h-3 w-32" />
+            </div>
+          </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    )
+  }
 
   if (!user) return null
 
