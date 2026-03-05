@@ -114,22 +114,17 @@ function BankAccountsSection() {
 
   return (
     <>
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Net Worth</h2>
-        <p className="text-3xl font-bold tabular-nums">
-          {new Intl.NumberFormat('fr-FR', {
-            style: 'currency',
-            currency,
-          }).format(totalBalance)}
-        </p>
-      </div>
-
       <BalanceChart
         data={netWorthData}
         currency={currency}
         isLoading={snapshots === undefined}
         period={period}
         onPeriodChange={setPeriod}
+        title="Net Worth"
+        description={new Intl.NumberFormat('fr-FR', {
+          style: 'currency',
+          currency,
+        }).format(totalBalance)}
       />
 
       <h2 className="text-lg font-semibold">Bank Accounts</h2>
