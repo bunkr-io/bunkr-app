@@ -18,6 +18,7 @@ import { Route as AppProfilesRouteImport } from './routes/_app/profiles'
 import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as SettingsSettingsIndexRouteImport } from './routes/_settings/settings.index'
 import { Route as AppAccountsIndexRouteImport } from './routes/_app/accounts.index'
+import { Route as SettingsSettingsSecurityRouteImport } from './routes/_settings/settings.security'
 import { Route as SettingsSettingsProfileRouteImport } from './routes/_settings/settings.profile'
 import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts.$accountId'
 
@@ -64,6 +65,12 @@ const AppAccountsIndexRoute = AppAccountsIndexRouteImport.update({
   path: '/accounts/',
   getParentRoute: () => AppRoute,
 } as any)
+const SettingsSettingsSecurityRoute =
+  SettingsSettingsSecurityRouteImport.update({
+    id: '/settings/security',
+    path: '/settings/security',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const SettingsSettingsProfileRoute = SettingsSettingsProfileRouteImport.update({
   id: '/settings/profile',
   path: '/settings/profile',
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
+  '/settings/security': typeof SettingsSettingsSecurityRoute
   '/accounts/': typeof AppAccountsIndexRoute
   '/settings/': typeof SettingsSettingsIndexRoute
 }
@@ -94,6 +102,7 @@ export interface FileRoutesByTo {
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
+  '/settings/security': typeof SettingsSettingsSecurityRoute
   '/accounts': typeof AppAccountsIndexRoute
   '/settings': typeof SettingsSettingsIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/_settings/settings/profile': typeof SettingsSettingsProfileRoute
+  '/_settings/settings/security': typeof SettingsSettingsSecurityRoute
   '/_app/accounts/': typeof AppAccountsIndexRoute
   '/_settings/settings/': typeof SettingsSettingsIndexRoute
 }
@@ -121,6 +131,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/accounts/$accountId'
     | '/settings/profile'
+    | '/settings/security'
     | '/accounts/'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -132,6 +143,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/accounts/$accountId'
     | '/settings/profile'
+    | '/settings/security'
     | '/accounts'
     | '/settings'
   id:
@@ -145,6 +157,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/accounts/$accountId'
     | '/_settings/settings/profile'
+    | '/_settings/settings/security'
     | '/_app/accounts/'
     | '/_settings/settings/'
   fileRoutesById: FileRoutesById
@@ -221,6 +234,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_settings/settings/security': {
+      id: '/_settings/settings/security'
+      path: '/settings/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof SettingsSettingsSecurityRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/_settings/settings/profile': {
       id: '/_settings/settings/profile'
       path: '/settings/profile'
@@ -258,11 +278,13 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface SettingsRouteChildren {
   SettingsSettingsProfileRoute: typeof SettingsSettingsProfileRoute
+  SettingsSettingsSecurityRoute: typeof SettingsSettingsSecurityRoute
   SettingsSettingsIndexRoute: typeof SettingsSettingsIndexRoute
 }
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSettingsProfileRoute: SettingsSettingsProfileRoute,
+  SettingsSettingsSecurityRoute: SettingsSettingsSecurityRoute,
   SettingsSettingsIndexRoute: SettingsSettingsIndexRoute,
 }
 

@@ -58,7 +58,7 @@ export function SettingsSidebar({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link to="/settings" disabled>
+                  <Link to="/settings/security">
                     <Shield />
                     <span>Security & access</span>
                   </Link>
