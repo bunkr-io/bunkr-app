@@ -6,27 +6,27 @@ import { encryptForProfile } from './lib/serverCrypto'
 const http = httpRouter()
 
 interface WebhookPayload {
-  type?: string
-  id_user?: number
-  id?: number
-  accounts?: Array<WebhookAccount>
-  connector?: { name?: string }
-  state?: string
-  last_update?: string
+  type?: string | null
+  id_user?: number | null
+  id?: number | null
+  accounts?: Array<WebhookAccount> | null
+  connector?: { name?: string | null } | null
+  state?: string | null
+  last_update?: string | null
 }
 
 interface WebhookAccount {
   id: number
-  number?: string
-  iban?: string
-  balance?: number
-  original_name?: string
-  name?: string
-  type?: string
-  currency?: { id?: string }
-  disabled?: boolean
+  number?: string | null
+  iban?: string | null
+  balance?: number | null
+  original_name?: string | null
+  name?: string | null
+  type?: string | null
+  currency?: { id?: string | null } | null
+  disabled?: boolean | null
   deleted?: unknown
-  last_update?: string
+  last_update?: string | null
 }
 
 http.route({
@@ -99,8 +99,8 @@ http.route({
 
       const bankAccounts = await Promise.all(
         (accounts ?? []).map(async (acct) => {
-          const number = acct.number
-          const iban = acct.iban
+          const number = acct.number ?? undefined
+          const iban = acct.iban ?? undefined
           const balance = acct.balance ?? 0
           const name = acct.original_name ?? acct.name ?? 'Unnamed Account'
 
@@ -117,12 +117,12 @@ http.route({
             name: publicKey ? 'Encrypted' : name,
             number: publicKey ? undefined : number,
             iban: publicKey ? undefined : iban,
-            type: acct.type,
+            type: acct.type ?? undefined,
             balance: publicKey ? 0 : balance,
             currency: acct.currency?.id ?? 'EUR',
             disabled: acct.disabled ?? false,
             deleted: acct.deleted != null,
-            lastSync: acct.last_update,
+            lastSync: acct.last_update ?? undefined,
             encryptedData,
           }
         }),
@@ -132,8 +132,8 @@ http.route({
         profileId: profile._id,
         powensConnectionId,
         connectorName: publicKey ? 'Encrypted' : realConnectorName,
-        state: payload.state,
-        lastSync: payload.last_update,
+        state: payload.state ?? undefined,
+        lastSync: payload.last_update ?? undefined,
         bankAccounts,
         encryptedData: connectionEncryptedData,
       })

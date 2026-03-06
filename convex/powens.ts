@@ -22,27 +22,27 @@ interface PowensCodeResponse {
 }
 
 interface PowensConnectionResponse {
-  connector?: { name?: string }
-  state?: string
-  last_update?: string
+  connector?: { name?: string | null } | null
+  state?: string | null
+  last_update?: string | null
 }
 
 interface PowensAccountResponse {
-  accounts?: Array<PowensAccount>
+  accounts?: Array<PowensAccount> | null
 }
 
 interface PowensAccount {
   id: number
-  number?: string
-  iban?: string
-  balance?: number
-  original_name?: string
-  name?: string
-  type?: string
-  currency?: { id?: string }
-  disabled?: boolean
+  number?: string | null
+  iban?: string | null
+  balance?: number | null
+  original_name?: string | null
+  name?: string | null
+  type?: string | null
+  currency?: { id?: string | null } | null
+  disabled?: boolean | null
   deleted?: unknown
-  last_update?: string
+  last_update?: string | null
 }
 
 interface PowensInvestmentResponse {
@@ -341,8 +341,8 @@ export const handleConnectionCallback = action({
         profileId: args.profileId,
         powensConnectionId: args.connectionId,
         connectorName: publicKey ? 'Encrypted' : realConnectorName,
-        state: connData.state,
-        lastSync: connData.last_update,
+        state: connData.state ?? undefined,
+        lastSync: connData.last_update ?? undefined,
         encryptedData: connectionEncryptedData,
       },
     )
@@ -380,14 +380,14 @@ export const handleConnectionCallback = action({
             profileId: args.profileId,
             powensBankAccountId: acct.id,
             name: publicKey ? 'Encrypted' : name,
-            number: publicKey ? undefined : number,
-            iban: publicKey ? undefined : iban,
-            type: acct.type,
+            number: publicKey ? undefined : (number ?? undefined),
+            iban: publicKey ? undefined : (iban ?? undefined),
+            type: acct.type ?? undefined,
             balance: publicKey ? 0 : balance,
             currency: acct.currency?.id ?? 'EUR',
             disabled: acct.disabled ?? false,
             deleted: acct.deleted != null,
-            lastSync: acct.last_update,
+            lastSync: acct.last_update ?? undefined,
             encryptedData,
           },
         )
