@@ -54,6 +54,11 @@ function BankAccountsSection() {
   )
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
+  const activeAccounts = React.useMemo(
+    () => bankAccounts?.filter((a) => !a.deleted && !a.disabled) ?? [],
+    [bankAccounts],
+  )
+
   const netWorthData = React.useMemo(() => {
     if (!snapshots) return []
     const dateMap = new Map<string, number>()
@@ -65,6 +70,22 @@ function BankAccountsSection() {
       .map(([date, balance]) => ({ date, balance }))
     return fillMissingDates(sorted)
   }, [snapshots])
+
+  const allocationData = React.useMemo(() => {
+    const categoryTotals = new Map<string, number>()
+    for (const a of activeAccounts) {
+      const key = getCategoryKey(a.type)
+      categoryTotals.set(key, (categoryTotals.get(key) ?? 0) + a.balance)
+    }
+    return Object.entries(ACCOUNT_CATEGORIES)
+      .filter(([key]) => categoryTotals.has(key))
+      .map(([key, cat]) => ({
+        key,
+        label: cat.label,
+        value: categoryTotals.get(key) ?? 0,
+        color: CATEGORY_COLORS[key] ?? 'var(--color-chart-5)',
+      }))
+  }, [activeAccounts])
 
   if (profileLoading || bankAccounts === undefined) {
     return (
@@ -110,25 +131,8 @@ function BankAccountsSection() {
     )
   }
 
-  const activeAccounts = bankAccounts.filter((a) => !a.deleted && !a.disabled)
   const totalBalance = activeAccounts.reduce((sum, a) => sum + a.balance, 0)
   const currency = activeAccounts[0]?.currency ?? 'EUR'
-
-  const allocationData = React.useMemo(() => {
-    const categoryTotals = new Map<string, number>()
-    for (const a of activeAccounts) {
-      const key = getCategoryKey(a.type)
-      categoryTotals.set(key, (categoryTotals.get(key) ?? 0) + a.balance)
-    }
-    return Object.entries(ACCOUNT_CATEGORIES)
-      .filter(([key]) => categoryTotals.has(key))
-      .map(([key, cat]) => ({
-        key,
-        label: cat.label,
-        value: categoryTotals.get(key) ?? 0,
-        color: CATEGORY_COLORS[key] ?? 'var(--color-chart-5)',
-      }))
-  }, [activeAccounts])
 
   return (
     <>
