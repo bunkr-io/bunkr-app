@@ -1,6 +1,6 @@
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + days)
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
   return d.toISOString().slice(0, 10)
 }
 
@@ -17,11 +17,9 @@ export function fillMissingDates<T extends { date: string; balance: number }>(
   for (let i = 1; i < data.length; i++) {
     const prev = filled[filled.length - 1]
     let nextDate = addDays(prev.date, 1)
-    let safety = 0
-    while (nextDate < data[i].date && safety < 1000) {
+    while (nextDate < data[i].date) {
       filled.push({ ...prev, date: nextDate })
       nextDate = addDays(nextDate, 1)
-      safety++
     }
     filled.push(data[i])
   }
@@ -41,11 +39,9 @@ export function fillMissingDatesStacked(
   for (let i = 1; i < data.length; i++) {
     const prev = filled[filled.length - 1]
     let nextDate = addDays(prev.date as string, 1)
-    let safety = 0
-    while (nextDate < (data[i].date as string) && safety < 1000) {
+    while (nextDate < (data[i].date as string)) {
       filled.push({ ...prev, date: nextDate })
       nextDate = addDays(nextDate, 1)
-      safety++
     }
     filled.push(data[i])
   }
