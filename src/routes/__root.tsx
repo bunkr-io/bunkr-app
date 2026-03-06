@@ -53,7 +53,64 @@ export const Route = createRootRouteWithContext<{
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'Bunkr',
+        title: 'Bunkr — Own Your Financial Data',
+      },
+      {
+        name: 'description',
+        content:
+          'Privacy-focused personal finance tracker. Aggregate your bank accounts, track your net worth, and manage your investments — your data stays private.',
+      },
+      // OpenGraph
+      {
+        property: 'og:type',
+        content: 'website',
+      },
+      {
+        property: 'og:url',
+        content: 'https://bunkr.io',
+      },
+      {
+        property: 'og:title',
+        content: 'Bunkr — Own Your Financial Data',
+      },
+      {
+        property: 'og:description',
+        content:
+          'Privacy-focused personal finance tracker. Aggregate your bank accounts, track your net worth, and manage your investments — your data stays private.',
+      },
+      {
+        property: 'og:image',
+        content: 'https://bunkr.io/og-image.png',
+      },
+      {
+        property: 'og:image:width',
+        content: '1200',
+      },
+      {
+        property: 'og:image:height',
+        content: '630',
+      },
+      {
+        property: 'og:site_name',
+        content: 'Bunkr',
+      },
+      // Twitter Card
+      {
+        name: 'twitter:card',
+        content: 'summary_large_image',
+      },
+      {
+        name: 'twitter:title',
+        content: 'Bunkr — Own Your Financial Data',
+      },
+      {
+        name: 'twitter:description',
+        content:
+          'Privacy-focused personal finance tracker. Aggregate your bank accounts, track your net worth, and manage your investments — your data stays private.',
+      },
+      {
+        name: 'twitter:image',
+        content: 'https://bunkr.io/og-image.png',
       },
     ],
     links: [
@@ -77,6 +134,7 @@ export const Route = createRootRouteWithContext<{
       },
       { rel: 'manifest', href: '/site.webmanifest', color: '#fffff' },
       { rel: 'icon', href: '/favicon.ico' },
+      { rel: 'canonical', href: 'https://bunkr.io' },
     ],
   }),
   beforeLoad: async (ctx) => {
