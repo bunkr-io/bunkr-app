@@ -32,7 +32,7 @@ http.route({
   path: '/powens/webhook',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const payload = await request.json()
+    const payload = (await request.json()) as Record<string, unknown>
 
     const type = payload.type as string | undefined
 

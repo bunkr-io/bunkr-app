@@ -28,3 +28,6 @@ app.config.timestamp_*.js
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# wrangler
+.wrangler/

@@ -77,7 +77,7 @@ export const createPowensUser = action({
       throw new Error(`Powens auth/init failed: ${response.status} ${text}`)
     }
 
-    const data = await response.json()
+    const data = (await response.json()) as Record<string, unknown>
     const token = data.auth_token as string
     const powensUserId = data.id_user as number
 
@@ -121,7 +121,7 @@ export const generateConnectUrl = action({
         const text = await initResponse.text()
         throw new Error(`Powens auth/init failed: ${initResponse.status} ${text}`)
       }
-      const initData = await initResponse.json()
+      const initData = (await initResponse.json()) as Record<string, unknown>
       token = initData.auth_token as string
       await ctx.runMutation(internal.powens.updateProfilePowensUser, {
         profileId: args.profileId,
@@ -143,7 +143,7 @@ export const generateConnectUrl = action({
       )
     }
 
-    const codeData = await codeResponse.json()
+    const codeData = (await codeResponse.json()) as Record<string, unknown>
     const code = codeData.code as string
 
     const redirectUri = `${siteUrl}/powens/callback`
@@ -193,7 +193,7 @@ export const generateManageUrl = action({
       )
     }
 
-    const codeData = await codeResponse.json()
+    const codeData = (await codeResponse.json()) as Record<string, unknown>
     const code = codeData.code as string
 
     const redirectUri = `${siteUrl}/powens/callback`
@@ -254,7 +254,7 @@ export const handleConnectionCallback = action({
       )
     }
 
-    const connData = await connResponse.json()
+    const connData = (await connResponse.json()) as Record<string, unknown>
 
     // Check if encryption is enabled
     const publicKey: string | null = await ctx.runQuery(
@@ -263,7 +263,7 @@ export const handleConnectionCallback = action({
     )
 
     // Store connection
-    const realConnectorName = connData.connector?.name ?? 'Unknown'
+    const realConnectorName = (connData.connector as Record<string, unknown> | undefined)?.name as string ?? 'Unknown'
     let connectionEncryptedData: string | undefined
     if (publicKey) {
       connectionEncryptedData = await encryptForProfile(
@@ -278,8 +278,8 @@ export const handleConnectionCallback = action({
         profileId: args.profileId,
         powensConnectionId: args.connectionId,
         connectorName: publicKey ? 'Encrypted' : realConnectorName,
-        state: connData.state ?? undefined,
-        lastSync: connData.last_update ?? undefined,
+        state: (connData.state as string) ?? undefined,
+        lastSync: (connData.last_update as string) ?? undefined,
         encryptedData: connectionEncryptedData,
       },
     )
@@ -293,14 +293,14 @@ export const handleConnectionCallback = action({
     )
 
     if (acctResponse.ok) {
-      const acctData = await acctResponse.json()
-      const bankAccts = acctData.accounts ?? []
+      const acctData = (await acctResponse.json()) as Record<string, unknown>
+      const bankAccts = (acctData.accounts as Array<Record<string, unknown>>) ?? []
 
       for (const acct of bankAccts) {
-        const number = acct.number ?? undefined
-        const iban = acct.iban ?? undefined
-        const balance = acct.balance ?? 0
-        const name = acct.original_name ?? acct.name ?? 'Unnamed Account'
+        const number = (acct.number as string) ?? undefined
+        const iban = (acct.iban as string) ?? undefined
+        const balance = (acct.balance as number) ?? 0
+        const name = (acct.original_name as string) ?? (acct.name as string) ?? 'Unnamed Account'
 
         let encryptedData: string | undefined
         if (publicKey) {
@@ -313,32 +313,32 @@ export const handleConnectionCallback = action({
         const bankAccountId = await ctx.runMutation(internal.powens.upsertBankAccount, {
           connectionId: connectionDocId,
           profileId: args.profileId,
-          powensBankAccountId: acct.id,
+          powensBankAccountId: acct.id as number,
           name: publicKey ? 'Encrypted' : name,
           number: publicKey ? undefined : number,
           iban: publicKey ? undefined : iban,
-          type: acct.type ?? undefined,
+          type: (acct.type as string) ?? undefined,
           balance: publicKey ? 0 : balance,
-          currency: acct.currency?.id ?? 'EUR',
-          disabled: acct.disabled ?? false,
+          currency: ((acct.currency as Record<string, unknown>)?.id as string) ?? 'EUR',
+          disabled: (acct.disabled as boolean) ?? false,
           deleted: acct.deleted != null,
-          lastSync: acct.last_update ?? undefined,
+          lastSync: (acct.last_update as string) ?? undefined,
           encryptedData,
         })
 
-        if (INVESTMENT_TYPES.includes(acct.type ?? '')) {
+        if (INVESTMENT_TYPES.includes((acct.type as string) ?? '')) {
           const investmentsResponse = await fetch(
             `${baseUrl}/users/me/accounts/${acct.id}/investments`,
             { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
           )
           if (investmentsResponse.ok) {
-            const investmentsData = await investmentsResponse.json()
-            const rawInvestments = (investmentsData.investments ?? []).map(mapPowensInvestment)
+            const investmentsData = (await investmentsResponse.json()) as Record<string, unknown>
+            const rawInvestments = ((investmentsData.investments as Array<Record<string, unknown>>) ?? []).map(mapPowensInvestment)
 
-            let investments = rawInvestments
+            let investments: MappedInvestment[] = rawInvestments
             if (publicKey) {
               investments = await Promise.all(
-                rawInvestments.map(async (inv: ReturnType<typeof mapPowensInvestment>) => {
+                rawInvestments.map(async (inv) => {
                   const encData = await encryptForProfile(
                     {
                       code: inv.code,
@@ -773,7 +773,27 @@ export const listAllBankAccounts = query({
   },
 })
 
-function mapPowensInvestment(raw: Record<string, unknown>) {
+interface MappedInvestment {
+  powensInvestmentId: number
+  code: string | undefined
+  codeType: string | undefined
+  label: string
+  description: string | undefined
+  quantity: number
+  unitprice: number
+  unitvalue: number
+  valuation: number
+  portfolioShare: number | undefined
+  diff: number | undefined
+  diffPercent: number | undefined
+  originalCurrency: string | undefined
+  originalValuation: number | undefined
+  vdate: string | undefined
+  deleted: boolean
+  encryptedData?: string
+}
+
+function mapPowensInvestment(raw: Record<string, unknown>): MappedInvestment {
   return {
     powensInvestmentId: raw.id as number,
     code: (raw.code as string) ?? undefined,
@@ -903,13 +923,13 @@ export const syncInvestmentsFromWebhook = internalAction({
 
       if (!response.ok) continue
 
-      const data = await response.json()
-      const rawInvestments = (data.investments ?? []).map(mapPowensInvestment)
+      const data = (await response.json()) as Record<string, unknown>
+      const rawInvestments = ((data.investments as Array<Record<string, unknown>>) ?? []).map(mapPowensInvestment)
 
-      let investments = rawInvestments
+      let investments: MappedInvestment[] = rawInvestments
       if (publicKey) {
         investments = await Promise.all(
-          rawInvestments.map(async (inv: ReturnType<typeof mapPowensInvestment>) => {
+          rawInvestments.map(async (inv) => {
             const encData = await encryptForProfile(
               {
                 code: inv.code,

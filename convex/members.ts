@@ -74,10 +74,10 @@ export const sendInvitation = action({
             headers: { Authorization: `Bearer ${clerkSecretKey}` },
           })
           if (res.ok) {
-            const user = await res.json()
-            const email = user.email_addresses?.find(
-              (e: { id: string }) => e.id === user.primary_email_address_id,
-            )?.email_address
+            const user = (await res.json()) as Record<string, unknown>
+            const email = (user.email_addresses as Array<Record<string, unknown>> | undefined)?.find(
+              (e) => e.id === user.primary_email_address_id,
+            )?.email_address as string | undefined
             if (email) memberEmails.add(email.toLowerCase())
           }
         }),
@@ -212,15 +212,15 @@ export const resolveUsers = action({
           headers: { Authorization: `Bearer ${clerkSecretKey}` },
         })
         if (res.ok) {
-          const user = await res.json()
+          const user = (await res.json()) as Record<string, unknown>
           results[id] = {
-            firstName: user.first_name,
-            lastName: user.last_name,
-            imageUrl: user.image_url,
+            firstName: user.first_name as string | null,
+            lastName: user.last_name as string | null,
+            imageUrl: user.image_url as string,
             email:
-              user.email_addresses?.find(
-                (e: { id: string }) => e.id === user.primary_email_address_id,
-              )?.email_address ?? '',
+              ((user.email_addresses as Array<Record<string, unknown>> | undefined)?.find(
+                (e) => e.id === user.primary_email_address_id,
+              )?.email_address as string) ?? '',
           }
         }
       }),
