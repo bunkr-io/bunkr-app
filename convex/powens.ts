@@ -834,37 +834,120 @@ export const deleteConnectionData = internalMutation({
     profileId: v.id('profiles'),
   },
   handler: async (ctx, args) => {
-    const [bankAccounts, snapshots, investments] = await Promise.all([
-      ctx.db
-        .query('bankAccounts')
-        .withIndex('by_connectionId', (q) =>
-          q.eq('connectionId', args.connectionId),
-        )
-        .collect(),
-      ctx.db
-        .query('balanceSnapshots')
-        .withIndex('by_profileId_timestamp', (q) =>
-          q.eq('profileId', args.profileId),
-        )
-        .collect(),
-      ctx.db
-        .query('investments')
-        .withIndex('by_profileId', (q) => q.eq('profileId', args.profileId))
-        .collect(),
+    const bankAccounts = await ctx.db
+      .query('bankAccounts')
+      .withIndex('by_connectionId', (q) =>
+        q.eq('connectionId', args.connectionId),
+      )
+      .collect()
+
+    // Query snapshots and investments per bank account using indexed lookups
+    const [snapshotsByAccount, investmentsByAccount] = await Promise.all([
+      Promise.all(
+        bankAccounts.map((ba) =>
+          ctx.db
+            .query('balanceSnapshots')
+            .withIndex('by_bankAccountId_timestamp', (q) =>
+              q.eq('bankAccountId', ba._id),
+            )
+            .collect(),
+        ),
+      ),
+      Promise.all(
+        bankAccounts.map((ba) =>
+          ctx.db
+            .query('investments')
+            .withIndex('by_bankAccountId', (q) => q.eq('bankAccountId', ba._id))
+            .collect(),
+        ),
+      ),
     ])
 
-    const bankAccountIds = new Set(bankAccounts.map((ba) => ba._id))
+    const snapshots = snapshotsByAccount.flat()
+    const investments = investmentsByAccount.flat()
 
+    // Compute deltas per date and per category+date to subtract from aggregates
+    const dateDeltas = new Map<string, number>()
+    const categoryDateDeltas = new Map<string, number>()
+    const bankAccountTypeMap = new Map(
+      bankAccounts.map((ba) => [ba._id, getCategoryKey(ba.type)]),
+    )
+
+    for (const s of snapshots) {
+      dateDeltas.set(s.date, (dateDeltas.get(s.date) ?? 0) + s.balance)
+      const category = bankAccountTypeMap.get(s.bankAccountId) ?? 'checking'
+      const catKey = `${category}:${s.date}`
+      categoryDateDeltas.set(
+        catKey,
+        (categoryDateDeltas.get(catKey) ?? 0) + s.balance,
+      )
+    }
+
+    // Delete records
     await Promise.all([
-      ...snapshots
-        .filter((s) => bankAccountIds.has(s.bankAccountId))
-        .map((s) => ctx.db.delete('balanceSnapshots', s._id)),
-      ...investments
-        .filter((i) => bankAccountIds.has(i.bankAccountId))
-        .map((i) => ctx.db.delete('investments', i._id)),
+      ...snapshots.map((s) => ctx.db.delete('balanceSnapshots', s._id)),
+      ...investments.map((i) => ctx.db.delete('investments', i._id)),
       ...bankAccounts.map((ba) => ctx.db.delete('bankAccounts', ba._id)),
       ctx.db.delete('connections', args.connectionId),
     ])
+
+    // Update dailyNetWorth aggregates by subtracting deleted balances
+    const dnwEntries = await Promise.all(
+      [...dateDeltas.keys()].map((date) =>
+        ctx.db
+          .query('dailyNetWorth')
+          .withIndex('by_profileId_date', (q) =>
+            q.eq('profileId', args.profileId).eq('date', date),
+          )
+          .first(),
+      ),
+    )
+
+    await Promise.all(
+      [...dateDeltas.entries()].map(([, delta], i) => {
+        const dnw = dnwEntries[i]
+        if (!dnw) return
+        const newBalance = Math.round((dnw.balance - delta) * 100) / 100
+        if (newBalance === 0) {
+          return ctx.db.delete('dailyNetWorth', dnw._id)
+        }
+        return ctx.db.patch('dailyNetWorth', dnw._id, {
+          balance: newBalance,
+        })
+      }),
+    )
+
+    // Update dailyCategoryBalance aggregates
+    const dcbKeys = [...categoryDateDeltas.keys()]
+    const dcbEntries = await Promise.all(
+      dcbKeys.map((key) => {
+        const [category, date] = key.split(':')
+        return ctx.db
+          .query('dailyCategoryBalance')
+          .withIndex('by_profileId_category_date', (q) =>
+            q
+              .eq('profileId', args.profileId)
+              .eq('category', category)
+              .eq('date', date),
+          )
+          .first()
+      }),
+    )
+
+    await Promise.all(
+      dcbKeys.map((key, i) => {
+        const dcb = dcbEntries[i]
+        if (!dcb) return
+        const delta = categoryDateDeltas.get(key) ?? 0
+        const newBalance = Math.round((dcb.balance - delta) * 100) / 100
+        if (newBalance === 0) {
+          return ctx.db.delete('dailyCategoryBalance', dcb._id)
+        }
+        return ctx.db.patch('dailyCategoryBalance', dcb._id, {
+          balance: newBalance,
+        })
+      }),
+    )
   },
 })
 
