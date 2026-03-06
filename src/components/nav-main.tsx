@@ -17,6 +17,7 @@ import {
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuAction,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -24,6 +25,14 @@ import {
   SidebarMenuSubButton,
 } from '~/components/ui/sidebar'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
+
+const CONNECTION_ALERT_STATES = new Set([
+  'SCARequired',
+  'additionalInformationNeeded',
+  'decoupled',
+  'wrongpass',
+  'bug',
+])
 
 export function NavMain({
   items,
@@ -47,6 +56,23 @@ export function NavMain({
       : 'skip',
   )
   const bankAccounts = isAllProfiles ? bankAccountsAll : bankAccountsSingle
+
+  const connectionsSingle = useQuery(
+    api.powens.listConnections,
+    singleProfileId ? { profileId: singleProfileId } : 'skip',
+  )
+  const connectionsAll = useQuery(
+    api.powens.listAllConnections,
+    isAllProfiles && allProfileIds.length > 0
+      ? { profileIds: allProfileIds }
+      : 'skip',
+  )
+  const connections = isAllProfiles ? connectionsAll : connectionsSingle
+
+  const hasConnectionAlert = React.useMemo(
+    () => connections?.some((c) => CONNECTION_ALERT_STATES.has(c.state ?? '')) ?? false,
+    [connections],
+  )
 
   const activeCategories = React.useMemo(() => {
     if (!bankAccounts) return []
@@ -120,6 +146,11 @@ export function NavMain({
                     <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
+                {item.title === 'Connections' && hasConnectionAlert && (
+                  <SidebarMenuBadge>
+                    <span className="size-2 rounded-full bg-destructive animate-pulse" />
+                  </SidebarMenuBadge>
+                )}
               </SidebarMenuItem>
             ),
           )}
