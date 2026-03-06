@@ -107,10 +107,10 @@ export const sendInvitation = action({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL ?? 'Aurum <onboarding@resend.dev>',
+          from: process.env.RESEND_FROM_EMAIL ?? 'Bunkr <onboarding@resend.dev>',
           to: [email],
-          subject: 'You have been invited to join a workspace on Aurum',
-          html: `<p>You have been invited to join a workspace on Aurum.</p><p><a href="${siteUrl}">Sign in to accept the invitation</a></p>`,
+          subject: 'You have been invited to join a workspace on Bunkr',
+          html: `<p>You have been invited to join a workspace on Bunkr.</p><p><a href="${siteUrl}">Sign in to accept the invitation</a></p>`,
         }),
       })
 

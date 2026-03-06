@@ -1,8 +1,8 @@
-# Aurum — Claude Code Guidelines
+# Bunkr — Claude Code Guidelines
 
 ## Project Overview
 
-Aurum is a self-hosted personal finance app (Finary clone). It aggregates banking and financial data via Powens and displays wealth tracking, portfolio analytics, cash flow, and investment data.
+Bunkr is a self-hosted personal finance app (Finary clone). It aggregates banking and financial data via Powens and displays wealth tracking, portfolio analytics, cash flow, and investment data.
 
 ## Tech Stack
 

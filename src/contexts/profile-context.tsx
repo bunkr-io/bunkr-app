@@ -19,7 +19,7 @@ interface ProfileContextValue {
 
 const ProfileContext = React.createContext<ProfileContextValue | null>(null)
 
-const STORAGE_KEY = 'aurum-active-profile-id'
+const STORAGE_KEY = 'bunkr-active-profile-id'
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()

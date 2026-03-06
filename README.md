@@ -1,10 +1,10 @@
-# Aurum
+# Bunkr
 
 A self-hosted personal finance app — a privacy-focused alternative to [Finary](https://finary.com). Track your wealth, investments, and cash flow without leaking your financial data to third parties.
 
-## Why Aurum?
+## Why Bunkr?
 
-Finary is a great product, but it requires trusting a third party with all your personal financial information. Aurum gives you the same features while keeping your data under your control.
+Finary is a great product, but it requires trusting a third party with all your personal financial information. Bunkr gives you the same features while keeping your data under your control.
 
 ## Features (Planned)
 

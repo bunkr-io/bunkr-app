@@ -231,7 +231,7 @@ export async function envelopeDecryptString(
 }
 
 // localStorage persistence for the workspace private key (used for data decryption)
-const PRIVATE_KEY_STORAGE_KEY = 'aurum-workspace-private-key'
+const PRIVATE_KEY_STORAGE_KEY = 'bunkr-workspace-private-key'
 
 export function getStoredPrivateKey(): string | null {
   try {
