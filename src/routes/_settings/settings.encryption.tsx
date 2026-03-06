@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import { toast } from 'sonner'
 import { useEncryption } from '~/contexts/encryption-context'
@@ -10,6 +10,7 @@ import {
   exportPrivateKey,
   deriveKeyFromPassphrase,
   encryptPrivateKey,
+  envelopeEncryptString,
   storePrivateKey,
   clearStoredPrivateKey,
   encryptData,
@@ -38,27 +39,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from '~/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '~/components/ui/alert-dialog'
 import { Label } from '~/components/ui/label'
-import { Check, Copy, Lock, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { Check, Clock, Copy, Lock, ShieldCheck, TriangleAlert, UserCheck, UserX } from 'lucide-react'
 
 export const Route = createFileRoute('/_settings/settings/encryption')({
   component: EncryptionPage,
 })
 
 function EncryptionPage() {
-  const { isEncryptionEnabled, isUnlocked, isLoading } = useEncryption()
+  const {
+    isEncryptionEnabled,
+    isUnlocked,
+    isLoading,
+    hasPersonalKey,
+    hasWorkspaceAccess,
+    role,
+  } = useEncryption()
   const { allProfileIds } = useProfile()
   const [setupOpen, setSetupOpen] = useState(false)
+  const [memberSetupOpen, setMemberSetupOpen] = useState(false)
   const [migrateOpen, setMigrateOpen] = useState(false)
   const [disableOpen, setDisableOpen] = useState(false)
 
@@ -110,9 +109,9 @@ function EncryptionPage() {
         <div>
           <h2 className="text-lg font-medium">Zero-knowledge encryption</h2>
           <p className="text-sm text-muted-foreground">
-            Encrypt your financial data so that only you can read it. No one
-            else can access your balances, IBANs, or investment details — not
-            even us.
+            Encrypt your financial data so that only workspace members can read
+            it. No one else can access your balances, IBANs, or investment
+            details — not even us.
           </p>
         </div>
 
@@ -150,21 +149,44 @@ function EncryptionPage() {
                   )}
                 </ItemCardItemTitle>
                 <ItemCardItemDescription>
-                  {isEncryptionEnabled
-                    ? isUnlocked
-                      ? 'Your vault is unlocked. Data is being decrypted in your browser.'
-                      : 'Your vault is locked. Enter your passphrase to view data.'
-                    : 'Enable encryption to protect your financial data at rest.'}
+                  {!isEncryptionEnabled &&
+                    'Enable encryption to protect your financial data at rest.'}
+                  {isEncryptionEnabled && !hasPersonalKey &&
+                    'Encryption is enabled. Set up your passphrase to access encrypted data.'}
+                  {isEncryptionEnabled && hasPersonalKey && !hasWorkspaceAccess &&
+                    'Your passphrase is set up. Waiting for a workspace member to grant you access.'}
+                  {isEncryptionEnabled && isUnlocked &&
+                    'Your vault is unlocked. Data is being decrypted in your browser.'}
+                  {isEncryptionEnabled && hasPersonalKey && hasWorkspaceAccess && !isUnlocked &&
+                    'Your vault is locked. Enter your passphrase to view data.'}
                 </ItemCardItemDescription>
               </ItemCardItemContent>
               <ItemCardItemAction>
-                {!isEncryptionEnabled && (
+                {!isEncryptionEnabled && role === 'owner' && (
                   <Button variant="ghost" onClick={() => setSetupOpen(true)}>
                     <Lock className="size-4" />
                     Enable
                   </Button>
                 )}
-                {isEncryptionEnabled && isUnlocked && (
+                {!isEncryptionEnabled && role !== 'owner' && (
+                  <Badge variant="outline">Owner only</Badge>
+                )}
+                {isEncryptionEnabled && !hasPersonalKey && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setMemberSetupOpen(true)}
+                  >
+                    <Lock className="size-4" />
+                    Set up passphrase
+                  </Button>
+                )}
+                {isEncryptionEnabled && hasPersonalKey && !hasWorkspaceAccess && (
+                  <Badge variant="outline">
+                    <Clock className="size-3" />
+                    Pending access
+                  </Badge>
+                )}
+                {isEncryptionEnabled && isUnlocked && role === 'owner' && (
                   <Button
                     variant="ghost"
                     className="text-destructive hover:text-destructive"
@@ -173,7 +195,7 @@ function EncryptionPage() {
                     Disable
                   </Button>
                 )}
-                {isEncryptionEnabled && !isUnlocked && (
+                {isEncryptionEnabled && hasPersonalKey && hasWorkspaceAccess && !isUnlocked && (
                   <Badge variant="outline">
                     <Lock className="size-3" />
                     Locked
@@ -203,15 +225,142 @@ function EncryptionPage() {
             )}
           </ItemCardItems>
         </ItemCard>
+
+        {isEncryptionEnabled && isUnlocked && <MembersAccessSection />}
       </div>
 
       <SetupDialog open={setupOpen} onOpenChange={setSetupOpen} />
+      <MemberSetupDialog
+        open={memberSetupOpen}
+        onOpenChange={setMemberSetupOpen}
+      />
       {migrateOpen && (
         <MigrateDialog open={migrateOpen} onOpenChange={setMigrateOpen} />
       )}
       {disableOpen && (
         <DisableDialog open={disableOpen} onOpenChange={setDisableOpen} />
       )}
+    </div>
+  )
+}
+
+function MembersAccessSection() {
+  const { workspacePrivateKeyJwk } = useEncryption()
+  const membersStatus = useQuery(
+    api.encryptionKeys.listMembersEncryptionStatus,
+  )
+  const resolveUsers = useAction(api.members.resolveUsers)
+  const grantAccess = useMutation(api.encryptionKeys.grantMemberAccess)
+  const [userInfo, setUserInfo] = useState<
+    Record<string, { firstName: string | null; lastName: string | null; email: string }> | null
+  >(null)
+  const [granting, setGranting] = useState<string | null>(null)
+  const resolvedRef = useRef(false)
+
+  // Resolve user info from Clerk
+  useEffect(() => {
+    if (!membersStatus || membersStatus.length === 0) return
+    if (resolvedRef.current) return
+    resolvedRef.current = true
+
+    const userIds = membersStatus.map((m) => m.userId)
+    resolveUsers({ userIds })
+      .then(setUserInfo)
+      .catch(() => {
+        resolvedRef.current = false
+      })
+  }, [membersStatus, resolveUsers])
+
+  if (!membersStatus || membersStatus.length <= 1) return null
+
+  async function handleGrantAccess(targetUserId: string, targetPublicKey: string) {
+    if (!workspacePrivateKeyJwk) return
+    setGranting(targetUserId)
+    try {
+      const recipientPubKey = await importPublicKey(targetPublicKey)
+      const encryptedWsPrivateKey = await envelopeEncryptString(
+        workspacePrivateKeyJwk,
+        recipientPubKey,
+      )
+      await grantAccess({
+        targetUserId,
+        encryptedPrivateKey: encryptedWsPrivateKey,
+      })
+      toast.success('Access granted')
+    } catch (err) {
+      toast.error('Failed to grant access')
+      console.error(err)
+    } finally {
+      setGranting(null)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-medium">Member access</h2>
+      <p className="mb-4 text-sm text-muted-foreground">
+        Manage which workspace members can decrypt financial data.
+      </p>
+      <ItemCard>
+        <ItemCardItems>
+          {membersStatus.map((m) => {
+            const info = userInfo?.[m.userId]
+            const displayName = info
+              ? [info.firstName, info.lastName].filter(Boolean).join(' ') ||
+                info.email
+              : m.userId
+
+            let status: 'access' | 'pending' | 'no-setup'
+            if (m.hasKeySlot) status = 'access'
+            else if (m.hasPersonalKey) status = 'pending'
+            else status = 'no-setup'
+
+            return (
+              <ItemCardItem key={m.userId}>
+                <ItemCardItemContent>
+                  <ItemCardItemTitle>
+                    {displayName}
+                    {m.role === 'owner' && (
+                      <Badge variant="outline" className="ml-2">
+                        Owner
+                      </Badge>
+                    )}
+                  </ItemCardItemTitle>
+                  <ItemCardItemDescription>
+                    {info?.email && info.email !== displayName && info.email}
+                  </ItemCardItemDescription>
+                </ItemCardItemContent>
+                <ItemCardItemAction>
+                  {status === 'access' && (
+                    <Badge variant="secondary">
+                      <UserCheck className="size-3" />
+                      Has access
+                    </Badge>
+                  )}
+                  {status === 'pending' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={granting === m.userId || !workspacePrivateKeyJwk}
+                      onClick={() =>
+                        handleGrantAccess(m.userId, m.publicKey!)
+                      }
+                    >
+                      {granting === m.userId ? 'Granting...' : 'Grant access'}
+                    </Button>
+                  )}
+                  {status === 'no-setup' && (
+                    <Badge variant="outline">
+                      <UserX className="size-3" />
+                      Pending setup
+                    </Badge>
+                  )}
+                </ItemCardItemAction>
+              </ItemCardItem>
+            )
+          })}
+        </ItemCardItems>
+      </ItemCard>
     </div>
   )
 }
@@ -223,40 +372,56 @@ function SetupDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const storeKey = useMutation(api.encryptionKeys.storeEncryptionKey)
+  const enableEncryption = useMutation(
+    api.encryptionKeys.enableWorkspaceEncryption,
+  )
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
-  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const valid = passphrase.length >= 8 && passphrase === confirm
 
   async function handleEnable() {
-    setConfirmOpen(false)
     setSaving(true)
     try {
-      const keyPair = await generateKeyPair()
-      const publicKeyJwk = await exportPublicKey(keyPair.publicKey)
-      const privateKeyJwk = await exportPrivateKey(keyPair.privateKey)
+      // Generate personal RSA keypair
+      const personalKeyPair = await generateKeyPair()
+      const personalPublicKeyJwk = await exportPublicKey(personalKeyPair.publicKey)
+      const personalPrivateKeyJwk = await exportPrivateKey(personalKeyPair.privateKey)
 
+      // Encrypt personal private key with passphrase
       const salt = crypto.getRandomValues(new Uint8Array(32))
       const passphraseKey = await deriveKeyFromPassphrase(passphrase, salt)
-      const encryptedPk = await encryptPrivateKey(privateKeyJwk, passphraseKey)
-
+      const encryptedPersonalPk = await encryptPrivateKey(
+        personalPrivateKeyJwk,
+        passphraseKey,
+      )
       const saltB64 = btoa(String.fromCharCode(...salt))
 
-      await storeKey({
-        publicKey: publicKeyJwk,
-        encryptedPrivateKey: JSON.stringify(encryptedPk),
-        pbkdf2Salt: saltB64,
+      // Generate workspace RSA keypair
+      const wsKeyPair = await generateKeyPair()
+      const wsPublicKeyJwk = await exportPublicKey(wsKeyPair.publicKey)
+      const wsPrivateKeyJwk = await exportPrivateKey(wsKeyPair.privateKey)
+
+      // Encrypt workspace private key with owner's personal public key
+      const ownerKeySlotEncrypted = await envelopeEncryptString(
+        wsPrivateKeyJwk,
+        personalKeyPair.publicKey,
+      )
+
+      await enableEncryption({
+        personalPublicKey: personalPublicKeyJwk,
+        personalEncryptedPrivateKey: JSON.stringify(encryptedPersonalPk),
+        personalPbkdf2Salt: saltB64,
+        workspacePublicKey: wsPublicKeyJwk,
+        ownerKeySlotEncryptedPrivateKey: ownerKeySlotEncrypted,
       })
 
-      // Store private key locally for immediate use
-      storePrivateKey(privateKeyJwk)
+      // Store workspace private key locally for immediate use
+      storePrivateKey(wsPrivateKeyJwk)
 
       toast.success('Encryption enabled')
       onOpenChange(false)
-      // Reload to re-initialize encryption context
       window.location.reload()
     } catch (err) {
       toast.error('Failed to enable encryption')
@@ -267,77 +432,155 @@ function SetupDialog({
   }
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enable encryption</DialogTitle>
-            <DialogDescription>
-              Create a passphrase to protect your financial data. You will need
-              this passphrase to unlock your vault on new devices.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Passphrase</label>
-              <Input
-                type="password"
-                placeholder="At least 8 characters"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Confirm passphrase</label>
-              <Input
-                type="password"
-                placeholder="Repeat passphrase"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-              {confirm && passphrase !== confirm && (
-                <p className="text-sm text-destructive">
-                  Passphrases do not match
-                </p>
-              )}
-            </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enable encryption</DialogTitle>
+          <DialogDescription>
+            Create a passphrase to protect your financial data. All workspace
+            members will need to set up their own passphrase to access
+            encrypted data.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Passphrase</label>
+            <Input
+              type="password"
+              placeholder="At least 8 characters"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+            />
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => setConfirmOpen(true)}
-              disabled={!valid || saving}
-            >
-              {saving ? 'Setting up...' : 'Enable encryption'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Confirm passphrase</label>
+            <Input
+              type="password"
+              placeholder="Repeat passphrase"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            {confirm && passphrase !== confirm && (
+              <p className="text-sm text-destructive">
+                Passphrases do not match
+              </p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleEnable}
+            disabled={!valid || saving}
+          >
+            {saving ? 'Setting up...' : 'Enable encryption'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Once enabled, all new financial data will be encrypted. If you
-              forget your passphrase, your data cannot be recovered.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleEnable}>
-              I understand, enable encryption
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+function MemberSetupDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const setupMember = useMutation(api.encryptionKeys.setupMemberEncryption)
+  const [passphrase, setPassphrase] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const valid = passphrase.length >= 8 && passphrase === confirm
+
+  async function handleSetup() {
+    setSaving(true)
+    try {
+      const keyPair = await generateKeyPair()
+      const publicKeyJwk = await exportPublicKey(keyPair.publicKey)
+      const privateKeyJwk = await exportPrivateKey(keyPair.privateKey)
+
+      const salt = crypto.getRandomValues(new Uint8Array(32))
+      const passphraseKey = await deriveKeyFromPassphrase(passphrase, salt)
+      const encryptedPk = await encryptPrivateKey(privateKeyJwk, passphraseKey)
+      const saltB64 = btoa(String.fromCharCode(...salt))
+
+      await setupMember({
+        publicKey: publicKeyJwk,
+        encryptedPrivateKey: JSON.stringify(encryptedPk),
+        pbkdf2Salt: saltB64,
+      })
+
+      toast.success(
+        'Passphrase set up. A workspace member with access will grant you permission.',
+      )
+      onOpenChange(false)
+    } catch (err) {
+      toast.error('Failed to set up passphrase')
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Set up your passphrase</DialogTitle>
+          <DialogDescription>
+            Create a passphrase to protect your encryption key. After setup, a
+            workspace member with access will need to grant you permission to
+            decrypt data.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Passphrase</label>
+            <Input
+              type="password"
+              placeholder="At least 8 characters"
+              value={passphrase}
+              onChange={(e) => setPassphrase(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Confirm passphrase</label>
+            <Input
+              type="password"
+              placeholder="Repeat passphrase"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            {confirm && passphrase !== confirm && (
+              <p className="text-sm text-destructive">
+                Passphrases do not match
+              </p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleSetup} disabled={!valid || saving}>
+            {saving ? 'Setting up...' : 'Set up passphrase'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -348,9 +591,8 @@ function MigrateDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const { privateKey } = useEncryption()
+  const { privateKey, workspacePublicKey } = useEncryption()
   const { allProfileIds } = useProfile()
-  const encryptionKey = useQuery(api.encryptionKeys.getEncryptionKey)
 
   const allBankAccounts = useQuery(
     api.powens.listAllBankAccounts,
@@ -390,12 +632,14 @@ function MigrateDialog({
     (unencryptedInvestments?.length ?? 0)
 
   async function handleMigrate() {
-    if (!privateKey || !encryptionKey?.publicKey) return
+    if (!privateKey || !workspacePublicKey) return
     setMigrating(true)
 
-    const publicKey = await importPublicKey(encryptionKey.publicKey)
+    const publicKey = await importPublicKey(workspacePublicKey)
     const total =
-      (unencryptedAccounts?.length ?? 0) + (unencryptedSnapshots?.length ?? 0)
+      (unencryptedAccounts?.length ?? 0) +
+      (unencryptedSnapshots?.length ?? 0) +
+      (unencryptedInvestments?.length ?? 0)
     setProgress({ done: 0, total })
     let done = 0
 
@@ -542,7 +786,9 @@ function DisableDialog({
   const decryptAccount = useMutation(api.encryptionKeys.decryptBankAccount)
   const decryptSnapshot = useMutation(api.encryptionKeys.decryptBalanceSnapshot)
   const decryptInvestment = useMutation(api.encryptionKeys.decryptInvestment)
-  const deleteKey = useMutation(api.encryptionKeys.deleteEncryptionKey)
+  const disableEncryption = useMutation(
+    api.encryptionKeys.disableWorkspaceEncryption,
+  )
 
   const [disabling, setDisabling] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
@@ -616,7 +862,7 @@ function DisableDialog({
       setProgress({ done, total })
     }
 
-    await deleteKey()
+    await disableEncryption()
     clearStoredPrivateKey()
 
     toast.success('Encryption disabled')
@@ -631,9 +877,9 @@ function DisableDialog({
         <DialogHeader>
           <DialogTitle>Disable encryption</DialogTitle>
           <DialogDescription>
-            Your financial data will no longer be protected by your
-            passphrase. Anyone with access to the app will be able to see
-            your balances, account numbers, and investment details.
+            Your financial data will no longer be protected by encryption.
+            Anyone with access to the app will be able to see your balances,
+            account numbers, and investment details.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">

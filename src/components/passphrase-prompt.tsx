@@ -2,15 +2,45 @@ import { useState } from 'react'
 import { useEncryption } from '~/contexts/encryption-context'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
-import { Lock } from 'lucide-react'
+import { Clock, Lock } from 'lucide-react'
 
 export function PassphrasePrompt() {
-  const { isEncryptionEnabled, isUnlocked, isLoading, unlock } = useEncryption()
+  const {
+    isEncryptionEnabled,
+    isUnlocked,
+    isLoading,
+    unlock,
+    hasPersonalKey,
+    hasWorkspaceAccess,
+  } = useEncryption()
   const [passphrase, setPassphrase] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [unlocking, setUnlocking] = useState(false)
 
   if (isLoading || !isEncryptionEnabled || isUnlocked) return null
+
+  // Member has personal key but no workspace key slot — waiting for access
+  if (hasPersonalKey && !hasWorkspaceAccess) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="w-full max-w-sm space-y-6 rounded-lg border bg-card p-8 shadow-lg">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+              <Clock className="size-6 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-semibold">Waiting for access</h2>
+            <p className="text-sm text-muted-foreground">
+              Your passphrase is set up. A workspace member with access needs to
+              grant you permission to decrypt data.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Member hasn't set up personal key yet — handled in settings page, not here
+  if (!hasPersonalKey) return null
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

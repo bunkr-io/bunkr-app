@@ -169,6 +169,24 @@ export const removeMember = action({
 export const deleteMember = internalMutation({
   args: { memberId: v.id('workspaceMembers') },
   handler: async (ctx, { memberId }) => {
+    const member = await ctx.db.get(memberId)
+    if (member) {
+      // Remove workspace key slot
+      const keySlot = await ctx.db
+        .query('workspaceKeySlots')
+        .withIndex('by_workspaceId_userId', (q) =>
+          q.eq('workspaceId', member.workspaceId).eq('userId', member.userId),
+        )
+        .first()
+      if (keySlot) await ctx.db.delete(keySlot._id)
+
+      // Remove personal encryption key
+      const personalKey = await ctx.db
+        .query('encryptionKeys')
+        .withIndex('by_userId', (q) => q.eq('userId', member.userId))
+        .first()
+      if (personalKey) await ctx.db.delete(personalKey._id)
+    }
     await ctx.db.delete(memberId)
   },
 })

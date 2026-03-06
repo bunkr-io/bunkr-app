@@ -2,19 +2,181 @@ import { v } from 'convex/values'
 import { mutation, query, internalQuery } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
-export const getEncryptionKey = query({
+// Returns workspace encryption status + current user's key slot
+export const getWorkspaceEncryption = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return null
-    return await ctx.db
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership) return null
+
+    const wsEnc = await ctx.db
+      .query('workspaceEncryption')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .first()
+
+    // When encryption is not enabled, still return role so the UI knows
+    // whether the user can enable it
+    if (!wsEnc) {
+      return {
+        workspaceId: membership.workspaceId,
+        workspacePublicKey: null,
+        hasPersonalKey: false,
+        personalKey: null,
+        hasKeySlot: false,
+        keySlot: null,
+        role: membership.role,
+        enabled: false as const,
+      }
+    }
+
+    const personalKey = await ctx.db
       .query('encryptionKeys')
       .withIndex('by_userId', (q) => q.eq('userId', userId))
       .first()
+
+    const keySlot = await ctx.db
+      .query('workspaceKeySlots')
+      .withIndex('by_workspaceId_userId', (q) =>
+        q.eq('workspaceId', membership.workspaceId).eq('userId', userId),
+      )
+      .first()
+
+    return {
+      workspaceId: membership.workspaceId,
+      workspacePublicKey: wsEnc.publicKey,
+      hasPersonalKey: personalKey !== null,
+      personalKey: personalKey
+        ? {
+            encryptedPrivateKey: personalKey.encryptedPrivateKey,
+            pbkdf2Salt: personalKey.pbkdf2Salt,
+          }
+        : null,
+      hasKeySlot: keySlot !== null,
+      keySlot: keySlot
+        ? { encryptedPrivateKey: keySlot.encryptedPrivateKey }
+        : null,
+      role: membership.role,
+      enabled: true as const,
+    }
   },
 })
 
-export const storeEncryptionKey = mutation({
+// List all workspace members with their encryption status (for settings page)
+export const listMembersEncryptionStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership) return null
+
+    const members = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .collect()
+
+    const result = await Promise.all(
+      members.map(async (m) => {
+        const personalKey = await ctx.db
+          .query('encryptionKeys')
+          .withIndex('by_userId', (q) => q.eq('userId', m.userId))
+          .first()
+
+        const keySlot = await ctx.db
+          .query('workspaceKeySlots')
+          .withIndex('by_workspaceId_userId', (q) =>
+            q.eq('workspaceId', membership.workspaceId).eq('userId', m.userId),
+          )
+          .first()
+
+        return {
+          userId: m.userId,
+          role: m.role,
+          hasPersonalKey: personalKey !== null,
+          publicKey: personalKey?.publicKey ?? null,
+          hasKeySlot: keySlot !== null,
+        }
+      }),
+    )
+
+    return result
+  },
+})
+
+// Owner enables workspace encryption: creates personal key + workspace keypair + own key slot
+export const enableWorkspaceEncryption = mutation({
+  args: {
+    personalPublicKey: v.string(),
+    personalEncryptedPrivateKey: v.string(),
+    personalPbkdf2Salt: v.string(),
+    workspacePublicKey: v.string(),
+    ownerKeySlotEncryptedPrivateKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership || membership.role !== 'owner') {
+      throw new Error('Only workspace owners can enable encryption')
+    }
+
+    const existing = await ctx.db
+      .query('workspaceEncryption')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .first()
+    if (existing) {
+      throw new Error('Workspace encryption is already enabled')
+    }
+
+    // Store personal keypair
+    await ctx.db.insert('encryptionKeys', {
+      userId,
+      publicKey: args.personalPublicKey,
+      encryptedPrivateKey: args.personalEncryptedPrivateKey,
+      pbkdf2Salt: args.personalPbkdf2Salt,
+      version: 1,
+      createdAt: Date.now(),
+    })
+
+    // Store workspace public key
+    await ctx.db.insert('workspaceEncryption', {
+      workspaceId: membership.workspaceId,
+      publicKey: args.workspacePublicKey,
+      createdBy: userId,
+      createdAt: Date.now(),
+    })
+
+    // Store owner's key slot (workspace private key encrypted with owner's personal public key)
+    await ctx.db.insert('workspaceKeySlots', {
+      workspaceId: membership.workspaceId,
+      userId,
+      encryptedPrivateKey: args.ownerKeySlotEncryptedPrivateKey,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+// Member sets up their personal RSA keypair
+export const setupMemberEncryption = mutation({
   args: {
     publicKey: v.string(),
     encryptedPrivateKey: v.string(),
@@ -27,12 +189,11 @@ export const storeEncryptionKey = mutation({
       .query('encryptionKeys')
       .withIndex('by_userId', (q) => q.eq('userId', userId))
       .first()
-
     if (existing) {
-      throw new Error('Encryption key already exists. Delete first to re-create.')
+      throw new Error('Personal encryption key already exists')
     }
 
-    return await ctx.db.insert('encryptionKeys', {
+    await ctx.db.insert('encryptionKeys', {
       userId,
       publicKey: args.publicKey,
       encryptedPrivateKey: args.encryptedPrivateKey,
@@ -43,31 +204,119 @@ export const storeEncryptionKey = mutation({
   },
 })
 
-export const deleteEncryptionKey = mutation({
+// Grant a member access by storing a key slot for them
+export const grantMemberAccess = mutation({
+  args: {
+    targetUserId: v.string(),
+    encryptedPrivateKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership) throw new Error('Not a workspace member')
+
+    // Verify target is also a member of the same workspace
+    const targetMembership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .filter((q) => q.eq(q.field('userId'), args.targetUserId))
+      .first()
+    if (!targetMembership) throw new Error('Target is not a workspace member')
+
+    // Check they don't already have a slot
+    const existingSlot = await ctx.db
+      .query('workspaceKeySlots')
+      .withIndex('by_workspaceId_userId', (q) =>
+        q
+          .eq('workspaceId', membership.workspaceId)
+          .eq('userId', args.targetUserId),
+      )
+      .first()
+    if (existingSlot) throw new Error('Member already has access')
+
+    await ctx.db.insert('workspaceKeySlots', {
+      workspaceId: membership.workspaceId,
+      userId: args.targetUserId,
+      encryptedPrivateKey: args.encryptedPrivateKey,
+      createdAt: Date.now(),
+    })
+  },
+})
+
+// Owner disables workspace encryption — removes workspace encryption + all key slots + all personal keys
+export const disableWorkspaceEncryption = mutation({
   args: {},
   handler: async (ctx) => {
     const userId = await requireAuthUserId(ctx)
-    const existing = await ctx.db
-      .query('encryptionKeys')
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
       .withIndex('by_userId', (q) => q.eq('userId', userId))
       .first()
-    if (existing) {
-      await ctx.db.delete(existing._id)
+    if (!membership || membership.role !== 'owner') {
+      throw new Error('Only workspace owners can disable encryption')
+    }
+
+    // Delete workspace encryption record
+    const wsEnc = await ctx.db
+      .query('workspaceEncryption')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .first()
+    if (wsEnc) await ctx.db.delete(wsEnc._id)
+
+    // Delete all key slots
+    const slots = await ctx.db
+      .query('workspaceKeySlots')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .collect()
+    for (const slot of slots) {
+      await ctx.db.delete(slot._id)
+    }
+
+    // Delete all personal keys for workspace members
+    const members = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .collect()
+    for (const m of members) {
+      const key = await ctx.db
+        .query('encryptionKeys')
+        .withIndex('by_userId', (q) => q.eq('userId', m.userId))
+        .first()
+      if (key) await ctx.db.delete(key._id)
     }
   },
 })
 
-export const getPublicKeyByUserId = internalQuery({
-  args: { userId: v.string() },
+// Get workspace public key via profile → workspace → workspaceEncryption
+export const getPublicKeyForProfile = internalQuery({
+  args: { profileId: v.id('profiles') },
   handler: async (ctx, args) => {
-    const key = await ctx.db
-      .query('encryptionKeys')
-      .withIndex('by_userId', (q) => q.eq('userId', args.userId))
+    const profile = await ctx.db.get(args.profileId)
+    if (!profile) return null
+    const wsEnc = await ctx.db
+      .query('workspaceEncryption')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', profile.workspaceId),
+      )
       .first()
-    return key?.publicKey ?? null
+    return wsEnc?.publicKey ?? null
   },
 })
 
+// Migration mutations (unchanged)
 export const migrateBankAccount = mutation({
   args: {
     bankAccountId: v.id('bankAccounts'),
@@ -172,20 +421,5 @@ export const decryptInvestment = mutation({
       ...fields,
       encryptedData: undefined,
     })
-  },
-})
-
-export const getPublicKeyForProfile = internalQuery({
-  args: { profileId: v.id('profiles') },
-  handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.profileId)
-    if (!profile) return null
-    const workspace = await ctx.db.get(profile.workspaceId)
-    if (!workspace) return null
-    const key = await ctx.db
-      .query('encryptionKeys')
-      .withIndex('by_userId', (q) => q.eq('userId', workspace.createdBy))
-      .first()
-    return key?.publicKey ?? null
   },
 })

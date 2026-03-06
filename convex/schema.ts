@@ -11,6 +11,22 @@ export default defineSchema({
     createdAt: v.number(),
   }).index('by_userId', ['userId']),
 
+  workspaceEncryption: defineTable({
+    workspaceId: v.id('workspaces'),
+    publicKey: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index('by_workspaceId', ['workspaceId']),
+
+  workspaceKeySlots: defineTable({
+    workspaceId: v.id('workspaces'),
+    userId: v.string(),
+    encryptedPrivateKey: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_workspaceId_userId', ['workspaceId', 'userId'])
+    .index('by_workspaceId', ['workspaceId']),
+
   workspaces: defineTable({
     name: v.string(),
     createdBy: v.string(),

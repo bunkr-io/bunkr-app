@@ -10,6 +10,7 @@ import {
   clearStoredPrivateKey,
   deriveKeyFromPassphrase,
   decryptPrivateKey as decryptPrivateKeyWithPassphrase,
+  envelopeDecryptString,
 } from '~/lib/crypto'
 
 interface EncryptionContextValue {
@@ -19,30 +20,37 @@ interface EncryptionContextValue {
   privateKey: CryptoKey | null
   unlock: (passphrase: string) => Promise<void>
   lock: () => void
-  encryptedPrivateKey: string | null
-  pbkdf2Salt: string | null
+  hasPersonalKey: boolean
+  hasWorkspaceAccess: boolean
+  workspacePublicKey: string | null
+  role: 'owner' | 'member' | null
+  // For granting access: the decrypted workspace private key JWK (in memory only when unlocked)
+  workspacePrivateKeyJwk: string | null
 }
 
 const EncryptionContext = React.createContext<EncryptionContextValue | null>(null)
 
 export function EncryptionProvider({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useConvexAuth()
-  const encryptionKey = useQuery(
-    api.encryptionKeys.getEncryptionKey,
+  const wsEncryption = useQuery(
+    api.encryptionKeys.getWorkspaceEncryption,
     isAuthenticated ? {} : 'skip',
   )
 
   const [privateKey, setPrivateKey] = React.useState<CryptoKey | null>(null)
+  const [workspacePrivateKeyJwk, setWorkspacePrivateKeyJwk] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const importingRef = React.useRef(false)
 
-  const isEncryptionEnabled = encryptionKey != null && encryptionKey !== undefined
+  const isEncryptionEnabled = wsEncryption?.enabled === true
   const isUnlocked = privateKey !== null
+  const hasPersonalKey = wsEncryption?.hasPersonalKey ?? false
+  const hasWorkspaceAccess = wsEncryption?.hasKeySlot ?? false
 
-  // On mount, try to load private key from localStorage
+  // On mount, try to load workspace private key from localStorage
   React.useEffect(() => {
-    if (encryptionKey === undefined) return // still loading query
-    if (!encryptionKey) {
+    if (wsEncryption === undefined) return // still loading query
+    if (!wsEncryption || !wsEncryption.enabled) {
       setIsLoading(false)
       return
     }
@@ -52,7 +60,10 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
     const stored = getStoredPrivateKey()
     if (stored) {
       importPrivateKey(stored)
-        .then(setPrivateKey)
+        .then((key) => {
+          setPrivateKey(key)
+          setWorkspacePrivateKeyJwk(stored)
+        })
         .catch(() => {
           clearStoredPrivateKey()
         })
@@ -64,35 +75,48 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       setIsLoading(false)
       importingRef.current = false
     }
-  }, [encryptionKey])
+  }, [wsEncryption])
 
   const unlock = React.useCallback(
     async (passphrase: string) => {
-      if (!encryptionKey) throw new Error('Encryption not enabled')
+      if (!wsEncryption) throw new Error('Encryption not enabled')
+      if (!wsEncryption.personalKey) throw new Error('No personal key set up')
+      if (!wsEncryption.keySlot) throw new Error('No workspace access granted')
 
-      const salt = Uint8Array.from(atob(encryptionKey.pbkdf2Salt), (c) =>
+      // Step 1: Decrypt personal RSA private key with passphrase
+      const salt = Uint8Array.from(atob(wsEncryption.personalKey.pbkdf2Salt), (c) =>
         c.charCodeAt(0),
       )
       const passphraseKey = await deriveKeyFromPassphrase(passphrase, salt)
-      const { ct, iv } = JSON.parse(encryptionKey.encryptedPrivateKey) as {
+      const { ct, iv } = JSON.parse(wsEncryption.personalKey.encryptedPrivateKey) as {
         ct: string
         iv: string
       }
-      const privateKeyJwk = await decryptPrivateKeyWithPassphrase(
+      const personalPrivateKeyJwk = await decryptPrivateKeyWithPassphrase(
         { ct, iv },
         passphraseKey,
       )
+      const personalPrivateKey = await importPrivateKey(personalPrivateKeyJwk)
 
-      const key = await importPrivateKey(privateKeyJwk)
-      storePrivateKey(privateKeyJwk)
-      setPrivateKey(key)
+      // Step 2: Decrypt workspace private key using personal private key
+      const wsPrivateKeyJwk = await envelopeDecryptString(
+        wsEncryption.keySlot.encryptedPrivateKey,
+        personalPrivateKey,
+      )
+
+      // Step 3: Import workspace private key and store it
+      const wsKey = await importPrivateKey(wsPrivateKeyJwk)
+      storePrivateKey(wsPrivateKeyJwk)
+      setWorkspacePrivateKeyJwk(wsPrivateKeyJwk)
+      setPrivateKey(wsKey)
     },
-    [encryptionKey],
+    [wsEncryption],
   )
 
   const lock = React.useCallback(() => {
     clearStoredPrivateKey()
     setPrivateKey(null)
+    setWorkspacePrivateKeyJwk(null)
   }, [])
 
   const value = React.useMemo(
@@ -103,10 +127,24 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       privateKey,
       unlock,
       lock,
-      encryptedPrivateKey: encryptionKey?.encryptedPrivateKey ?? null,
-      pbkdf2Salt: encryptionKey?.pbkdf2Salt ?? null,
+      hasPersonalKey,
+      hasWorkspaceAccess,
+      workspacePublicKey: wsEncryption?.workspacePublicKey ?? null,
+      role: wsEncryption?.role ?? null,
+      workspacePrivateKeyJwk,
     }),
-    [isEncryptionEnabled, isUnlocked, isLoading, privateKey, unlock, lock, encryptionKey],
+    [
+      isEncryptionEnabled,
+      isUnlocked,
+      isLoading,
+      privateKey,
+      unlock,
+      lock,
+      hasPersonalKey,
+      hasWorkspaceAccess,
+      wsEncryption,
+      workspacePrivateKeyJwk,
+    ],
   )
 
   return (
@@ -203,3 +241,4 @@ export function useDecryptRecord<T extends { encryptedData?: string }>(
   if (record === undefined) return undefined
   return result?.[0]
 }
+

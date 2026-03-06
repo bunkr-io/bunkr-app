@@ -171,8 +171,67 @@ export async function decryptData(
   return JSON.parse(new TextDecoder().decode(decrypted))
 }
 
-// localStorage persistence for the decrypted private key
-const PRIVATE_KEY_STORAGE_KEY = 'aurum-private-key'
+// Envelope-encrypt a string (e.g. workspace private key JWK) for a recipient's RSA public key
+export async function envelopeEncryptString(
+  plaintext: string,
+  recipientPublicKey: CryptoKey,
+): Promise<string> {
+  const aesKey = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt'],
+  )
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as BufferSource },
+    aesKey,
+    new TextEncoder().encode(plaintext),
+  )
+  const rawAesKey = await crypto.subtle.exportKey('raw', aesKey)
+  const ek = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    recipientPublicKey,
+    rawAesKey,
+  )
+  return JSON.stringify({
+    ct: toBase64(ct),
+    ek: toBase64(ek),
+    iv: toBase64(iv.buffer as ArrayBuffer),
+  })
+}
+
+// Decrypt an envelope-encrypted string using recipient's RSA private key
+export async function envelopeDecryptString(
+  encryptedStr: string,
+  privateKey: CryptoKey,
+): Promise<string> {
+  const { ct, ek, iv } = JSON.parse(encryptedStr) as {
+    ct: string
+    ek: string
+    iv: string
+  }
+  const rawAesKey = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privateKey,
+    fromBase64(ek),
+  )
+  const aesKey = await crypto.subtle.importKey(
+    'raw',
+    rawAesKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt'],
+  )
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fromBase64(iv) },
+    aesKey,
+    fromBase64(ct),
+  )
+  return new TextDecoder().decode(decrypted)
+}
+
+// localStorage persistence for the workspace private key (used for data decryption)
+const PRIVATE_KEY_STORAGE_KEY = 'aurum-workspace-private-key'
 
 export function getStoredPrivateKey(): string | null {
   try {
