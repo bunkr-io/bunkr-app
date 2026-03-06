@@ -1,15 +1,7 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
-import {
-  AlertCircle,
-  CheckCircle2,
-  Link2,
-  Loader2,
-  MoreVertical,
-  Pencil,
-  Trash2,
-} from 'lucide-react'
+import { ChevronDown, Link2, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import {
@@ -26,17 +18,18 @@ import { useDecryptRecords } from '~/contexts/encryption-context'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemSeparator,
-  ItemTitle,
-} from '~/components/ui/item'
+  ItemCard,
+  ItemCardHeader,
+  ItemCardHeaderContent,
+  ItemCardHeaderTitle,
+  ItemCardItem,
+  ItemCardItemAction,
+  ItemCardItemContent,
+  ItemCardItemDescription,
+  ItemCardItemTitle,
+  ItemCardItems,
+} from '~/components/item-card'
 import { Skeleton } from '~/components/ui/skeleton'
-import { Badge } from '~/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,56 +53,36 @@ function ConnectionsPage() {
   return (
     <>
       <SiteHeader title="Connections" />
-      <div className="flex flex-1 flex-col">
-        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-          <ConnectionsList />
-        </div>
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-8 md:gap-6 md:px-10 md:py-16">
+        <ConnectionsList />
       </div>
     </>
   )
 }
 
-function ConnectionStateBadge({ state }: { state?: string | null }) {
-  if (!state) {
-    return (
-      <Badge variant="default" className="gap-1">
-        <CheckCircle2 className="size-3" />
-        Connected
-      </Badge>
-    )
-  }
-
+function getConnectionState(state?: string | null): {
+  label: string
+  dotColor: string
+} {
   switch (state) {
+    case null:
+    case undefined:
+    case 'SyncDone':
+      return { label: 'Connected', dotColor: 'bg-emerald-500' }
     case 'SCARequired':
     case 'additionalInformationNeeded':
     case 'decoupled':
-      return (
-        <Badge variant="destructive" className="gap-1">
-          <AlertCircle className="size-3" />
-          Action needed
-        </Badge>
-      )
+    case 'webauthRequired':
+      return { label: 'Action needed', dotColor: 'bg-amber-500' }
     case 'validating':
-      return (
-        <Badge variant="secondary" className="gap-1">
-          <Loader2 className="size-3 animate-spin" />
-          Syncing
-        </Badge>
-      )
+      return { label: 'Syncing', dotColor: 'bg-blue-500' }
     case 'wrongpass':
     case 'bug':
-      return (
-        <Badge variant="destructive" className="gap-1">
-          <AlertCircle className="size-3" />
-          Error
-        </Badge>
-      )
+      return { label: 'Error', dotColor: 'bg-destructive' }
+    case 'rateLimiting':
+      return { label: 'Rate limited', dotColor: 'bg-amber-500' }
     default:
-      return (
-        <Badge variant="secondary" className="gap-1">
-          {state}
-        </Badge>
-      )
+      return { label: 'Unknown', dotColor: 'bg-muted-foreground' }
   }
 }
 
@@ -148,26 +121,7 @@ function ConnectionsList() {
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   if (profileLoading || connections === undefined) {
-    return (
-      <>
-        <Skeleton className="h-7 w-40" />
-        <ItemGroup className="rounded-lg border">
-          {[1, 2].map((i) => (
-            <React.Fragment key={i}>
-              {i > 1 && <ItemSeparator />}
-              <Item>
-                <Skeleton className="size-8 rounded-sm" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-40" />
-                  <Skeleton className="h-3 w-56" />
-                </div>
-                <Skeleton className="h-6 w-24" />
-              </Item>
-            </React.Fragment>
-          ))}
-        </ItemGroup>
-      </>
-    )
+    return <Skeleton className="h-48 w-full rounded-lg" />
   }
 
   if (connections.length === 0) {
@@ -203,34 +157,37 @@ function ConnectionsList() {
   }
 
   return (
-    <>
-      <h2 className="text-lg font-semibold">
-        Connections
-        <span className="ml-2 text-sm font-normal text-muted-foreground">
-          ({connections.length})
-        </span>
-      </h2>
-
-      <ItemGroup className="rounded-lg border">
-        {connections.map((connection, i) => {
+    <ItemCard>
+      <ItemCardHeader>
+        <ItemCardHeaderContent>
+          <ItemCardHeaderTitle>
+            {connections.length}{' '}
+            {connections.length === 1 ? 'connection' : 'connections'}
+          </ItemCardHeaderTitle>
+        </ItemCardHeaderContent>
+        <Button onClick={() => setDialogOpen(true)} size="sm">
+          Add Connection
+        </Button>
+      </ItemCardHeader>
+      <ItemCardItems>
+        {connections.map((connection) => {
           const numAccounts = accountCountByConnection.get(connection._id) ?? 0
           const lastSync = connection.lastSync
             ? formatRelativeDate(connection.lastSync)
             : null
 
           return (
-            <React.Fragment key={connection._id}>
-              {i > 0 && <ItemSeparator />}
-              <ConnectionItem
-                connection={connection}
-                numAccounts={numAccounts}
-                lastSync={lastSync}
-              />
-            </React.Fragment>
+            <ConnectionItem
+              key={connection._id}
+              connection={connection}
+              numAccounts={numAccounts}
+              lastSync={lastSync}
+            />
           )
         })}
-      </ItemGroup>
-    </>
+      </ItemCardItems>
+      <AddConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </ItemCard>
   )
 }
 
@@ -266,25 +223,24 @@ function ConnectionItem({
 
   return (
     <>
-      <Item>
-        <ItemMedia variant="icon">
-          <Link2 />
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle>{connection.connectorName}</ItemTitle>
-          <ItemDescription>
+      <ItemCardItem>
+        <ItemCardItemContent>
+          <ItemCardItemTitle>{connection.connectorName}</ItemCardItemTitle>
+          <ItemCardItemDescription>
             {numAccounts} account{numAccounts !== 1 ? 's' : ''}
             {lastSync && ` · Last synced ${lastSync}`}
-          </ItemDescription>
-        </ItemContent>
-        <ItemActions>
-          <ConnectionStateBadge state={connection.state} />
+          </ItemCardItemDescription>
+        </ItemCardItemContent>
+        <ItemCardItemAction>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8">
-                <MoreVertical className="size-4" />
-                <span className="sr-only">More</span>
-              </Button>
+              <button className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-accent">
+                <span
+                  className={`size-2 shrink-0 rounded-full ${getConnectionState(connection.state).dotColor}`}
+                />
+                {getConnectionState(connection.state).label}
+                <ChevronDown className="size-3 text-muted-foreground" />
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
@@ -308,7 +264,7 @@ function ConnectionItem({
                 ) : (
                   <Pencil className="size-4" />
                 )}
-                Edit
+                Manage
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
@@ -319,8 +275,8 @@ function ConnectionItem({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </ItemActions>
-      </Item>
+        </ItemCardItemAction>
+      </ItemCardItem>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent>
