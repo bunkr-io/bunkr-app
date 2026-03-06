@@ -37,6 +37,7 @@ import {
   ItemCardItemTitle,
   ItemCardItems,
 } from '~/components/item-card'
+import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Badge } from '~/components/ui/badge'
@@ -131,21 +132,15 @@ function EncryptionPage() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm dark:border-yellow-900 dark:bg-yellow-950">
-          <div className="flex items-start gap-3">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0 text-yellow-600 dark:text-yellow-400" />
-            <div className="space-y-1">
-              <p className="font-medium text-yellow-800 dark:text-yellow-200">
-                Important
-              </p>
-              <p className="text-yellow-700 dark:text-yellow-300">
-                If you forget your passphrase, your encrypted data cannot be
-                recovered. There is no reset mechanism. Store your passphrase
-                safely.
-              </p>
-            </div>
-          </div>
-        </div>
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertTitle>Important</AlertTitle>
+          <AlertDescription>
+            If you forget your passphrase, your encrypted data cannot be
+            recovered. There is no reset mechanism. Store your passphrase
+            safely.
+          </AlertDescription>
+        </Alert>
 
         <ItemCard>
           <ItemCardItems>
