@@ -18,6 +18,7 @@ import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
 import type * as powens from "../powens.js";
 import type * as profiles from "../profiles.js";
+import type * as seed from "../seed.js";
 import type * as workspaces from "../workspaces.js";
 
 import type {
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   powens: typeof powens;
   profiles: typeof profiles;
+  seed: typeof seed;
   workspaces: typeof workspaces;
 }>;
 

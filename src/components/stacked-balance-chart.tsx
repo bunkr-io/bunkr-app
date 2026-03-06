@@ -21,8 +21,11 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS } from '~/lib/chart-periods'
+import { downsampleRecords } from '~/lib/downsample'
 import { PnLBadge } from '~/components/pnl-badge'
 import { usePrivacy } from '~/contexts/privacy-context'
+
+const MAX_CHART_POINTS = 150
 
 interface CategorySeries {
   key: string
@@ -245,6 +248,11 @@ export function StackedBalanceChart({
     [currency, isPrivate],
   )
 
+  const chartData = React.useMemo(
+    () => downsampleRecords(data, MAX_CHART_POINTS),
+    [data],
+  )
+
   const chartConfig = React.useMemo(() => {
     const config: ChartConfig = {}
     for (const cat of categories) {
@@ -270,7 +278,7 @@ export function StackedBalanceChart({
         </CardHeader>
         <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
           <ChartContent
-            data={data}
+            data={chartData}
             categories={categories}
             formatCurrency={formatCurrency}
             chartConfig={chartConfig}

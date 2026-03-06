@@ -19,8 +19,11 @@ import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS } from '~/lib/chart-periods'
 import { computePnL } from '~/lib/pnl'
+import { downsample } from '~/lib/downsample'
 import { PnLBadge } from '~/components/pnl-badge'
 import { usePrivacy } from '~/contexts/privacy-context'
+
+const MAX_CHART_POINTS = 150
 
 const chartConfig = {
   balance: {
@@ -169,6 +172,12 @@ export function BalanceChart({
     [currency, isPrivate],
   )
 
+  const chartData = React.useMemo(() => {
+    console.log('[debug] BalanceChart input points:', data.length)
+    const result = downsample(data, MAX_CHART_POINTS)
+    console.log('[debug] BalanceChart after downsample:', result.length)
+    return result
+  }, [data])
   const pnl = React.useMemo(() => computePnL(data), [data])
 
   if (title) {
@@ -194,7 +203,7 @@ export function BalanceChart({
               Not enough data to display a chart
             </div>
           ) : (
-            <ChartArea data={data} formatCurrency={formatCurrency} />
+            <ChartArea data={chartData} formatCurrency={formatCurrency} />
           )}
         </CardContent>
       </Card>
@@ -214,7 +223,7 @@ export function BalanceChart({
           Not enough data to display a chart
         </div>
       ) : (
-        <ChartArea data={data} formatCurrency={formatCurrency} />
+        <ChartArea data={chartData} formatCurrency={formatCurrency} />
       )}
     </div>
   )

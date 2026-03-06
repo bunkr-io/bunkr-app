@@ -72,7 +72,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx}": [
-      "eslint --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+      "eslint --ext ts,tsx --report-unused-disable-directives --max-warnings 0 --no-warn-ignored",
       "prettier --check"
     ],
     "*.{js,json,css,md}": [
