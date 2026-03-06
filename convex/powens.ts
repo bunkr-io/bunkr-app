@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { action, internalAction, internalMutation, internalQuery, query } from './_generated/server'
 import { internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
@@ -144,6 +144,54 @@ export const generateConnectUrl = action({
     const connectUrl = `https://webview.powens.com/connect?domain=aurum-sandbox&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
 
     return connectUrl
+  },
+})
+
+export const generateManageUrl = action({
+  args: {
+    connectionId: v.id('connections'),
+    profileId: v.id('profiles'),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    await requireAuthUserId(ctx)
+    const { baseUrl, clientId } = getPowensConfig()
+    const siteUrl = process.env.SITE_URL
+    if (!siteUrl) throw new Error('SITE_URL not configured')
+
+    const profile = await ctx.runQuery(internal.powens.getProfileInternal, {
+      profileId: args.profileId,
+    })
+    if (!profile?.powensUserToken) {
+      throw new Error('Profile has no Powens user token')
+    }
+
+    const connection: Doc<'connections'> | null = await ctx.runQuery(
+      internal.powens.getConnectionInternal,
+      { connectionId: args.connectionId },
+    )
+    if (!connection?.powensConnectionId) {
+      throw new Error('Connection not found')
+    }
+
+    // Get temporary code for webview
+    const codeResponse = await fetch(`${baseUrl}/auth/token/code`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${profile.powensUserToken}` },
+    })
+
+    if (!codeResponse.ok) {
+      const text = await codeResponse.text()
+      throw new Error(
+        `Powens auth/token/code failed: ${codeResponse.status} ${text}`,
+      )
+    }
+
+    const codeData = await codeResponse.json()
+    const code = codeData.code as string
+
+    const redirectUri = `${siteUrl}/powens/callback`
+    return `https://webview.powens.com/manage?domain=aurum-sandbox&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}&connection_id=${connection.powensConnectionId}`
   },
 })
 

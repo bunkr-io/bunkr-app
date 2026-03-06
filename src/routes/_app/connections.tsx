@@ -13,6 +13,7 @@ import {
   Loader2,
   Trash2,
   MoreVertical,
+  Pencil,
 } from 'lucide-react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
@@ -230,8 +231,10 @@ function ConnectionItem({
   lastSync: string | null
 }) {
   const deleteConnection = useAction(api.powens.deleteConnection)
+  const generateManageUrl = useAction(api.powens.generateManageUrl)
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
+  const [editing, setEditing] = React.useState(false)
 
   async function handleDelete() {
     setDeleting(true)
@@ -271,6 +274,29 @@ function ConnectionItem({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={editing}
+                onClick={async () => {
+                  setEditing(true)
+                  try {
+                    const url = await generateManageUrl({
+                      connectionId: connection._id,
+                      profileId: connection.profileId,
+                    })
+                    window.location.href = url
+                  } catch (err) {
+                    console.error('Failed to generate manage URL:', err)
+                    setEditing(false)
+                  }
+                }}
+              >
+                {editing ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Pencil className="size-4" />
+                )}
+                Edit
+              </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => setConfirmOpen(true)}
