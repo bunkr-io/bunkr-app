@@ -2,6 +2,15 @@ import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
 export default defineSchema({
+  encryptionKeys: defineTable({
+    userId: v.string(),
+    publicKey: v.string(),
+    encryptedPrivateKey: v.string(),
+    pbkdf2Salt: v.string(),
+    version: v.number(),
+    createdAt: v.number(),
+  }).index('by_userId', ['userId']),
+
   workspaces: defineTable({
     name: v.string(),
     createdBy: v.string(),
@@ -62,6 +71,7 @@ export default defineSchema({
     disabled: v.boolean(),
     deleted: v.boolean(),
     lastSync: v.optional(v.string()),
+    encryptedData: v.optional(v.string()),
   })
     .index('by_connectionId', ['connectionId'])
     .index('by_profileId', ['profileId']),
@@ -85,6 +95,7 @@ export default defineSchema({
     originalValuation: v.optional(v.number()),
     vdate: v.optional(v.string()),
     deleted: v.boolean(),
+    encryptedData: v.optional(v.string()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_profileId', ['profileId'])
@@ -98,6 +109,7 @@ export default defineSchema({
     date: v.string(),
     timestamp: v.number(),
     seed: v.optional(v.boolean()),
+    encryptedData: v.optional(v.string()),
   })
     .index('by_bankAccountId_timestamp', ['bankAccountId', 'timestamp'])
     .index('by_bankAccountId_date', ['bankAccountId', 'date'])

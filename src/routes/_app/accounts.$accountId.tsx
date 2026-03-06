@@ -13,6 +13,7 @@ import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { isInvestmentAccount } from '~/lib/account-categories'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useDecryptRecords, useDecryptRecord } from '~/contexts/encryption-context'
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
   component: AccountDetailPage,
@@ -23,23 +24,26 @@ function AccountDetailPage() {
   const [period, setPeriod] = React.useState<Period>('1M')
   const startTimestamp = React.useMemo(() => getStartTimestamp(period), [period])
 
-  const bankAccount = useQuery(api.powens.getBankAccount, {
+  const rawBankAccount = useQuery(api.powens.getBankAccount, {
     bankAccountId: accountId as Id<'bankAccounts'>,
   })
+  const bankAccount = useDecryptRecord(rawBankAccount)
 
-  const snapshots = useQuery(api.balanceSnapshots.listSnapshots, {
+  const rawSnapshots = useQuery(api.balanceSnapshots.listSnapshots, {
     bankAccountId: accountId as Id<'bankAccounts'>,
     startTimestamp,
   })
+  const snapshots = useDecryptRecords(rawSnapshots)
 
   const isInvestment = isInvestmentAccount(bankAccount?.type ?? undefined)
 
-  const investments = useQuery(
+  const rawInvestments = useQuery(
     api.investments.listInvestments,
     isInvestment
       ? { bankAccountId: accountId as Id<'bankAccounts'> }
       : 'skip',
   )
+  const investments = useDecryptRecords(rawInvestments)
 
   const formatCurrency = useFormatCurrency()
 

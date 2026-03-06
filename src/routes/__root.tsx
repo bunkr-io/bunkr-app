@@ -18,7 +18,9 @@ import { TooltipProvider } from '~/components/ui/tooltip'
 import { ThemeProvider } from 'next-themes'
 import { ProfileProvider } from '~/contexts/profile-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
+import { EncryptionProvider } from '~/contexts/encryption-context'
 import { Toaster } from '~/components/ui/sonner'
+import { PassphrasePrompt } from '~/components/passphrase-prompt'
 import appCss from '~/styles/app.css?url'
 
 const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -102,11 +104,13 @@ function RootComponent() {
         <TooltipProvider>
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             <ProfileProvider>
-              <PrivacyProvider>
-                <RootDocument>
-                  <Outlet />
-                </RootDocument>
-              </PrivacyProvider>
+              <EncryptionProvider>
+                <PrivacyProvider>
+                  <RootDocument>
+                    <Outlet />
+                  </RootDocument>
+                </PrivacyProvider>
+              </EncryptionProvider>
             </ProfileProvider>
           </ThemeProvider>
         </TooltipProvider>
@@ -123,6 +127,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <PassphrasePrompt />
         <Toaster />
         <Scripts />
       </body>

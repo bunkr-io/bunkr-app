@@ -9,9 +9,11 @@
  */
 
 import type * as balanceSnapshots from "../balanceSnapshots.js";
+import type * as encryptionKeys from "../encryptionKeys.js";
 import type * as http from "../http.js";
 import type * as investments from "../investments.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_serverCrypto from "../lib/serverCrypto.js";
 import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
 import type * as powens from "../powens.js";
@@ -26,9 +28,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   balanceSnapshots: typeof balanceSnapshots;
+  encryptionKeys: typeof encryptionKeys;
   http: typeof http;
   investments: typeof investments;
   "lib/auth": typeof lib_auth;
+  "lib/serverCrypto": typeof lib_serverCrypto;
   members: typeof members;
   migrations: typeof migrations;
   powens: typeof powens;

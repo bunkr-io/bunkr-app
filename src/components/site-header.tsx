@@ -1,11 +1,13 @@
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Lock } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Separator } from '~/components/ui/separator'
 import { SidebarTrigger } from '~/components/ui/sidebar'
 import { usePrivacy } from '~/contexts/privacy-context'
+import { useEncryption } from '~/contexts/encryption-context'
 
 export function SiteHeader({ title = 'Dashboard' }: { title?: string }) {
   const { isPrivate, togglePrivacy } = usePrivacy()
+  const { isEncryptionEnabled, isUnlocked, lock } = useEncryption()
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -16,7 +18,17 @@ export function SiteHeader({ title = 'Dashboard' }: { title?: string }) {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">{title}</h1>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center">
+          {isEncryptionEnabled && isUnlocked && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={lock}
+              aria-label="Lock vault"
+            >
+              <Lock className="size-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

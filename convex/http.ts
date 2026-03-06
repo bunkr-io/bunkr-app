@@ -1,6 +1,7 @@
 import { httpRouter } from 'convex/server'
 import { httpAction } from './_generated/server'
 import { internal } from './_generated/api'
+import { encryptForProfile } from './lib/serverCrypto'
 
 const http = httpRouter()
 
@@ -55,19 +56,46 @@ http.route({
         return new Response('OK', { status: 200 })
       }
 
-      const bankAccounts = (accounts ?? []).map((acct) => ({
-        powensBankAccountId: acct.id as number,
-        name: (acct.original_name as string) ?? (acct.name as string) ?? 'Unnamed Account',
-        number: (acct.number as string) ?? undefined,
-        iban: (acct.iban as string) ?? undefined,
-        type: (acct.type as string) ?? undefined,
-        balance: (acct.balance as number) ?? 0,
-        currency:
-          ((acct.currency as Record<string, unknown>)?.id as string) ?? 'EUR',
-        disabled: (acct.disabled as boolean | null) ?? false,
-        deleted: acct.deleted != null,
-        lastSync: (acct.last_update as string) ?? undefined,
-      }))
+      // Check if encryption is enabled for this profile
+      const publicKey: string | null = await ctx.runQuery(
+        internal.encryptionKeys.getPublicKeyForProfile,
+        { profileId: profile._id },
+      )
+
+      const bankAccounts = await Promise.all(
+        (accounts ?? []).map(async (acct) => {
+          const number = (acct.number as string) ?? undefined
+          const iban = (acct.iban as string) ?? undefined
+          const balance = (acct.balance as number) ?? 0
+
+          let encryptedData: string | undefined
+          if (publicKey) {
+            encryptedData = await encryptForProfile(
+              { number, iban, balance },
+              publicKey,
+            )
+          }
+
+          return {
+            powensBankAccountId: acct.id as number,
+            name:
+              (acct.original_name as string) ??
+              (acct.name as string) ??
+              'Unnamed Account',
+            number: publicKey ? undefined : number,
+            iban: publicKey ? undefined : iban,
+            type: (acct.type as string) ?? undefined,
+            balance: publicKey ? 0 : balance,
+            currency:
+              ((acct.currency as Record<string, unknown>)?.id as string) ??
+              'EUR',
+            disabled: (acct.disabled as boolean | null) ?? false,
+            deleted: acct.deleted != null,
+            lastSync: (acct.last_update as string) ?? undefined,
+            encryptedData,
+          }
+        }),
+      )
 
       await ctx.runMutation(internal.powens.syncConnectionFromWebhook, {
         profileId: profile._id,

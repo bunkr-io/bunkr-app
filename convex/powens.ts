@@ -4,6 +4,7 @@ import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { encryptForProfile } from './lib/serverCrypto'
 
 const INVESTMENT_TYPES = ['market', 'pea', 'pee']
 
@@ -14,6 +15,7 @@ async function recordBalanceSnapshot(
     profileId: Id<'profiles'>
     balance: number
     currency: string
+    encryptedData?: string
   },
 ) {
   const now = new Date()
@@ -28,7 +30,10 @@ async function recordBalanceSnapshot(
     .first()
 
   if (existing) {
-    await ctx.db.patch(existing._id, { balance: params.balance })
+    await ctx.db.patch(existing._id, {
+      balance: params.balance,
+      encryptedData: params.encryptedData,
+    })
   } else {
     await ctx.db.insert('balanceSnapshots', {
       bankAccountId: params.bankAccountId,
@@ -37,6 +42,7 @@ async function recordBalanceSnapshot(
       currency: params.currency,
       date,
       timestamp,
+      encryptedData: params.encryptedData,
     })
   }
 }
@@ -263,6 +269,12 @@ export const handleConnectionCallback = action({
       },
     )
 
+    // Check if encryption is enabled
+    const publicKey: string | null = await ctx.runQuery(
+      internal.encryptionKeys.getPublicKeyForProfile,
+      { profileId: args.profileId },
+    )
+
     // Sync bank accounts for this connection
     const acctResponse = await fetch(
       `${baseUrl}/users/me/connections/${args.connectionId}/accounts`,
@@ -276,19 +288,32 @@ export const handleConnectionCallback = action({
       const bankAccts = acctData.accounts ?? []
 
       for (const acct of bankAccts) {
+        const number = acct.number ?? undefined
+        const iban = acct.iban ?? undefined
+        const balance = acct.balance ?? 0
+
+        let encryptedData: string | undefined
+        if (publicKey) {
+          encryptedData = await encryptForProfile(
+            { number, iban, balance },
+            publicKey,
+          )
+        }
+
         const bankAccountId = await ctx.runMutation(internal.powens.upsertBankAccount, {
           connectionId: connectionDocId,
           profileId: args.profileId,
           powensBankAccountId: acct.id,
           name: acct.original_name ?? acct.name ?? 'Unnamed Account',
-          number: acct.number ?? undefined,
-          iban: acct.iban ?? undefined,
+          number: publicKey ? undefined : number,
+          iban: publicKey ? undefined : iban,
           type: acct.type ?? undefined,
-          balance: acct.balance ?? 0,
+          balance: publicKey ? 0 : balance,
           currency: acct.currency?.id ?? 'EUR',
           disabled: acct.disabled ?? false,
           deleted: acct.deleted != null,
           lastSync: acct.last_update ?? undefined,
+          encryptedData,
         })
 
         if (INVESTMENT_TYPES.includes(acct.type ?? '')) {
@@ -298,7 +323,43 @@ export const handleConnectionCallback = action({
           )
           if (investmentsResponse.ok) {
             const investmentsData = await investmentsResponse.json()
-            const investments = (investmentsData.investments ?? []).map(mapPowensInvestment)
+            const rawInvestments = (investmentsData.investments ?? []).map(mapPowensInvestment)
+
+            let investments = rawInvestments
+            if (publicKey) {
+              investments = await Promise.all(
+                rawInvestments.map(async (inv: ReturnType<typeof mapPowensInvestment>) => {
+                  const encData = await encryptForProfile(
+                    {
+                      label: inv.label,
+                      description: inv.description,
+                      quantity: inv.quantity,
+                      unitprice: inv.unitprice,
+                      unitvalue: inv.unitvalue,
+                      valuation: inv.valuation,
+                      portfolioShare: inv.portfolioShare,
+                      diff: inv.diff,
+                      diffPercent: inv.diffPercent,
+                    },
+                    publicKey,
+                  )
+                  return {
+                    ...inv,
+                    label: 'Encrypted',
+                    description: undefined,
+                    quantity: 0,
+                    unitprice: 0,
+                    unitvalue: 0,
+                    valuation: 0,
+                    portfolioShare: undefined,
+                    diff: undefined,
+                    diffPercent: undefined,
+                    encryptedData: encData,
+                  }
+                }),
+              )
+            }
+
             await ctx.runMutation(internal.powens.upsertInvestments, {
               bankAccountId,
               profileId: args.profileId,
@@ -365,6 +426,7 @@ export const upsertBankAccount = internalMutation({
     disabled: v.boolean(),
     deleted: v.boolean(),
     lastSync: v.optional(v.string()),
+    encryptedData: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -389,6 +451,7 @@ export const upsertBankAccount = internalMutation({
         disabled: args.disabled,
         deleted: args.deleted,
         lastSync: args.lastSync,
+        encryptedData: args.encryptedData,
       })
       bankAccountId = existing._id
     } else {
@@ -400,6 +463,7 @@ export const upsertBankAccount = internalMutation({
       profileId: args.profileId,
       balance: args.balance,
       currency: args.currency,
+      encryptedData: args.encryptedData,
     })
 
     return bankAccountId
@@ -438,6 +502,7 @@ export const syncConnectionFromWebhook = internalMutation({
         disabled: v.boolean(),
         deleted: v.boolean(),
         lastSync: v.optional(v.string()),
+        encryptedData: v.optional(v.string()),
       }),
     ),
   },
@@ -492,6 +557,7 @@ export const syncConnectionFromWebhook = internalMutation({
           disabled: acct.disabled,
           deleted: acct.deleted,
           lastSync: acct.lastSync,
+          encryptedData: acct.encryptedData,
         })
         bankAccountId = existing._id
       } else {
@@ -507,6 +573,7 @@ export const syncConnectionFromWebhook = internalMutation({
         profileId: args.profileId,
         balance: acct.balance,
         currency: acct.currency,
+        encryptedData: acct.encryptedData,
       })
     }
   },
@@ -729,6 +796,7 @@ export const upsertInvestments = internalMutation({
         originalValuation: v.optional(v.number()),
         vdate: v.optional(v.string()),
         deleted: v.boolean(),
+        encryptedData: v.optional(v.string()),
       }),
     ),
   },
@@ -741,17 +809,20 @@ export const upsertInvestments = internalMutation({
         )
         .first()
 
+      const { encryptedData, ...invFields } = inv
       if (existing) {
         await ctx.db.patch(existing._id, {
-          ...inv,
+          ...invFields,
           bankAccountId: args.bankAccountId,
           profileId: args.profileId,
+          encryptedData,
         })
       } else {
         await ctx.db.insert('investments', {
           bankAccountId: args.bankAccountId,
           profileId: args.profileId,
-          ...inv,
+          ...invFields,
+          encryptedData,
         })
       }
     }
@@ -783,6 +854,11 @@ export const syncInvestmentsFromWebhook = internalAction({
     })
     if (!profile?.powensUserToken) return
 
+    const publicKey: string | null = await ctx.runQuery(
+      internal.encryptionKeys.getPublicKeyForProfile,
+      { profileId: args.profileId },
+    )
+
     // Find the connection doc
     const connection = await ctx.runQuery(
       internal.powens.findConnectionByPowensId,
@@ -806,7 +882,42 @@ export const syncInvestmentsFromWebhook = internalAction({
       if (!response.ok) continue
 
       const data = await response.json()
-      const investments = (data.investments ?? []).map(mapPowensInvestment)
+      const rawInvestments = (data.investments ?? []).map(mapPowensInvestment)
+
+      let investments = rawInvestments
+      if (publicKey) {
+        investments = await Promise.all(
+          rawInvestments.map(async (inv: ReturnType<typeof mapPowensInvestment>) => {
+            const encData = await encryptForProfile(
+              {
+                label: inv.label,
+                description: inv.description,
+                quantity: inv.quantity,
+                unitprice: inv.unitprice,
+                unitvalue: inv.unitvalue,
+                valuation: inv.valuation,
+                portfolioShare: inv.portfolioShare,
+                diff: inv.diff,
+                diffPercent: inv.diffPercent,
+              },
+              publicKey,
+            )
+            return {
+              ...inv,
+              label: 'Encrypted',
+              description: undefined,
+              quantity: 0,
+              unitprice: 0,
+              unitvalue: 0,
+              valuation: 0,
+              portfolioShare: undefined,
+              diff: undefined,
+              diffPercent: undefined,
+              encryptedData: encData,
+            }
+          }),
+        )
+      }
 
       await ctx.runMutation(internal.powens.upsertInvestments, {
         bankAccountId: ba._id,

@@ -21,6 +21,7 @@ import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { AllocationChart, CATEGORY_COLORS } from '~/components/allocation-chart'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useDecryptRecords } from '~/contexts/encryption-context'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -54,7 +55,8 @@ function BankAccountsSection() {
       ? { profileIds: allProfileIds }
       : 'skip',
   )
-  const bankAccounts = isAllProfiles ? bankAccountsAll : bankAccountsSingle
+  const rawBankAccounts = isAllProfiles ? bankAccountsAll : bankAccountsSingle
+  const bankAccounts = useDecryptRecords(rawBankAccounts)
 
   const snapshotsSingle = useQuery(
     api.balanceSnapshots.listSnapshotsByProfile,
@@ -68,7 +70,8 @@ function BankAccountsSection() {
       ? { profileIds: allProfileIds, startTimestamp }
       : 'skip',
   )
-  const snapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
+  const rawSnapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
+  const snapshots = useDecryptRecords(rawSnapshots)
 
   const formatCurrency = useFormatCurrency()
   const [dialogOpen, setDialogOpen] = React.useState(false)

@@ -24,6 +24,7 @@ import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { computePnL } from '~/lib/pnl'
 import { fillMissingDates, fillMissingDatesStacked } from '~/lib/fill-missing-dates'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useDecryptRecords } from '~/contexts/encryption-context'
 
 export const Route = createFileRoute('/_app/accounts/')({
   component: AccountsPage,
@@ -67,7 +68,8 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       ? { profileIds: allProfileIds }
       : 'skip',
   )
-  const allBankAccounts = isAllProfiles ? allBankAccountsAll : allBankAccountsSingle
+  const rawAllBankAccounts = isAllProfiles ? allBankAccountsAll : allBankAccountsSingle
+  const allBankAccounts = useDecryptRecords(rawAllBankAccounts)
 
   const snapshotsSingle = useQuery(
     api.balanceSnapshots.listSnapshotsByProfile,
@@ -79,7 +81,8 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       ? { profileIds: allProfileIds, startTimestamp }
       : 'skip',
   )
-  const snapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
+  const rawSnapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
+  const snapshots = useDecryptRecords(rawSnapshots)
   const formatCurrency = useFormatCurrency()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 

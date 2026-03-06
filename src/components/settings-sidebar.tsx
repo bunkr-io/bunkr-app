@@ -5,6 +5,7 @@ import {
   User,
   Shield,
   Users,
+  Lock,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -60,6 +61,14 @@ export function SettingsSidebar({
                   <Link to="/settings/security">
                     <Shield />
                     <span>Security & access</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/settings/encryption">
+                    <Lock />
+                    <span>Encryption</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
