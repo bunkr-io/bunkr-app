@@ -50,7 +50,7 @@ export function SettingsSidebar({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link to="/settings" disabled>
+                  <Link to="/settings/profile">
                     <User />
                     <span>Profile</span>
                   </Link>

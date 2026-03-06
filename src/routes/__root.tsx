@@ -18,6 +18,7 @@ import { TooltipProvider } from '~/components/ui/tooltip'
 import { ThemeProvider } from 'next-themes'
 import { ProfileProvider } from '~/contexts/profile-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
+import { Toaster } from '~/components/ui/sonner'
 import appCss from '~/styles/app.css?url'
 
 const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
@@ -122,6 +123,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster />
         <Scripts />
       </body>
     </html>

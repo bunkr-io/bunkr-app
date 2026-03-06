@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 
-export const Route = createFileRoute('/_settings/settings')({
+export const Route = createFileRoute('/_settings/settings/')({
   component: PreferencesPage,
 })
 
