@@ -25,6 +25,7 @@ export const backfillBalanceSnapshots = internalMutation({
           currency: ba.currency,
           date,
           timestamp,
+          encrypted: false,
         })
         count++
       }
@@ -60,6 +61,7 @@ export const seedBalanceSnapshots = internalMutation({
           date,
           timestamp,
           seed: true,
+          encrypted: false,
         })
         count++
       }

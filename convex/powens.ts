@@ -95,6 +95,7 @@ async function recordBalanceSnapshot(
     await ctx.db.patch('balanceSnapshots', existing._id, {
       balance: params.balance,
       encryptedData: params.encryptedData,
+      encrypted: !!params.encryptedData,
     })
   } else {
     await ctx.db.insert('balanceSnapshots', {
@@ -105,6 +106,7 @@ async function recordBalanceSnapshot(
       date,
       timestamp,
       encryptedData: params.encryptedData,
+      encrypted: !!params.encryptedData,
     })
   }
 }
@@ -478,6 +480,7 @@ export const upsertConnection = internalMutation({
         state: args.state,
         lastSync: args.lastSync,
         encryptedData: args.encryptedData,
+        encrypted: !!args.encryptedData,
       })
       return existing._id
     }
@@ -489,6 +492,7 @@ export const upsertConnection = internalMutation({
       state: args.state,
       lastSync: args.lastSync,
       encryptedData: args.encryptedData,
+      encrypted: !!args.encryptedData,
     })
   },
 })
@@ -520,6 +524,7 @@ export const upsertBankAccount = internalMutation({
       )
       .first()
 
+    const encrypted = !!args.encryptedData
     let bankAccountId: Id<'bankAccounts'>
     if (existing) {
       await ctx.db.patch('bankAccounts', existing._id, {
@@ -533,10 +538,14 @@ export const upsertBankAccount = internalMutation({
         deleted: args.deleted,
         lastSync: args.lastSync,
         encryptedData: args.encryptedData,
+        encrypted,
       })
       bankAccountId = existing._id
     } else {
-      bankAccountId = await ctx.db.insert('bankAccounts', args)
+      bankAccountId = await ctx.db.insert('bankAccounts', {
+        ...args,
+        encrypted,
+      })
     }
 
     await recordBalanceSnapshot(ctx, {
@@ -603,6 +612,7 @@ export const syncConnectionFromWebhook = internalMutation({
         state: args.state,
         lastSync: args.lastSync,
         encryptedData: args.encryptedData,
+        encrypted: !!args.encryptedData,
       })
       connectionId = existingConn._id
     } else {
@@ -613,6 +623,7 @@ export const syncConnectionFromWebhook = internalMutation({
         state: args.state,
         lastSync: args.lastSync,
         encryptedData: args.encryptedData,
+        encrypted: !!args.encryptedData,
       })
     }
 
@@ -626,6 +637,7 @@ export const syncConnectionFromWebhook = internalMutation({
         )
         .first()
 
+      const acctEncrypted = !!acct.encryptedData
       let bankAccountId: Id<'bankAccounts'>
       if (existing) {
         await ctx.db.patch('bankAccounts', existing._id, {
@@ -639,6 +651,7 @@ export const syncConnectionFromWebhook = internalMutation({
           deleted: acct.deleted,
           lastSync: acct.lastSync,
           encryptedData: acct.encryptedData,
+          encrypted: acctEncrypted,
         })
         bankAccountId = existing._id
       } else {
@@ -646,6 +659,7 @@ export const syncConnectionFromWebhook = internalMutation({
           connectionId,
           profileId: args.profileId,
           ...acct,
+          encrypted: acctEncrypted,
         })
       }
 
@@ -919,12 +933,14 @@ export const upsertInvestments = internalMutation({
         .first()
 
       const { encryptedData, ...invFields } = inv
+      const invEncrypted = !!encryptedData
       if (existing) {
         await ctx.db.patch('investments', existing._id, {
           ...invFields,
           bankAccountId: args.bankAccountId,
           profileId: args.profileId,
           encryptedData,
+          encrypted: invEncrypted,
         })
       } else {
         await ctx.db.insert('investments', {
@@ -932,6 +948,7 @@ export const upsertInvestments = internalMutation({
           profileId: args.profileId,
           ...invFields,
           encryptedData,
+          encrypted: invEncrypted,
         })
       }
     }

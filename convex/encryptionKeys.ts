@@ -2,6 +2,76 @@ import { v } from 'convex/values'
 import { internalQuery, mutation, query } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
+// Count records that need encryption migration.
+// Uses the by_profileId_encrypted index — records with encrypted=false or
+// encrypted=undefined (legacy) are counted.
+export const countUnencryptedRecords = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership) return null
+
+    const wsEnc = await ctx.db
+      .query('workspaceEncryption')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .first()
+    if (!wsEnc) return null
+
+    const profiles = await ctx.db
+      .query('profiles')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', membership.workspaceId),
+      )
+      .collect()
+
+    let count = 0
+    const tables = [
+      'connections',
+      'bankAccounts',
+      'investments',
+      'balanceSnapshots',
+    ] as const
+
+    for (const table of tables) {
+      const results = await Promise.all(
+        profiles.map((p) =>
+          ctx.db
+            .query(table)
+            .withIndex('by_profileId_encrypted', (q) =>
+              q.eq('profileId', p._id).eq('encrypted', false),
+            )
+            .collect(),
+        ),
+      )
+      count += results.flat().length
+
+      // Also count legacy records where encrypted is undefined
+      const legacy = await Promise.all(
+        profiles.map((p) =>
+          ctx.db
+            .query(table)
+            .withIndex('by_profileId_encrypted', (q) =>
+              q.eq('profileId', p._id),
+            )
+            .filter((q) => q.eq(q.field('encrypted'), undefined))
+            .collect(),
+        ),
+      )
+      count += legacy.flat().length
+    }
+
+    return count
+  },
+})
+
 // Returns workspace encryption status + current user's key slot
 export const getWorkspaceEncryption = query({
   args: {},
@@ -326,6 +396,7 @@ export const migrateConnection = mutation({
     await ctx.db.patch('connections', args.connectionId, {
       encryptedData: args.encryptedData,
       connectorName: 'Encrypted',
+      encrypted: true,
     })
   },
 })
@@ -340,6 +411,7 @@ export const decryptConnection = mutation({
     await ctx.db.patch('connections', args.connectionId, {
       connectorName: args.connectorName,
       encryptedData: undefined,
+      encrypted: false,
     })
   },
 })
@@ -358,6 +430,7 @@ export const migrateBankAccount = mutation({
       balance: 0,
       number: undefined,
       iban: undefined,
+      encrypted: true,
     })
   },
 })
@@ -372,6 +445,7 @@ export const migrateBalanceSnapshot = mutation({
     await ctx.db.patch('balanceSnapshots', args.snapshotId, {
       encryptedData: args.encryptedData,
       balance: 0,
+      encrypted: true,
     })
   },
 })
@@ -391,6 +465,7 @@ export const migrateBalanceSnapshotBatch = mutation({
       await ctx.db.patch('balanceSnapshots', item.snapshotId, {
         encryptedData: item.encryptedData,
         balance: 0,
+        encrypted: true,
       })
     }
   },
@@ -415,6 +490,7 @@ export const migrateInvestment = mutation({
       portfolioShare: undefined,
       diff: undefined,
       diffPercent: undefined,
+      encrypted: true,
     })
   },
 })
@@ -443,6 +519,7 @@ export const migrateInvestmentBatch = mutation({
         portfolioShare: undefined,
         diff: undefined,
         diffPercent: undefined,
+        encrypted: true,
       })
     }
   },
@@ -464,6 +541,7 @@ export const decryptBankAccount = mutation({
       number: args.number,
       iban: args.iban,
       encryptedData: undefined,
+      encrypted: false,
     })
   },
 })
@@ -478,6 +556,7 @@ export const decryptBalanceSnapshot = mutation({
     await ctx.db.patch('balanceSnapshots', args.snapshotId, {
       balance: args.balance,
       encryptedData: undefined,
+      encrypted: false,
     })
   },
 })
@@ -497,6 +576,7 @@ export const decryptBalanceSnapshotBatch = mutation({
       await ctx.db.patch('balanceSnapshots', item.snapshotId, {
         balance: item.balance,
         encryptedData: undefined,
+        encrypted: false,
       })
     }
   },
@@ -522,6 +602,7 @@ export const decryptInvestment = mutation({
     await ctx.db.patch('investments', investmentId, {
       ...fields,
       encryptedData: undefined,
+      encrypted: false,
     })
   },
 })
@@ -551,6 +632,7 @@ export const decryptInvestmentBatch = mutation({
       await ctx.db.patch('investments', investmentId, {
         ...fields,
         encryptedData: undefined,
+        encrypted: false,
       })
     }
   },

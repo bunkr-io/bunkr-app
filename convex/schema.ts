@@ -70,9 +70,11 @@ export default defineSchema({
     state: v.optional(v.string()),
     lastSync: v.optional(v.string()),
     encryptedData: v.optional(v.string()),
+    encrypted: v.optional(v.boolean()),
   })
     .index('by_profileId', ['profileId'])
-    .index('by_powensConnectionId', ['powensConnectionId']),
+    .index('by_powensConnectionId', ['powensConnectionId'])
+    .index('by_profileId_encrypted', ['profileId', 'encrypted']),
 
   bankAccounts: defineTable({
     connectionId: v.id('connections'),
@@ -88,9 +90,11 @@ export default defineSchema({
     deleted: v.boolean(),
     lastSync: v.optional(v.string()),
     encryptedData: v.optional(v.string()),
+    encrypted: v.optional(v.boolean()),
   })
     .index('by_connectionId', ['connectionId'])
-    .index('by_profileId', ['profileId']),
+    .index('by_profileId', ['profileId'])
+    .index('by_profileId_encrypted', ['profileId', 'encrypted']),
 
   investments: defineTable({
     bankAccountId: v.id('bankAccounts'),
@@ -112,10 +116,12 @@ export default defineSchema({
     vdate: v.optional(v.string()),
     deleted: v.boolean(),
     encryptedData: v.optional(v.string()),
+    encrypted: v.optional(v.boolean()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_profileId', ['profileId'])
-    .index('by_powensInvestmentId', ['powensInvestmentId']),
+    .index('by_powensInvestmentId', ['powensInvestmentId'])
+    .index('by_profileId_encrypted', ['profileId', 'encrypted']),
 
   balanceSnapshots: defineTable({
     bankAccountId: v.id('bankAccounts'),
@@ -126,8 +132,10 @@ export default defineSchema({
     timestamp: v.number(),
     seed: v.optional(v.boolean()),
     encryptedData: v.optional(v.string()),
+    encrypted: v.optional(v.boolean()),
   })
     .index('by_bankAccountId_timestamp', ['bankAccountId', 'timestamp'])
     .index('by_bankAccountId_date', ['bankAccountId', 'date'])
-    .index('by_profileId_timestamp', ['profileId', 'timestamp']),
+    .index('by_profileId_timestamp', ['profileId', 'timestamp'])
+    .index('by_profileId_encrypted', ['profileId', 'encrypted']),
 })
