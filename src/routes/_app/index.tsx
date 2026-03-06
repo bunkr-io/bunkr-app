@@ -94,8 +94,6 @@ function BankAccountsSection() {
 
   const netWorthData = React.useMemo(() => {
     if (!snapshots) return []
-    console.time('[debug] netWorthData aggregation')
-    console.log('[debug] raw snapshots count:', snapshots.length)
     const dateMap = new Map<string, number>()
     for (const s of snapshots) {
       dateMap.set(s.date, (dateMap.get(s.date) ?? 0) + s.balance)
@@ -103,17 +101,7 @@ function BankAccountsSection() {
     const sorted = [...dateMap.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, balance]) => ({ date, balance }))
-    console.log('[debug] unique dates:', sorted.length)
-    console.log(
-      '[debug] date range:',
-      sorted[0]?.date,
-      '→',
-      sorted[sorted.length - 1]?.date,
-    )
-    const filled = fillMissingDates(sorted)
-    console.log('[debug] after fillMissingDates:', filled.length)
-    console.timeEnd('[debug] netWorthData aggregation')
-    return filled
+    return fillMissingDates(sorted)
   }, [snapshots])
 
   const allocationData = React.useMemo(() => {

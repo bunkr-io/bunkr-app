@@ -194,11 +194,8 @@ export function useDecryptRecords<
       return
     }
 
-    console.log('[debug] useDecryptRecords: records count:', records.length)
-
     // No encryption or still loading — pass through
     if (!isEncryptionEnabled || isLoading) {
-      console.log('[debug] useDecryptRecords: passthrough (no encryption)')
       setDecrypted(records)
       return
     }

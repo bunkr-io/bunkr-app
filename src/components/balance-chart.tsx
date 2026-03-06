@@ -145,12 +145,10 @@ export function BalanceChart({
     [currency, isPrivate],
   )
 
-  const chartData = React.useMemo(() => {
-    console.log('[debug] BalanceChart input points:', data.length)
-    const result = downsample(data, MAX_CHART_POINTS)
-    console.log('[debug] BalanceChart after downsample:', result.length)
-    return result
-  }, [data])
+  const chartData = React.useMemo(
+    () => downsample(data, MAX_CHART_POINTS),
+    [data],
+  )
   const pnl = React.useMemo(() => computePnL(data), [data])
 
   if (title) {
