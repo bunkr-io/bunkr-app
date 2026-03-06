@@ -7,6 +7,7 @@ import {
   TableRow,
 } from '~/components/ui/table'
 import { cn } from '~/lib/utils'
+import { usePrivacy } from '~/contexts/privacy-context'
 
 interface Investment {
   _id: string
@@ -32,7 +33,10 @@ const pctFmt = new Intl.NumberFormat('fr-FR', {
   maximumFractionDigits: 2,
 })
 
+const MASKED = '••••••'
+
 export function HoldingsTable({ investments }: { investments: Investment[] }) {
+  const { isPrivate } = usePrivacy()
   const sorted = [...investments].sort((a, b) => b.valuation - a.valuation)
 
   if (sorted.length === 0) {
@@ -63,13 +67,13 @@ export function HoldingsTable({ investments }: { investments: Investment[] }) {
             </TableCell>
             <TableCell className="text-right">{inv.quantity}</TableCell>
             <TableCell className="text-right">
-              {currencyFmt.format(inv.unitprice)}
+              {isPrivate ? MASKED : currencyFmt.format(inv.unitprice)}
             </TableCell>
             <TableCell className="text-right">
-              {currencyFmt.format(inv.valuation)}
+              {isPrivate ? MASKED : currencyFmt.format(inv.valuation)}
             </TableCell>
             <TableCell className="text-right">
-              {inv.diff != null ? (
+              {isPrivate ? MASKED : inv.diff != null ? (
                 <span
                   className={cn(
                     inv.diff >= 0 ? 'text-green-600' : 'text-red-600',

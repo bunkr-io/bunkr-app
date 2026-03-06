@@ -12,6 +12,7 @@ import { ArrowLeft } from 'lucide-react'
 import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { isInvestmentAccount } from '~/lib/account-categories'
+import { useFormatCurrency } from '~/contexts/privacy-context'
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
   component: AccountDetailPage,
@@ -39,6 +40,8 @@ function AccountDetailPage() {
       ? { bankAccountId: accountId as Id<'bankAccounts'> }
       : 'skip',
   )
+
+  const formatCurrency = useFormatCurrency()
 
   const isLoading = bankAccount === undefined || snapshots === undefined
 
@@ -82,10 +85,7 @@ function AccountDetailPage() {
                 period={period}
                 onPeriodChange={setPeriod}
                 title={bankAccount.connectorName ?? bankAccount.name}
-                description={new Intl.NumberFormat('fr-FR', {
-                  style: 'currency',
-                  currency: bankAccount.currency,
-                }).format(bankAccount.balance)}
+                description={formatCurrency(bankAccount.balance, bankAccount.currency)}
               />
 
               {isInvestment && investments && investments.length > 0 && (

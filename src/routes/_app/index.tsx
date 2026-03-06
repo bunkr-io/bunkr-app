@@ -20,6 +20,7 @@ import { computePnL } from '~/lib/pnl'
 import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { AllocationChart, CATEGORY_COLORS } from '~/components/allocation-chart'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
+import { useFormatCurrency } from '~/contexts/privacy-context'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -69,6 +70,7 @@ function BankAccountsSection() {
   )
   const snapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
 
+  const formatCurrency = useFormatCurrency()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   const activeAccounts = React.useMemo(
@@ -162,10 +164,7 @@ function BankAccountsSection() {
             period={period}
             onPeriodChange={setPeriod}
             title="Net Worth"
-            description={new Intl.NumberFormat('fr-FR', {
-              style: 'currency',
-              currency,
-            }).format(totalBalance)}
+            description={formatCurrency(totalBalance, currency)}
           />
         </div>
         <AllocationChart
@@ -188,10 +187,7 @@ function BankAccountsSection() {
             <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
               <DashboardCard
                 title={account.connectorName ?? account.name}
-                value={new Intl.NumberFormat('fr-FR', {
-                  style: 'currency',
-                  currency: account.currency,
-                }).format(account.balance)}
+                value={formatCurrency(account.balance, account.currency)}
                 pnl={accountPnl}
                 currency={account.currency}
                 description={

@@ -19,6 +19,7 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS, type Period } from '~/lib/chart-periods'
 import { computePnL } from '~/lib/pnl'
 import { PnLBadge } from '~/components/pnl-badge'
+import { usePrivacy } from '~/contexts/privacy-context'
 
 const chartConfig = {
   balance: {
@@ -147,7 +148,11 @@ export function BalanceChart({
   title,
   description,
 }: BalanceChartProps) {
-  const formatCurrency = React.useMemo(() => currencyFormatter(currency), [currency])
+  const { isPrivate } = usePrivacy()
+  const formatCurrency = React.useMemo(
+    () => isPrivate ? () => '••••••' : currencyFormatter(currency),
+    [currency, isPrivate],
+  )
 
   const pnl = React.useMemo(() => computePnL(data), [data])
 

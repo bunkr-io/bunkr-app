@@ -21,6 +21,7 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { PERIODS, type Period } from '~/lib/chart-periods'
 import { PnLBadge } from '~/components/pnl-badge'
 import type { PnL } from '~/lib/pnl'
+import { usePrivacy } from '~/contexts/privacy-context'
 
 interface CategorySeries {
   key: string
@@ -235,9 +236,10 @@ export function StackedBalanceChart({
   description,
   pnl,
 }: StackedBalanceChartProps) {
+  const { isPrivate } = usePrivacy()
   const formatCurrency = React.useMemo(
-    () => currencyFormatter(currency),
-    [currency],
+    () => isPrivate ? () => '••••••' : currencyFormatter(currency),
+    [currency, isPrivate],
   )
 
   const chartConfig = React.useMemo(() => {

@@ -23,6 +23,7 @@ import { type Period, getStartTimestamp } from '~/lib/chart-periods'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { computePnL } from '~/lib/pnl'
 import { fillMissingDates, fillMissingDatesStacked } from '~/lib/fill-missing-dates'
+import { useFormatCurrency } from '~/contexts/privacy-context'
 
 export const Route = createFileRoute('/_app/accounts/')({
   component: AccountsPage,
@@ -79,6 +80,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       : 'skip',
   )
   const snapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
+  const formatCurrency = useFormatCurrency()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   const bankAccounts = React.useMemo(() => {
@@ -227,10 +229,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
   const currency = bankAccounts[0]?.currency ?? 'EUR'
   const aggregatePnl = computePnL(chartData)
 
-  const formattedTotal = new Intl.NumberFormat('fr-FR', {
-    style: 'currency',
-    currency,
-  }).format(totalBalance)
+  const formattedTotal = formatCurrency(totalBalance, currency)
 
   return (
     <>
@@ -291,10 +290,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
                           </ItemDescription>
                         </ItemContent>
                         <span className="text-lg font-semibold tabular-nums">
-                          {new Intl.NumberFormat('fr-FR', {
-                            style: 'currency',
-                            currency: account.currency,
-                          }).format(account.balance)}
+                          {formatCurrency(account.balance, account.currency)}
                         </span>
                       </Item>
                     </Link>

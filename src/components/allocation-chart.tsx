@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '~/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import { usePrivacy } from '~/contexts/privacy-context'
 
 interface AllocationEntry {
   key: string
@@ -39,7 +40,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 export { CATEGORY_COLORS }
 
-function formatCurrency(value: number, currency: string) {
+function formatCurrencyValue(value: number, currency: string) {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency,
@@ -52,11 +53,13 @@ function AllocationTooltipContent({
   payload,
   currency,
   total,
+  formatCurrency,
 }: {
   active?: boolean
   payload?: Array<{ payload: AllocationEntry }>
   currency: string
   total: number
+  formatCurrency: (value: number, currency: string) => string
 }) {
   if (!active || !payload?.length) return null
 
@@ -96,6 +99,7 @@ function TreemapContent({
   color,
   currency,
   total,
+  formatCurrency,
 }: {
   x: number
   y: number
@@ -106,6 +110,7 @@ function TreemapContent({
   color: string
   currency: string
   total: number
+  formatCurrency: (value: number, currency: string) => string
 }) {
   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0'
   const showLabel = width > 60 && height > 40
@@ -160,12 +165,14 @@ function DonutView({
   currency,
   total,
   formattedTotal,
+  formatCurrency,
 }: {
   data: AllocationEntry[]
   chartConfig: ChartConfig
   currency: string
   total: number
   formattedTotal: string
+  formatCurrency: (value: number, currency: string) => string
 }) {
   return (
     <ChartContainer
@@ -175,7 +182,7 @@ function DonutView({
       <PieChart>
         <ChartTooltip
           content={
-            <AllocationTooltipContent currency={currency} total={total} />
+            <AllocationTooltipContent currency={currency} total={total} formatCurrency={formatCurrency} />
           }
         />
         <Pie
@@ -230,10 +237,12 @@ function TreemapView({
   data,
   currency,
   total,
+  formatCurrency,
 }: {
   data: AllocationEntry[]
   currency: string
   total: number
+  formatCurrency: (value: number, currency: string) => string
 }) {
   const treemapData = React.useMemo(
     () =>
@@ -263,6 +272,7 @@ function TreemapView({
               color=""
               currency={currency}
               total={total}
+              formatCurrency={formatCurrency}
             />
           }
         />
@@ -275,10 +285,12 @@ function AllocationLegend({
   data,
   currency,
   total,
+  formatCurrency,
 }: {
   data: AllocationEntry[]
   currency: string
   total: number
+  formatCurrency: (value: number, currency: string) => string
 }) {
   return (
     <div className="grid w-full gap-2 text-sm">
@@ -308,6 +320,13 @@ function AllocationLegend({
 
 export function AllocationChart({ data, currency, total }: AllocationChartProps) {
   const [view, setView] = React.useState<ChartView>('donut')
+  const { isPrivate } = usePrivacy()
+
+  const formatCurrency = React.useCallback(
+    (value: number, cur: string) =>
+      isPrivate ? '••••••' : formatCurrencyValue(value, cur),
+    [isPrivate],
+  )
 
   const chartConfig = React.useMemo(() => {
     const config: ChartConfig = {}
@@ -351,11 +370,12 @@ export function AllocationChart({ data, currency, total }: AllocationChartProps)
               currency={currency}
               total={total}
               formattedTotal={formattedTotal}
+              formatCurrency={formatCurrency}
             />
           ) : (
-            <TreemapView data={data} currency={currency} total={total} />
+            <TreemapView data={data} currency={currency} total={total} formatCurrency={formatCurrency} />
           )}
-          <AllocationLegend data={data} currency={currency} total={total} />
+          <AllocationLegend data={data} currency={currency} total={total} formatCurrency={formatCurrency} />
         </div>
       </CardContent>
     </Card>
