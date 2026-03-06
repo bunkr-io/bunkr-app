@@ -18,6 +18,20 @@ export const listInvestments = query({
   },
 })
 
+export const listInvestmentsByProfile = query({
+  args: { profileId: v.id('profiles') },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return []
+    return (
+      await ctx.db
+        .query('investments')
+        .withIndex('by_profileId', (q) => q.eq('profileId', args.profileId))
+        .collect()
+    ).filter((inv) => !inv.deleted)
+  },
+})
+
 export const listAllInvestmentsByProfiles = query({
   args: { profileIds: v.array(v.id('profiles')) },
   handler: async (ctx, args) => {

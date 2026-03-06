@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { Landmark } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
@@ -16,17 +16,16 @@ import { SiteHeader } from '~/components/site-header'
 import { useProfile } from '~/contexts/profile-context'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
-import { Card, CardFooter, CardHeader } from '~/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { BalanceChart } from '~/components/balance-chart'
-import { DashboardCard } from '~/components/dashboard-card'
 import { getStartTimestamp } from '~/lib/chart-periods'
-import { computePnL } from '~/lib/pnl'
 import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { AllocationChart, CATEGORY_COLORS } from '~/components/allocation-chart'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { useFormatCurrency } from '~/contexts/privacy-context'
 import { useDecryptRecords } from '~/contexts/encryption-context'
+import { WinnersLosers } from '~/components/winners-losers'
 
 export const Route = createFileRoute('/_app/')({
   component: Dashboard,
@@ -84,6 +83,19 @@ function BankAccountsSection() {
   const rawSnapshots = isAllProfiles ? snapshotsAll : snapshotsSingle
   const snapshots = useDecryptRecords(rawSnapshots)
 
+  const investmentsSingle = useQuery(
+    api.investments.listInvestmentsByProfile,
+    singleProfileId ? { profileId: singleProfileId } : 'skip',
+  )
+  const investmentsAll = useQuery(
+    api.investments.listAllInvestmentsByProfiles,
+    isAllProfiles && allProfileIds.length > 0
+      ? { profileIds: allProfileIds }
+      : 'skip',
+  )
+  const rawInvestments = isAllProfiles ? investmentsAll : investmentsSingle
+  const investments = useDecryptRecords(rawInvestments)
+
   const formatCurrency = useFormatCurrency()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
@@ -131,9 +143,9 @@ function BankAccountsSection() {
                 <Skeleton className="h-4 w-32" />
                 <Skeleton className="h-8 w-24" />
               </CardHeader>
-              <CardFooter>
+              <CardContent>
                 <Skeleton className="h-4 w-40" />
-              </CardFooter>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -188,38 +200,16 @@ function BankAccountsSection() {
         />
       </div>
 
-      <h2 className="text-lg font-semibold">Accounts</h2>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {activeAccounts.map((account) => {
-          const accountSnapshots =
-            snapshots
-              ?.filter((s) => s.bankAccountId === account._id)
-              .sort((a, b) => a.date.localeCompare(b.date))
-              .map((s) => ({ balance: s.balance })) ?? []
-          const accountPnl = computePnL(accountSnapshots)
-
-          return (
-            <Link
-              key={account._id}
-              to="/accounts/$accountId"
-              params={{ accountId: account._id }}
-            >
-              <DashboardCard
-                title={account.connectorName ?? account.name}
-                value={formatCurrency(account.balance, account.currency)}
-                pnl={accountPnl}
-                currency={account.currency}
-                description={
-                  account.iban
-                    ? account.iban.replace(/(.{4})/g, '$1 ').trim()
-                    : undefined
-                }
-                className="h-full transition-colors hover:bg-muted/50 cursor-pointer"
-              />
-            </Link>
-          )
-        })}
-      </div>
+      {investments && investments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Winners & Losers</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WinnersLosers investments={investments} currency={currency} />
+          </CardContent>
+        </Card>
+      )}
     </>
   )
 }

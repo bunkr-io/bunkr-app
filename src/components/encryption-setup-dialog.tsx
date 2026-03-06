@@ -30,7 +30,9 @@ const DISMISSED_KEY = 'bunkr-encryption-setup-dismissed'
 export function EncryptionSetupDialog() {
   const { isEncryptionEnabled, isLoading, role } = useEncryption()
   const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(DISMISSED_KEY) === 'true',
+    () =>
+      typeof window !== 'undefined' &&
+      localStorage.getItem(DISMISSED_KEY) === 'true',
   )
   const [step, setStep] = useState<'prompt' | 'setup'>('prompt')
   const [passphrase, setPassphrase] = useState('')
