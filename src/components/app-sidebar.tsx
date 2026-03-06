@@ -3,10 +3,8 @@ import {
   LayoutDashboard,
   Landmark,
   Link,
-  BarChart3,
   Settings,
   HelpCircle,
-  Search,
 } from 'lucide-react'
 
 import { ProfileSwitcher } from '~/components/profile-switcher'
@@ -37,11 +35,6 @@ const data = {
       url: '/connections',
       icon: Link,
     },
-    {
-      title: 'Analytics',
-      url: '#',
-      icon: BarChart3,
-    },
   ],
   navSecondary: [
     {
@@ -53,11 +46,6 @@ const data = {
       title: 'Help',
       url: '#',
       icon: HelpCircle,
-    },
-    {
-      title: 'Search',
-      url: '#',
-      icon: Search,
     },
   ],
 }
