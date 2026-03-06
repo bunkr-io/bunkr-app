@@ -460,6 +460,7 @@ export const seedDemoData = internalMutation({
         } else {
           await ctx.db.insert('dailyNetWorth', {
             profileId: profile._id,
+            workspaceId: profile.workspaceId,
             date: dateStr,
             timestamp,
             balance: snapshotBalance,

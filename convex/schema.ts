@@ -141,11 +141,13 @@ export default defineSchema({
 
   dailyNetWorth: defineTable({
     profileId: v.id('profiles'),
+    workspaceId: v.id('workspaces'),
     date: v.string(),
     timestamp: v.number(),
     balance: v.number(),
     currency: v.string(),
   })
     .index('by_profileId_timestamp', ['profileId', 'timestamp'])
-    .index('by_profileId_date', ['profileId', 'date']),
+    .index('by_profileId_date', ['profileId', 'date'])
+    .index('by_workspaceId_timestamp', ['workspaceId', 'timestamp']),
 })

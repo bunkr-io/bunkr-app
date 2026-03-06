@@ -77,13 +77,21 @@ export const seedBalanceSnapshots = internalMutation({
 export const backfillDailyNetWorth = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const snapshots = await ctx.db.query('balanceSnapshots').collect()
+    const [snapshots, profiles] = await Promise.all([
+      ctx.db.query('balanceSnapshots').collect(),
+      ctx.db.query('profiles').collect(),
+    ])
+
+    const profileWorkspaceMap = new Map<string, Id<'workspaces'>>(
+      profiles.map((p) => [p._id, p.workspaceId]),
+    )
 
     // Group by profileId + date, summing balances
     const aggregates = new Map<
       string,
       {
         profileId: Id<'profiles'>
+        workspaceId: Id<'workspaces'>
         date: string
         timestamp: number
         balance: number
@@ -92,17 +100,19 @@ export const backfillDailyNetWorth = internalMutation({
     >()
 
     for (const s of snapshots) {
+      const workspaceId = profileWorkspaceMap.get(s.profileId)
+      if (!workspaceId) continue
       const key = `${s.profileId}:${s.date}`
       const existing = aggregates.get(key)
       if (existing) {
         existing.balance += s.balance
-        // Keep the latest timestamp
         if (s.timestamp > existing.timestamp) {
           existing.timestamp = s.timestamp
         }
       } else {
         aggregates.set(key, {
           profileId: s.profileId,
+          workspaceId,
           date: s.date,
           timestamp: s.timestamp,
           balance: s.balance,
@@ -136,6 +146,7 @@ export const backfillDailyNetWorth = internalMutation({
           count++
           return ctx.db.insert('dailyNetWorth', {
             profileId: agg.profileId,
+            workspaceId: agg.workspaceId,
             date: agg.date,
             timestamp: agg.timestamp,
             balance: Math.round(agg.balance * 100) / 100,

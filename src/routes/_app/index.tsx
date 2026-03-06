@@ -50,7 +50,9 @@ function BankAccountsSection() {
     isAllProfiles,
     allProfileIds,
     singleProfileId,
+    profiles,
   } = useProfile()
+  const workspaceId = profiles?.[0]?.workspaceId ?? null
   const [period, setPeriod] = React.useState<Period>('1M')
   const startTimestamp = React.useMemo(
     () => getStartTimestamp(period),
@@ -76,9 +78,7 @@ function BankAccountsSection() {
   )
   const netWorthAll = useQuery(
     api.balanceSnapshots.listAllDailyNetWorth,
-    isAllProfiles && allProfileIds.length > 0
-      ? { profileIds: allProfileIds, startTimestamp }
-      : 'skip',
+    isAllProfiles && workspaceId ? { workspaceId, startTimestamp } : 'skip',
   )
   const dailyNetWorth = isAllProfiles ? netWorthAll : netWorthSingle
 

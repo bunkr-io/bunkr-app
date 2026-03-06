@@ -112,8 +112,12 @@ async function recordBalanceSnapshot(
     })
   }
 
+  const profile = await ctx.db.get('profiles', params.profileId)
+  if (!profile) throw new Error('Profile not found')
+
   await updateDailyNetWorth(ctx, {
     profileId: params.profileId,
+    workspaceId: profile.workspaceId,
     date,
     timestamp,
     balanceDelta: params.balance - oldBalance,
@@ -125,6 +129,7 @@ async function updateDailyNetWorth(
   ctx: MutationCtx,
   params: {
     profileId: Id<'profiles'>
+    workspaceId: Id<'workspaces'>
     date: string
     timestamp: number
     balanceDelta: number
@@ -145,6 +150,7 @@ async function updateDailyNetWorth(
   } else {
     await ctx.db.insert('dailyNetWorth', {
       profileId: params.profileId,
+      workspaceId: params.workspaceId,
       date: params.date,
       timestamp: params.timestamp,
       balance: Math.round(params.balanceDelta * 100) / 100,

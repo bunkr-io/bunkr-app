@@ -79,22 +79,19 @@ export const listDailyNetWorth = query({
 
 export const listAllDailyNetWorth = query({
   args: {
-    profileIds: v.array(v.id('profiles')),
+    workspaceId: v.id('workspaces'),
     startTimestamp: v.number(),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return []
-    const results = await Promise.all(
-      args.profileIds.map((profileId) =>
-        ctx.db
-          .query('dailyNetWorth')
-          .withIndex('by_profileId_timestamp', (q) =>
-            q.eq('profileId', profileId).gte('timestamp', args.startTimestamp),
-          )
-          .collect(),
-      ),
-    )
-    return results.flat()
+    return await ctx.db
+      .query('dailyNetWorth')
+      .withIndex('by_workspaceId_timestamp', (q) =>
+        q
+          .eq('workspaceId', args.workspaceId)
+          .gte('timestamp', args.startTimestamp),
+      )
+      .collect()
   },
 })
