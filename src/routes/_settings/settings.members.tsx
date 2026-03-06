@@ -46,15 +46,19 @@ function MembersPage() {
   const data = useQuery(api.members.listMembers)
   const resolveUsers = useAction(api.members.resolveUsers)
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})
+  const [usersLoading, setUsersLoading] = useState(true)
 
   const fetchUsers = useCallback(async () => {
     if (!data?.members.length) return
     const userIds = data.members.map((m) => m.userId)
+    setUsersLoading(true)
     try {
       const resolved = await resolveUsers({ userIds })
       setUsers(resolved)
     } catch {
       // Clerk API may not be configured yet
+    } finally {
+      setUsersLoading(false)
     }
   }, [data?.members, resolveUsers])
 
@@ -101,46 +105,63 @@ function MembersPage() {
             />
           </ItemCardHeader>
           <ItemCardItems>
-            {data.members.map((member) => {
-              const user = users[member.userId] as ResolvedUser | undefined
-              const name = user
-                ? [user.firstName, user.lastName].filter(Boolean).join(' ')
-                : member.userId
-              const email = user?.email ?? ''
-              const initials = name
-                .split(' ')
-                .map((n) => n[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2)
+            {usersLoading
+              ? data.members.map((member) => (
+                  <ItemCardItem key={member._id}>
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-8 rounded-full" />
+                      <ItemCardItemContent>
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </ItemCardItemContent>
+                    </div>
+                    <ItemCardItemAction>
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                    </ItemCardItemAction>
+                  </ItemCardItem>
+                ))
+              : data.members.map((member) => {
+                  const user = users[member.userId] as ResolvedUser | undefined
+                  const name = user
+                    ? [user.firstName, user.lastName].filter(Boolean).join(' ')
+                    : member.userId
+                  const email = user?.email ?? ''
+                  const initials = name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2)
 
-              return (
-                <ItemCardItem key={member._id}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="size-8 rounded-full">
-                      <AvatarImage src={user?.imageUrl} alt={name} />
-                      <AvatarFallback className="rounded-full text-xs">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <ItemCardItemContent>
-                      <ItemCardItemTitle>
-                        {name}
-                        {member.userId === data.currentUserId && (
-                          <span className="text-sm text-muted-foreground">
-                            (you)
-                          </span>
-                        )}
-                      </ItemCardItemTitle>
-                      <ItemCardItemDescription>{email}</ItemCardItemDescription>
-                    </ItemCardItemContent>
-                  </div>
-                  <ItemCardItemAction>
-                    <Badge variant="outline">{member.role}</Badge>
-                  </ItemCardItemAction>
-                </ItemCardItem>
-              )
-            })}
+                  return (
+                    <ItemCardItem key={member._id}>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="size-8 rounded-full">
+                          <AvatarImage src={user?.imageUrl} alt={name} />
+                          <AvatarFallback className="rounded-full text-xs">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <ItemCardItemContent>
+                          <ItemCardItemTitle>
+                            {name}
+                            {member.userId === data.currentUserId && (
+                              <span className="text-sm text-muted-foreground">
+                                (you)
+                              </span>
+                            )}
+                          </ItemCardItemTitle>
+                          <ItemCardItemDescription>
+                            {email}
+                          </ItemCardItemDescription>
+                        </ItemCardItemContent>
+                      </div>
+                      <ItemCardItemAction>
+                        <Badge variant="outline">{member.role}</Badge>
+                      </ItemCardItemAction>
+                    </ItemCardItem>
+                  )
+                })}
             {data.invitations.map((invitation) => (
               <PendingInvitationItem
                 key={invitation._id}
