@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { Clock, Lock } from 'lucide-react'
 import { useEncryption } from '~/contexts/encryption-context'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
-import { Clock, Lock } from 'lucide-react'
 
 export function PassphrasePrompt() {
   const {
@@ -77,9 +77,7 @@ export function PassphrasePrompt() {
               onChange={(e) => setPassphrase(e.target.value)}
               autoFocus
             />
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <Button type="submit" className="w-full" disabled={unlocking}>
             {unlocking ? 'Unlocking...' : 'Unlock'}

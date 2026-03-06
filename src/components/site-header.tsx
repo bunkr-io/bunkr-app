@@ -35,7 +35,11 @@ export function SiteHeader({ title = 'Dashboard' }: { title?: string }) {
             onClick={togglePrivacy}
             aria-label={isPrivate ? 'Show balances' : 'Hide balances'}
           >
-            {isPrivate ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            {isPrivate ? (
+              <EyeOff className="size-4" />
+            ) : (
+              <Eye className="size-4" />
+            )}
           </Button>
         </div>
       </div>

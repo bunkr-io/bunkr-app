@@ -35,14 +35,16 @@ const pctFmt = new Intl.NumberFormat('fr-FR', {
 
 const MASKED = '••••••'
 
-export function HoldingsTable({ investments }: { investments: Investment[] }) {
+export function HoldingsTable({
+  investments,
+}: {
+  investments: Array<Investment>
+}) {
   const { isPrivate } = usePrivacy()
   const sorted = [...investments].sort((a, b) => b.valuation - a.valuation)
 
   if (sorted.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">No holdings found.</p>
-    )
+    return <p className="text-sm text-muted-foreground">No holdings found.</p>
   }
 
   return (
@@ -73,7 +75,9 @@ export function HoldingsTable({ investments }: { investments: Investment[] }) {
               {isPrivate ? MASKED : currencyFmt.format(inv.valuation)}
             </TableCell>
             <TableCell className="text-right">
-              {isPrivate ? MASKED : inv.diff != null ? (
+              {isPrivate ? (
+                MASKED
+              ) : inv.diff != null ? (
                 <span
                   className={cn(
                     inv.diff >= 0 ? 'text-success' : 'text-destructive',

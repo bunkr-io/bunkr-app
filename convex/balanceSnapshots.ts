@@ -32,9 +32,7 @@ export const listSnapshotsByProfile = query({
     return await ctx.db
       .query('balanceSnapshots')
       .withIndex('by_profileId_timestamp', (q) =>
-        q
-          .eq('profileId', args.profileId)
-          .gte('timestamp', args.startTimestamp),
+        q.eq('profileId', args.profileId).gte('timestamp', args.startTimestamp),
       )
       .collect()
   },

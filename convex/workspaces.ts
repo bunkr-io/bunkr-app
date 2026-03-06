@@ -49,6 +49,6 @@ export const getMyWorkspace = query({
 
     if (!member) return null
 
-    return await ctx.db.get(member.workspaceId)
+    return await ctx.db.get('workspaces', member.workspaceId)
   },
 })

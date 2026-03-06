@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { mutation, query, internalQuery } from './_generated/server'
+import { internalQuery, mutation, query } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
 // Returns workspace encryption status + current user's key slot
@@ -270,7 +270,7 @@ export const disableWorkspaceEncryption = mutation({
         q.eq('workspaceId', membership.workspaceId),
       )
       .first()
-    if (wsEnc) await ctx.db.delete(wsEnc._id)
+    if (wsEnc) await ctx.db.delete('workspaceEncryption', wsEnc._id)
 
     // Delete all key slots
     const slots = await ctx.db
@@ -280,7 +280,7 @@ export const disableWorkspaceEncryption = mutation({
       )
       .collect()
     for (const slot of slots) {
-      await ctx.db.delete(slot._id)
+      await ctx.db.delete('workspaceKeySlots', slot._id)
     }
 
     // Delete all personal keys for workspace members
@@ -295,7 +295,7 @@ export const disableWorkspaceEncryption = mutation({
         .query('encryptionKeys')
         .withIndex('by_userId', (q) => q.eq('userId', m.userId))
         .first()
-      if (key) await ctx.db.delete(key._id)
+      if (key) await ctx.db.delete('encryptionKeys', key._id)
     }
   },
 })
@@ -304,7 +304,7 @@ export const disableWorkspaceEncryption = mutation({
 export const getPublicKeyForProfile = internalQuery({
   args: { profileId: v.id('profiles') },
   handler: async (ctx, args) => {
-    const profile = await ctx.db.get(args.profileId)
+    const profile = await ctx.db.get('profiles', args.profileId)
     if (!profile) return null
     const wsEnc = await ctx.db
       .query('workspaceEncryption')
@@ -323,7 +323,7 @@ export const migrateConnection = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.connectionId, {
+    await ctx.db.patch('connections', args.connectionId, {
       encryptedData: args.encryptedData,
       connectorName: 'Encrypted',
     })
@@ -337,7 +337,7 @@ export const decryptConnection = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.connectionId, {
+    await ctx.db.patch('connections', args.connectionId, {
       connectorName: args.connectorName,
       encryptedData: undefined,
     })
@@ -352,7 +352,7 @@ export const migrateBankAccount = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.bankAccountId, {
+    await ctx.db.patch('bankAccounts', args.bankAccountId, {
       encryptedData: args.encryptedData,
       name: 'Encrypted',
       balance: 0,
@@ -369,7 +369,7 @@ export const migrateBalanceSnapshot = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.snapshotId, {
+    await ctx.db.patch('balanceSnapshots', args.snapshotId, {
       encryptedData: args.encryptedData,
       balance: 0,
     })
@@ -383,7 +383,7 @@ export const migrateInvestment = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.investmentId, {
+    await ctx.db.patch('investments', args.investmentId, {
       encryptedData: args.encryptedData,
       code: undefined,
       label: 'Encrypted',
@@ -409,7 +409,7 @@ export const decryptBankAccount = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.bankAccountId, {
+    await ctx.db.patch('bankAccounts', args.bankAccountId, {
       name: args.name,
       balance: args.balance,
       number: args.number,
@@ -426,7 +426,7 @@ export const decryptBalanceSnapshot = mutation({
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    await ctx.db.patch(args.snapshotId, {
+    await ctx.db.patch('balanceSnapshots', args.snapshotId, {
       balance: args.balance,
       encryptedData: undefined,
     })
@@ -450,7 +450,7 @@ export const decryptInvestment = mutation({
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
     const { investmentId, ...fields } = args
-    await ctx.db.patch(investmentId, {
+    await ctx.db.patch('investments', investmentId, {
       ...fields,
       encryptedData: undefined,
     })

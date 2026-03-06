@@ -1,17 +1,17 @@
 import * as React from 'react'
-import { useConvexAuth, useQuery, useMutation } from 'convex/react'
+import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
-import type { Id, Doc } from '../../convex/_generated/dataModel'
+import type { Doc, Id } from '../../convex/_generated/dataModel'
 
 type ActiveProfileId = Id<'profiles'> | 'all' | null
 
 interface ProfileContextValue {
-  profiles: Doc<'profiles'>[] | undefined
+  profiles: Array<Doc<'profiles'>> | undefined
   activeProfileId: ActiveProfileId
   activeProfile: Doc<'profiles'> | undefined
   setActiveProfileId: (id: Id<'profiles'> | 'all') => void
   isAllProfiles: boolean
-  allProfileIds: Id<'profiles'>[]
+  allProfileIds: Array<Id<'profiles'>>
   /** activeProfileId when a single profile is selected, null otherwise */
   singleProfileId: Id<'profiles'> | null
   isLoading: boolean
@@ -40,10 +40,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (bootstrapping.current) return
 
     bootstrapping.current = true
-    ensureWorkspace()
-      .catch(() => {
-        bootstrapping.current = false
-      })
+    ensureWorkspace().catch(() => {
+      bootstrapping.current = false
+    })
   }, [isAuthenticated, profiles, ensureWorkspace])
 
   // Set initial active profile from localStorage or first profile

@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useSession, useUser } from '@clerk/tanstack-react-start'
-import type { SessionWithActivitiesResource } from '@clerk/shared/types'
 import { toast } from 'sonner'
+import type { SessionWithActivitiesResource } from '@clerk/shared/types'
 import {
   ItemCard,
-  ItemCardItems,
   ItemCardItem,
-  ItemCardItemContent,
-  ItemCardItemTitle,
-  ItemCardItemDescription,
   ItemCardItemAction,
+  ItemCardItemContent,
+  ItemCardItemDescription,
+  ItemCardItemTitle,
+  ItemCardItems,
 } from '~/components/item-card'
 import { Button } from '~/components/ui/button'
 import { Skeleton } from '~/components/ui/skeleton'
@@ -22,7 +22,9 @@ export const Route = createFileRoute('/_settings/settings/security')({
 function SecurityPage() {
   const { user } = useUser()
   const { session: currentSession } = useSession()
-  const [sessions, setSessions] = useState<SessionWithActivitiesResource[]>([])
+  const [sessions, setSessions] = useState<
+    Array<SessionWithActivitiesResource>
+  >([])
   const [loading, setLoading] = useState(true)
 
   const fetchSessions = useCallback(async () => {
@@ -90,7 +92,8 @@ function SecurityPage() {
               <ItemCardItem>
                 <ItemCardItemContent>
                   <ItemCardItemTitle className="text-sm text-muted-foreground">
-                    {others.length} other {others.length === 1 ? 'session' : 'sessions'}
+                    {others.length} other{' '}
+                    {others.length === 1 ? 'session' : 'sessions'}
                   </ItemCardItemTitle>
                 </ItemCardItemContent>
                 <ItemCardItemAction>
@@ -119,7 +122,7 @@ function formatDeviceName(session: SessionWithActivitiesResource): string {
 
 function formatLocation(session: SessionWithActivitiesResource): string {
   const { city, country } = session.latestActivity
-  const parts: string[] = []
+  const parts: Array<string> = []
   if (city) parts.push(city)
   if (country) parts.push(country)
   return parts.join(', ')
@@ -147,7 +150,7 @@ function SessionItem({
 }) {
   const location = formatLocation(session)
 
-  const locationParts: string[] = []
+  const locationParts: Array<string> = []
   if (location) locationParts.push(location)
   if (!isCurrent) locationParts.push(formatLastSeen(session.lastActiveAt))
 
@@ -163,7 +166,9 @@ function SessionItem({
             </>
           )}
           {isCurrent && locationParts.length > 0 && <span>{'\u00B7'}</span>}
-          {locationParts.length > 0 && <span>{locationParts.join(' \u00B7 ')}</span>}
+          {locationParts.length > 0 && (
+            <span>{locationParts.join(' \u00B7 ')}</span>
+          )}
         </ItemCardItemDescription>
       </ItemCardItemContent>
     </ItemCardItem>

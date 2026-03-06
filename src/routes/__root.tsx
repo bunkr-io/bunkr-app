@@ -11,11 +11,11 @@ import { auth } from '@clerk/tanstack-react-start/server'
 import { createServerFn } from '@tanstack/react-start'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
 import * as React from 'react'
+import { ThemeProvider } from 'next-themes'
 import type { QueryClient } from '@tanstack/react-query'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { ConvexReactClient } from 'convex/react'
 import { TooltipProvider } from '~/components/ui/tooltip'
-import { ThemeProvider } from 'next-themes'
 import { ProfileProvider } from '~/contexts/profile-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
 import { EncryptionProvider } from '~/contexts/encryption-context'
@@ -102,7 +102,12 @@ function RootComponent() {
     <ClerkProvider>
       <ConvexProviderWithClerk client={context.convexClient} useAuth={useAuth}>
         <TooltipProvider>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
             <ProfileProvider>
               <EncryptionProvider>
                 <PrivacyProvider>

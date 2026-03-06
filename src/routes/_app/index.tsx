@@ -1,21 +1,18 @@
 import * as React from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
+import { CirclePlus, Landmark } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
+import type { Period } from '~/lib/chart-periods'
 import { SiteHeader } from '~/components/site-header'
 import { useProfile } from '~/contexts/profile-context'
-import { Landmark, CirclePlus } from 'lucide-react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
-import {
-  Card,
-  CardFooter,
-  CardHeader,
-} from '~/components/ui/card'
+import { Card, CardFooter, CardHeader } from '~/components/ui/card'
 import { Skeleton } from '~/components/ui/skeleton'
 import { BalanceChart } from '~/components/balance-chart'
 import { DashboardCard } from '~/components/dashboard-card'
-import { type Period, getStartTimestamp } from '~/lib/chart-periods'
+import { getStartTimestamp } from '~/lib/chart-periods'
 import { computePnL } from '~/lib/pnl'
 import { fillMissingDates } from '~/lib/fill-missing-dates'
 import { AllocationChart, CATEGORY_COLORS } from '~/components/allocation-chart'
@@ -41,9 +38,17 @@ function Dashboard() {
 }
 
 function BankAccountsSection() {
-  const { isLoading: profileLoading, isAllProfiles, allProfileIds, singleProfileId } = useProfile()
+  const {
+    isLoading: profileLoading,
+    isAllProfiles,
+    allProfileIds,
+    singleProfileId,
+  } = useProfile()
   const [period, setPeriod] = React.useState<Period>('1M')
-  const startTimestamp = React.useMemo(() => getStartTimestamp(period), [period])
+  const startTimestamp = React.useMemo(
+    () => getStartTimestamp(period),
+    [period],
+  )
 
   const bankAccountsSingle = useQuery(
     api.powens.listBankAccounts,
@@ -60,9 +65,7 @@ function BankAccountsSection() {
 
   const snapshotsSingle = useQuery(
     api.balanceSnapshots.listSnapshotsByProfile,
-    singleProfileId
-      ? { profileId: singleProfileId, startTimestamp }
-      : 'skip',
+    singleProfileId ? { profileId: singleProfileId, startTimestamp } : 'skip',
   )
   const snapshotsAll = useQuery(
     api.balanceSnapshots.listAllSnapshotsByProfiles,
@@ -180,14 +183,19 @@ function BankAccountsSection() {
       <h2 className="text-lg font-semibold">Accounts</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {activeAccounts.map((account) => {
-          const accountSnapshots = snapshots
-            ?.filter((s) => s.bankAccountId === account._id)
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .map((s) => ({ balance: s.balance })) ?? []
+          const accountSnapshots =
+            snapshots
+              ?.filter((s) => s.bankAccountId === account._id)
+              .sort((a, b) => a.date.localeCompare(b.date))
+              .map((s) => ({ balance: s.balance })) ?? []
           const accountPnl = computePnL(accountSnapshots)
 
           return (
-            <Link key={account._id} to="/accounts/$accountId" params={{ accountId: account._id }}>
+            <Link
+              key={account._id}
+              to="/accounts/$accountId"
+              params={{ accountId: account._id }}
+            >
               <DashboardCard
                 title={account.connectorName ?? account.name}
                 value={formatCurrency(account.balance, account.currency)}

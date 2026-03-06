@@ -1,11 +1,15 @@
 import * as React from 'react'
-import { Pie, PieChart, Cell, Label, Treemap, ResponsiveContainer } from 'recharts'
-import { PieChartIcon, LayoutGrid } from 'lucide-react'
 import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from '~/components/ui/chart'
+  Cell,
+  Label,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Treemap,
+} from 'recharts'
+import { LayoutGrid, PieChartIcon } from 'lucide-react'
+import type { ChartConfig } from '~/components/ui/chart'
+import { ChartContainer, ChartTooltip } from '~/components/ui/chart'
 import {
   Card,
   CardAction,
@@ -24,7 +28,7 @@ interface AllocationEntry {
 }
 
 interface AllocationChartProps {
-  data: AllocationEntry[]
+  data: Array<AllocationEntry>
   currency: string
   total: number
 }
@@ -83,7 +87,9 @@ function AllocationTooltipContent({
       </div>
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Allocation</span>
-        <span className="font-mono font-medium tabular-nums">{percentage}%</span>
+        <span className="font-mono font-medium tabular-nums">
+          {percentage}%
+        </span>
       </div>
     </div>
   )
@@ -167,7 +173,7 @@ function DonutView({
   formattedTotal,
   formatCurrency,
 }: {
-  data: AllocationEntry[]
+  data: Array<AllocationEntry>
   chartConfig: ChartConfig
   currency: string
   total: number
@@ -182,7 +188,11 @@ function DonutView({
       <PieChart>
         <ChartTooltip
           content={
-            <AllocationTooltipContent currency={currency} total={total} formatCurrency={formatCurrency} />
+            <AllocationTooltipContent
+              currency={currency}
+              total={total}
+              formatCurrency={formatCurrency}
+            />
           }
         />
         <Pie
@@ -239,7 +249,7 @@ function TreemapView({
   total,
   formatCurrency,
 }: {
-  data: AllocationEntry[]
+  data: Array<AllocationEntry>
   currency: string
   total: number
   formatCurrency: (value: number, currency: string) => string
@@ -287,7 +297,7 @@ function AllocationLegend({
   total,
   formatCurrency,
 }: {
-  data: AllocationEntry[]
+  data: Array<AllocationEntry>
   currency: string
   total: number
   formatCurrency: (value: number, currency: string) => string
@@ -318,7 +328,11 @@ function AllocationLegend({
   )
 }
 
-export function AllocationChart({ data, currency, total }: AllocationChartProps) {
+export function AllocationChart({
+  data,
+  currency,
+  total,
+}: AllocationChartProps) {
   const [view, setView] = React.useState<ChartView>('donut')
   const { isPrivate } = usePrivacy()
 
@@ -373,9 +387,19 @@ export function AllocationChart({ data, currency, total }: AllocationChartProps)
               formatCurrency={formatCurrency}
             />
           ) : (
-            <TreemapView data={data} currency={currency} total={total} formatCurrency={formatCurrency} />
+            <TreemapView
+              data={data}
+              currency={currency}
+              total={total}
+              formatCurrency={formatCurrency}
+            />
           )}
-          <AllocationLegend data={data} currency={currency} total={total} formatCurrency={formatCurrency} />
+          <AllocationLegend
+            data={data}
+            currency={currency}
+            total={total}
+            formatCurrency={formatCurrency}
+          />
         </div>
       </CardContent>
     </Card>

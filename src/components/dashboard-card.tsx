@@ -1,4 +1,5 @@
-import { TrendingUp, TrendingDown } from 'lucide-react'
+import { TrendingDown, TrendingUp } from 'lucide-react'
+import type { PnL } from '~/lib/pnl'
 import {
   Card,
   CardAction,
@@ -8,7 +9,6 @@ import {
   CardTitle,
 } from '~/components/ui/card'
 import { PnLBadge } from '~/components/pnl-badge'
-import type { PnL } from '~/lib/pnl'
 
 interface DashboardCardProps {
   title: string
@@ -47,9 +47,7 @@ export function DashboardCard({
             <Icon className="size-4" />
           </div>
         )}
-        <div className="text-muted-foreground">
-          {description ?? '\u00A0'}
-        </div>
+        <div className="text-muted-foreground">{description ?? '\u00A0'}</div>
       </CardFooter>
     </Card>
   )

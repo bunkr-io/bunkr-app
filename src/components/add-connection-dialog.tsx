@@ -1,14 +1,14 @@
 import * as React from 'react'
-import { Loader2, Landmark } from 'lucide-react'
+import { Landmark, Loader2 } from 'lucide-react'
 import { useAction } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { useProfile } from '~/contexts/profile-context'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '~/components/ui/dialog'
 import { Button } from '~/components/ui/button'
 
@@ -46,16 +46,15 @@ export function AddConnectionDialog({
         <DialogHeader>
           <DialogTitle>Add a Connection</DialogTitle>
           <DialogDescription>
-            Securely connect your bank, broker, or insurance to start tracking your finances.
+            Securely connect your bank, broker, or insurance to start tracking
+            your finances.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-6">
           <div className="flex size-16 items-center justify-center rounded-full bg-muted">
             <Landmark className="size-8 text-muted-foreground" />
           </div>
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button
             size="lg"
             onClick={handleConnect}

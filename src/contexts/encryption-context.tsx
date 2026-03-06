@@ -1,16 +1,15 @@
 import * as React from 'react'
-import { useQuery } from 'convex/react'
-import { useConvexAuth } from 'convex/react'
+import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import {
-  importPrivateKey,
-  decryptData,
-  getStoredPrivateKey,
-  storePrivateKey,
   clearStoredPrivateKey,
-  deriveKeyFromPassphrase,
+  decryptData,
   decryptPrivateKey as decryptPrivateKeyWithPassphrase,
+  deriveKeyFromPassphrase,
   envelopeDecryptString,
+  getStoredPrivateKey,
+  importPrivateKey,
+  storePrivateKey,
 } from '~/lib/crypto'
 
 interface EncryptionContextValue {
@@ -28,9 +27,15 @@ interface EncryptionContextValue {
   workspacePrivateKeyJwk: string | null
 }
 
-const EncryptionContext = React.createContext<EncryptionContextValue | null>(null)
+const EncryptionContext = React.createContext<EncryptionContextValue | null>(
+  null,
+)
 
-export function EncryptionProvider({ children }: { children: React.ReactNode }) {
+export function EncryptionProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const { isAuthenticated } = useConvexAuth()
   const wsEncryption = useQuery(
     api.encryptionKeys.getWorkspaceEncryption,
@@ -38,7 +43,9 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
   )
 
   const [privateKey, setPrivateKey] = React.useState<CryptoKey | null>(null)
-  const [workspacePrivateKeyJwk, setWorkspacePrivateKeyJwk] = React.useState<string | null>(null)
+  const [workspacePrivateKeyJwk, setWorkspacePrivateKeyJwk] = React.useState<
+    string | null
+  >(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const importingRef = React.useRef(false)
 
@@ -84,11 +91,14 @@ export function EncryptionProvider({ children }: { children: React.ReactNode }) 
       if (!wsEncryption.keySlot) throw new Error('No workspace access granted')
 
       // Step 1: Decrypt personal RSA private key with passphrase
-      const salt = Uint8Array.from(atob(wsEncryption.personalKey.pbkdf2Salt), (c) =>
-        c.charCodeAt(0),
+      const salt = Uint8Array.from(
+        atob(wsEncryption.personalKey.pbkdf2Salt),
+        (c) => c.charCodeAt(0),
       )
       const passphraseKey = await deriveKeyFromPassphrase(passphrase, salt)
-      const { ct, iv } = JSON.parse(wsEncryption.personalKey.encryptedPrivateKey) as {
+      const { ct, iv } = JSON.parse(
+        wsEncryption.personalKey.encryptedPrivateKey,
+      ) as {
         ct: string
         iv: string
       }
@@ -163,12 +173,17 @@ export function useEncryption() {
 }
 
 // Hook to transparently decrypt records that may have encrypted data
-export function useDecryptRecords<T extends { encryptedData?: string; connectionEncryptedData?: string }>(
-  records: T[] | undefined,
-): T[] | undefined {
+export function useDecryptRecords<
+  T extends { encryptedData?: string; connectionEncryptedData?: string },
+>(records: Array<T> | undefined): Array<T> | undefined {
   const { privateKey, isEncryptionEnabled, isLoading } = useEncryption()
-  const [decrypted, setDecrypted] = React.useState<T[] | undefined>(undefined)
-  const prevRef = React.useRef<{ records: T[] | undefined; key: CryptoKey | null }>({
+  const [decrypted, setDecrypted] = React.useState<Array<T> | undefined>(
+    undefined,
+  )
+  const prevRef = React.useRef<{
+    records: Array<T> | undefined
+    key: CryptoKey | null
+  }>({
     records: undefined,
     key: null,
   })
@@ -186,7 +201,9 @@ export function useDecryptRecords<T extends { encryptedData?: string; connection
     }
 
     // No encrypted records — pass through
-    const hasEncrypted = records.some((r) => r.encryptedData || r.connectionEncryptedData)
+    const hasEncrypted = records.some(
+      (r) => r.encryptedData || r.connectionEncryptedData,
+    )
     if (!hasEncrypted) {
       setDecrypted(records)
       return
@@ -199,7 +216,10 @@ export function useDecryptRecords<T extends { encryptedData?: string; connection
     }
 
     // Skip if same inputs
-    if (prevRef.current.records === records && prevRef.current.key === privateKey) {
+    if (
+      prevRef.current.records === records &&
+      prevRef.current.key === privateKey
+    ) {
       return
     }
     prevRef.current = { records, key: privateKey }
@@ -219,13 +239,16 @@ export function useDecryptRecords<T extends { encryptedData?: string; connection
           }
           if (r.connectionEncryptedData) {
             try {
-              const data = await decryptData(r.connectionEncryptedData, privateKey!)
+              const data = await decryptData(
+                r.connectionEncryptedData,
+                privateKey!,
+              )
               result = { ...result, ...data }
             } catch {
               // keep original
             }
           }
-          return result as T
+          return result
         }),
       )
       if (!cancelled) setDecrypted(results)
@@ -240,16 +263,12 @@ export function useDecryptRecords<T extends { encryptedData?: string; connection
 }
 
 // Hook to decrypt a single record
-export function useDecryptRecord<T extends { encryptedData?: string; connectionEncryptedData?: string }>(
-  record: T | null | undefined,
-): T | null | undefined {
-  const arr = React.useMemo(
-    () => (record ? [record] : undefined),
-    [record],
-  )
+export function useDecryptRecord<
+  T extends { encryptedData?: string; connectionEncryptedData?: string },
+>(record: T | null | undefined): T | null | undefined {
+  const arr = React.useMemo(() => (record ? [record] : undefined), [record])
   const result = useDecryptRecords(arr)
   if (record === null) return null
   if (record === undefined) return undefined
   return result?.[0]
 }
-

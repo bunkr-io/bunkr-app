@@ -1,5 +1,5 @@
 import { useClerk, useUser } from '@clerk/tanstack-react-start'
-import { MoreVertical, LogOut, UserCircle } from 'lucide-react'
+import { LogOut, MoreVertical, UserCircle } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Skeleton } from '~/components/ui/skeleton'

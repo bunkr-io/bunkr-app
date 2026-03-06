@@ -1,9 +1,9 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { CirclePlus, ChevronRight } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { ChevronRight, CirclePlus } from 'lucide-react'
 import { useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import type { LucideIcon } from 'lucide-react'
 
 import { useProfile } from '~/contexts/profile-context'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
@@ -21,8 +21,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
-  SidebarMenuSubItem,
   SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from '~/components/ui/sidebar'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 
@@ -70,7 +70,9 @@ export function NavMain({
   const connections = isAllProfiles ? connectionsAll : connectionsSingle
 
   const hasConnectionAlert = React.useMemo(
-    () => connections?.some((c) => CONNECTION_ALERT_STATES.has(c.state ?? '')) ?? false,
+    () =>
+      connections?.some((c) => CONNECTION_ALERT_STATES.has(c.state ?? '')) ??
+      false,
     [connections],
   )
 

@@ -16,7 +16,7 @@ function fromBase64(str: string): ArrayBuffer {
   for (let i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i)
   }
-  return bytes.buffer as ArrayBuffer
+  return bytes.buffer
 }
 
 const RSA_PARAMS: RsaHashedKeyGenParams = {
@@ -97,7 +97,7 @@ export async function encryptPrivateKey(
     passphraseKey,
     new TextEncoder().encode(privateKeyJwk),
   )
-  return { ct: toBase64(ct), iv: toBase64(iv.buffer as ArrayBuffer) }
+  return { ct: toBase64(ct), iv: toBase64(iv.buffer) }
 }
 
 export async function decryptPrivateKey(
@@ -137,7 +137,7 @@ export async function encryptData(
   return JSON.stringify({
     ct: toBase64(ct),
     ek: toBase64(ek),
-    iv: toBase64(iv.buffer as ArrayBuffer),
+    iv: toBase64(iv.buffer),
     v: 1,
   })
 }
@@ -196,7 +196,7 @@ export async function envelopeEncryptString(
   return JSON.stringify({
     ct: toBase64(ct),
     ek: toBase64(ek),
-    iv: toBase64(iv.buffer as ArrayBuffer),
+    iv: toBase64(iv.buffer),
   })
 }
 

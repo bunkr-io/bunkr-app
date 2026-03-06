@@ -1,10 +1,10 @@
 import * as React from 'react'
 import {
-  LayoutDashboard,
+  HelpCircle,
   Landmark,
+  LayoutDashboard,
   Link,
   Settings,
-  HelpCircle,
 } from 'lucide-react'
 
 import { ProfileSwitcher } from '~/components/profile-switcher'

@@ -1,10 +1,11 @@
 import * as React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
+import type { Period } from '~/lib/chart-periods'
+import type { ChartConfig } from '~/components/ui/chart'
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from '~/components/ui/chart'
 import {
   Card,
@@ -16,7 +17,7 @@ import {
 } from '~/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
-import { PERIODS, type Period } from '~/lib/chart-periods'
+import { PERIODS } from '~/lib/chart-periods'
 import { computePnL } from '~/lib/pnl'
 import { PnLBadge } from '~/components/pnl-badge'
 import { usePrivacy } from '~/contexts/privacy-context'
@@ -34,7 +35,7 @@ interface BalanceChartData {
 }
 
 interface BalanceChartProps {
-  data: BalanceChartData[]
+  data: Array<BalanceChartData>
   currency: string
   isLoading: boolean
   period: Period
@@ -80,16 +81,27 @@ function ChartArea({
   data,
   formatCurrency,
 }: {
-  data: BalanceChartData[]
+  data: Array<BalanceChartData>
   formatCurrency: (value: number) => string
 }) {
   return (
-    <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
+    <ChartContainer
+      config={chartConfig}
+      className="aspect-auto h-[250px] w-full"
+    >
       <AreaChart data={data}>
         <defs>
           <linearGradient id="balanceFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0.05} />
+            <stop
+              offset="5%"
+              stopColor="var(--color-primary)"
+              stopOpacity={0.3}
+            />
+            <stop
+              offset="95%"
+              stopColor="var(--color-primary)"
+              stopOpacity={0.05}
+            />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} />
@@ -101,7 +113,10 @@ function ChartArea({
           minTickGap={32}
           tickFormatter={(val: string) => {
             const d = new Date(val)
-            return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+            return d.toLocaleDateString('fr-FR', {
+              day: 'numeric',
+              month: 'short',
+            })
           }}
         />
         <YAxis
@@ -150,7 +165,7 @@ export function BalanceChart({
 }: BalanceChartProps) {
   const { isPrivate } = usePrivacy()
   const formatCurrency = React.useMemo(
-    () => isPrivate ? () => '••••••' : currencyFormatter(currency),
+    () => (isPrivate ? () => '••••••' : currencyFormatter(currency)),
     [currency, isPrivate],
   )
 

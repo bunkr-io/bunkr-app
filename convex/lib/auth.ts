@@ -1,4 +1,4 @@
-import type { QueryCtx, MutationCtx, ActionCtx } from '../_generated/server'
+import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server'
 
 export async function getAuthUserId(
   ctx: QueryCtx | MutationCtx | ActionCtx,

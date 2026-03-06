@@ -41,7 +41,7 @@ export async function encryptForProfile(
   return JSON.stringify({
     ct: toBase64(ct),
     ek: toBase64(ek),
-    iv: toBase64(iv.buffer as ArrayBuffer),
+    iv: toBase64(iv.buffer),
     v: 1,
   })
 }

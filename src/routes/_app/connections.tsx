@@ -1,32 +1,32 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useAction } from 'convex/react'
+import { useAction, useQuery } from 'convex/react'
+import {
+  AlertCircle,
+  CheckCircle2,
+  CirclePlus,
+  Link2,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Trash2,
+} from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SiteHeader } from '~/components/site-header'
 import { useProfile } from '~/contexts/profile-context'
 import { useDecryptRecords } from '~/contexts/encryption-context'
-import {
-  Link2,
-  CirclePlus,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Trash2,
-  MoreVertical,
-  Pencil,
-} from 'lucide-react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
 import {
   Item,
+  ItemActions,
   ItemContent,
+  ItemDescription,
   ItemGroup,
   ItemMedia,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
   ItemSeparator,
+  ItemTitle,
 } from '~/components/ui/item'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Badge } from '~/components/ui/badge'
@@ -107,7 +107,12 @@ function ConnectionStateBadge({ state }: { state?: string | null }) {
 }
 
 function ConnectionsList() {
-  const { isLoading: profileLoading, isAllProfiles, allProfileIds, singleProfileId } = useProfile()
+  const {
+    isLoading: profileLoading,
+    isAllProfiles,
+    allProfileIds,
+    singleProfileId,
+  } = useProfile()
 
   const connectionsSingle = useQuery(
     api.powens.listConnections,
@@ -201,8 +206,7 @@ function ConnectionsList() {
 
       <ItemGroup className="rounded-lg border">
         {connections.map((connection, i) => {
-          const numAccounts =
-            accountCountByConnection.get(connection._id) ?? 0
+          const numAccounts = accountCountByConnection.get(connection._id) ?? 0
           const lastSync = connection.lastSync
             ? formatRelativeDate(connection.lastSync)
             : null

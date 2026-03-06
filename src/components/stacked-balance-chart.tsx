@@ -1,12 +1,14 @@
 import * as React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 import type { TooltipProps } from 'recharts'
+import type { PnL } from '~/lib/pnl'
+import type { Period } from '~/lib/chart-periods'
+import type { ChartConfig } from '~/components/ui/chart'
 import {
   ChartContainer,
-  ChartTooltip,
   ChartLegend,
   ChartLegendContent,
-  type ChartConfig,
+  ChartTooltip,
 } from '~/components/ui/chart'
 import {
   Card,
@@ -18,9 +20,8 @@ import {
 } from '~/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { Skeleton } from '~/components/ui/skeleton'
-import { PERIODS, type Period } from '~/lib/chart-periods'
+import { PERIODS } from '~/lib/chart-periods'
 import { PnLBadge } from '~/components/pnl-badge'
-import type { PnL } from '~/lib/pnl'
 import { usePrivacy } from '~/contexts/privacy-context'
 
 interface CategorySeries {
@@ -30,8 +31,8 @@ interface CategorySeries {
 }
 
 interface StackedBalanceChartProps {
-  data: Record<string, string | number>[]
-  categories: CategorySeries[]
+  data: Array<Record<string, string | number>>
+  categories: Array<CategorySeries>
   currency: string
   isLoading: boolean
   period: Period
@@ -56,7 +57,7 @@ function StackedTooltipContent({
   categories,
 }: TooltipProps<number, string> & {
   formatCurrency: (value: number) => string
-  categories: CategorySeries[]
+  categories: Array<CategorySeries>
 }) {
   const labelMap = React.useMemo(() => {
     const map = new Map<string, string>()
@@ -88,7 +89,9 @@ function StackedTooltipContent({
                 style={{ backgroundColor: entry.color }}
               />
               <div className="flex flex-1 items-center justify-between gap-4">
-                <span className="text-muted-foreground">{labelMap.get(entry.dataKey as string) ?? entry.name}</span>
+                <span className="text-muted-foreground">
+                  {labelMap.get(entry.dataKey as string) ?? entry.name}
+                </span>
                 <span className="font-mono font-medium tabular-nums">
                   {formatCurrency(entry.value ?? 0)}
                 </span>
@@ -139,8 +142,8 @@ function ChartContent({
   chartConfig,
   isLoading,
 }: {
-  data: Record<string, string | number>[]
-  categories: CategorySeries[]
+  data: Array<Record<string, string | number>>
+  categories: Array<CategorySeries>
   formatCurrency: (value: number) => string
   chartConfig: ChartConfig
   isLoading: boolean
@@ -238,7 +241,7 @@ export function StackedBalanceChart({
 }: StackedBalanceChartProps) {
   const { isPrivate } = usePrivacy()
   const formatCurrency = React.useMemo(
-    () => isPrivate ? () => '••••••' : currencyFormatter(currency),
+    () => (isPrivate ? () => '••••••' : currencyFormatter(currency)),
     [currency, isPrivate],
   )
 

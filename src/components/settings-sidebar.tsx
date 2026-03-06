@@ -1,12 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  Palette,
-  User,
-  Shield,
-  Users,
-  Lock,
-} from 'lucide-react'
+import { ArrowLeft, Lock, Palette, Shield, User, Users } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,

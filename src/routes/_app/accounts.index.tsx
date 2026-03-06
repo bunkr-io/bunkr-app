@@ -1,28 +1,32 @@
 import * as React from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
+import { CirclePlus, Landmark } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
+import type { Period } from '~/lib/chart-periods'
 import { SiteHeader } from '~/components/site-header'
 import { useProfile } from '~/contexts/profile-context'
-import { Landmark, CirclePlus } from 'lucide-react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { Button } from '~/components/ui/button'
 import {
   Item,
   ItemContent,
+  ItemDescription,
   ItemGroup,
   ItemMedia,
-  ItemTitle,
-  ItemDescription,
   ItemSeparator,
+  ItemTitle,
 } from '~/components/ui/item'
 import { Skeleton } from '~/components/ui/skeleton'
 import { BalanceChart } from '~/components/balance-chart'
 import { StackedBalanceChart } from '~/components/stacked-balance-chart'
-import { type Period, getStartTimestamp } from '~/lib/chart-periods'
+import { getStartTimestamp } from '~/lib/chart-periods'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import { computePnL } from '~/lib/pnl'
-import { fillMissingDates, fillMissingDatesStacked } from '~/lib/fill-missing-dates'
+import {
+  fillMissingDates,
+  fillMissingDatesStacked,
+} from '~/lib/fill-missing-dates'
 import { useFormatCurrency } from '~/contexts/privacy-context'
 import { useDecryptRecords } from '~/contexts/encryption-context'
 
@@ -51,7 +55,12 @@ function AccountsPage() {
 }
 
 function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
-  const { isLoading: profileLoading, isAllProfiles, allProfileIds, singleProfileId } = useProfile()
+  const {
+    isLoading: profileLoading,
+    isAllProfiles,
+    allProfileIds,
+    singleProfileId,
+  } = useProfile()
   const [period, setPeriod] = React.useState<Period>('1M')
   const startTimestamp = React.useMemo(
     () => getStartTimestamp(period),
@@ -68,7 +77,9 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       ? { profileIds: allProfileIds }
       : 'skip',
   )
-  const rawAllBankAccounts = isAllProfiles ? allBankAccountsAll : allBankAccountsSingle
+  const rawAllBankAccounts = isAllProfiles
+    ? allBankAccountsAll
+    : allBankAccountsSingle
   const allBankAccounts = useDecryptRecords(rawAllBankAccounts)
 
   const snapshotsSingle = useQuery(
@@ -90,9 +101,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
     if (!allBankAccounts) return undefined
     const active = allBankAccounts.filter((a) => !a.deleted && !a.disabled)
     if (!categoryFilter) return active
-    const cat = ACCOUNT_CATEGORIES[categoryFilter]
-    if (!cat) return active
-    const types = new Set(cat.types)
+    const types = new Set(ACCOUNT_CATEGORIES[categoryFilter].types)
     return active.filter((a) => types.has(a.type ?? ''))
   }, [allBankAccounts, categoryFilter])
 
@@ -243,7 +252,11 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
           isLoading={snapshots === undefined}
           period={period}
           onPeriodChange={setPeriod}
-          title={categoryFilter && ACCOUNT_CATEGORIES[categoryFilter]?.label ? ACCOUNT_CATEGORIES[categoryFilter].label : 'Accounts'}
+          title={
+            categoryFilter && ACCOUNT_CATEGORIES[categoryFilter].label
+              ? ACCOUNT_CATEGORIES[categoryFilter].label
+              : 'Accounts'
+          }
           description={formattedTotal}
         />
       ) : (
@@ -263,13 +276,13 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
       <div className="space-y-6">
         {groupedByCategory.map(([categoryKey, accounts]) => {
           const cat = ACCOUNT_CATEGORIES[categoryKey]
-          const CategoryIcon = cat?.icon ?? Landmark
+          const CategoryIcon = cat.icon
 
           return (
             <div key={categoryKey} className="space-y-2">
               <h3 className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <CategoryIcon className="size-4" />
-                {cat?.label ?? categoryKey}
+                {cat.label}
                 <span>({accounts.length})</span>
               </h3>
               <ItemGroup className="rounded-lg border">
@@ -285,7 +298,9 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
                           <Landmark />
                         </ItemMedia>
                         <ItemContent>
-                          <ItemTitle>{account.connectorName ?? account.name}</ItemTitle>
+                          <ItemTitle>
+                            {account.connectorName ?? account.name}
+                          </ItemTitle>
                           <ItemDescription>
                             {account.iban
                               ? account.iban.replace(/(.{4})/g, '$1 ').trim()

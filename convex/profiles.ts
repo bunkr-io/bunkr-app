@@ -30,7 +30,7 @@ export const getProfile = query({
   handler: async (ctx, args) => {
     const workspaceId = await getUserWorkspaceId(ctx)
     if (!workspaceId) return null
-    return await ctx.db.get(args.profileId)
+    return await ctx.db.get('profiles', args.profileId)
   },
 })
 
@@ -60,10 +60,7 @@ export const updateProfile = mutation({
     const workspaceId = await getUserWorkspaceId(ctx)
     if (!workspaceId) throw new Error('No workspace found')
     const { profileId, ...updates } = args
-    const filtered = Object.fromEntries(
-      Object.entries(updates).filter(([_, v]) => v !== undefined),
-    )
-    await ctx.db.patch(profileId, filtered)
+    await ctx.db.patch('profiles', profileId, updates)
   },
 })
 
@@ -103,12 +100,12 @@ export const deleteProfile = mutation({
           .collect(),
       ])
     await Promise.all([
-      ...snapshots.map((s) => ctx.db.delete(s._id)),
-      ...investments.map((inv) => ctx.db.delete(inv._id)),
-      ...bankAccounts.map((ba) => ctx.db.delete(ba._id)),
-      ...connections.map((c) => ctx.db.delete(c._id)),
+      ...snapshots.map((s) => ctx.db.delete('balanceSnapshots', s._id)),
+      ...investments.map((inv) => ctx.db.delete('investments', inv._id)),
+      ...bankAccounts.map((ba) => ctx.db.delete('bankAccounts', ba._id)),
+      ...connections.map((c) => ctx.db.delete('connections', c._id)),
     ])
 
-    await ctx.db.delete(args.profileId)
+    await ctx.db.delete('profiles', args.profileId)
   },
 })

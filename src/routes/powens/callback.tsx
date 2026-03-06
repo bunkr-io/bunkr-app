@@ -1,14 +1,14 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import { useProfile } from '~/contexts/profile-context'
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 export const Route = createFileRoute('/powens/callback')({
   validateSearch: (search: Record<string, unknown>) => ({
-    connection_id: (search.connection_id as string) ?? '',
-    state: (search.state as string) ?? '',
+    connection_id: (search.connection_id as string | undefined) ?? '',
+    state: (search.state as string | undefined) ?? '',
   }),
   component: PowensCallback,
 })

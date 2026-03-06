@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
 import { toast } from 'sonner'
 import { Mail, X } from 'lucide-react'
+import { api } from '../../../convex/_generated/api'
 import {
   ItemCard,
   ItemCardHeader,
   ItemCardHeaderContent,
   ItemCardHeaderTitle,
-  ItemCardItems,
   ItemCardItem,
-  ItemCardItemContent,
-  ItemCardItemTitle,
-  ItemCardItemDescription,
   ItemCardItemAction,
+  ItemCardItemContent,
+  ItemCardItemDescription,
+  ItemCardItemTitle,
+  ItemCardItems,
 } from '~/components/item-card'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Badge } from '~/components/ui/badge'
@@ -87,19 +87,22 @@ function MembersPage() {
           <ItemCardHeader>
             <ItemCardHeaderContent>
               <ItemCardHeaderTitle>
-                {data.members.length} {data.members.length === 1 ? 'member' : 'members'}
+                {data.members.length}{' '}
+                {data.members.length === 1 ? 'member' : 'members'}
               </ItemCardHeaderTitle>
             </ItemCardHeaderContent>
             <InviteDialog
               existingEmails={[
-                ...Object.values(users).map((u) => u.email.toLowerCase()).filter(Boolean),
+                ...Object.values(users)
+                  .map((u) => u.email.toLowerCase())
+                  .filter(Boolean),
                 ...data.invitations.map((i) => i.email.toLowerCase()),
               ]}
             />
           </ItemCardHeader>
           <ItemCardItems>
             {data.members.map((member) => {
-              const user = users[member.userId]
+              const user = users[member.userId] as ResolvedUser | undefined
               const name = user
                 ? [user.firstName, user.lastName].filter(Boolean).join(' ')
                 : member.userId
@@ -200,11 +203,15 @@ function PendingInvitationItem({
   )
 }
 
-function InviteDialog({ existingEmails = [] }: { existingEmails?: string[] }) {
+function InviteDialog({
+  existingEmails = [],
+}: {
+  existingEmails?: Array<string>
+}) {
   const sendInvitation = useAction(api.members.sendInvitation)
   const [open, setOpen] = useState(false)
   const [emailInput, setEmailInput] = useState('')
-  const [emails, setEmails] = useState<string[]>([])
+  const [emails, setEmails] = useState<Array<string>>([])
   const [sending, setSending] = useState(false)
 
   function addEmail() {
@@ -294,8 +301,13 @@ function InviteDialog({ existingEmails = [] }: { existingEmails?: string[] }) {
           )}
         </div>
         <DialogFooter>
-          <Button onClick={handleSend} disabled={emails.length === 0 || sending}>
-            {sending ? 'Sending...' : `Send ${emails.length === 0 ? '' : emails.length} invitation${emails.length !== 1 ? 's' : ''}`}
+          <Button
+            onClick={handleSend}
+            disabled={emails.length === 0 || sending}
+          >
+            {sending
+              ? 'Sending...'
+              : `Send ${emails.length === 0 ? '' : emails.length} invitation${emails.length !== 1 ? 's' : ''}`}
           </Button>
         </DialogFooter>
       </DialogContent>

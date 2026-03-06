@@ -9,11 +9,11 @@ function addDays(dateStr: string, days: number): string {
  * If a date is missing, the previous day's balance carries forward.
  */
 export function fillMissingDates<T extends { date: string; balance: number }>(
-  data: T[],
-): T[] {
+  data: Array<T>,
+): Array<T> {
   if (data.length < 2) return data
 
-  const filled: T[] = [data[0]]
+  const filled: Array<T> = [data[0]]
   for (let i = 1; i < data.length; i++) {
     const prev = filled[filled.length - 1]
     let nextDate = addDays(prev.date, 1)
@@ -31,11 +31,11 @@ export function fillMissingDates<T extends { date: string; balance: number }>(
  * Each row has a `date` string key plus numeric category keys.
  */
 export function fillMissingDatesStacked(
-  data: Record<string, string | number>[],
-): Record<string, string | number>[] {
+  data: Array<Record<string, string | number>>,
+): Array<Record<string, string | number>> {
   if (data.length < 2) return data
 
-  const filled: Record<string, string | number>[] = [data[0]]
+  const filled: Array<Record<string, string | number>> = [data[0]]
   for (let i = 1; i < data.length; i++) {
     const prev = filled[filled.length - 1]
     let nextDate = addDays(prev.date as string, 1)

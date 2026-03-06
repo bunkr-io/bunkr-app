@@ -1,5 +1,10 @@
 {
-  "include": ["**/*.ts", "**/*.tsx", "public/script*.js", "worker-configuration.d.ts"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "public/script*.js",
+    "worker-configuration.d.ts"
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

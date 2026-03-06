@@ -1,10 +1,10 @@
+import { Landmark, PiggyBank, Shield, TrendingUp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Landmark, PiggyBank, TrendingUp, Shield } from 'lucide-react'
 
 export interface AccountCategory {
   label: string
   icon: LucideIcon
-  types: string[]
+  types: Array<string>
 }
 
 export const ACCOUNT_CATEGORIES: Record<string, AccountCategory> = {
@@ -41,9 +41,7 @@ export function getCategoryKey(accountType: string | undefined): string {
   return typeToCategory.get(accountType ?? '') ?? 'checking'
 }
 
-const INVESTMENT_ACCOUNT_TYPES = new Set(
-  ACCOUNT_CATEGORIES.investments.types,
-)
+const INVESTMENT_ACCOUNT_TYPES = new Set(ACCOUNT_CATEGORIES.investments.types)
 
 export function isInvestmentAccount(type?: string): boolean {
   return INVESTMENT_ACCOUNT_TYPES.has(type ?? '')

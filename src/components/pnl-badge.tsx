@@ -1,6 +1,6 @@
-import { TrendingUp, TrendingDown } from 'lucide-react'
-import { Badge } from '~/components/ui/badge'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import type { PnL } from '~/lib/pnl'
+import { Badge } from '~/components/ui/badge'
 import { usePrivacy } from '~/contexts/privacy-context'
 
 interface PnLBadgeProps {
@@ -44,7 +44,8 @@ export function PnLBadge({ pnl, currency }: PnLBadgeProps) {
       }
     >
       <Icon className="size-3" />
-      {sign}{formattedAbsolute} ({formattedPercentage})
+      {sign}
+      {formattedAbsolute} ({formattedPercentage})
     </Badge>
   )
 }

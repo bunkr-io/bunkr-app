@@ -1,23 +1,31 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
+import {
+  Briefcase,
+  Check,
+  Copy,
+  Pencil,
+  Trash2,
+  User,
+  Users,
+} from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SiteHeader } from '~/components/site-header'
 import { useProfile } from '~/contexts/profile-context'
-import { User, Briefcase, Users, Pencil, Trash2, Copy, Check } from 'lucide-react'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import {
   Item,
+  ItemActions,
   ItemContent,
+  ItemDescription,
   ItemGroup,
   ItemMedia,
-  ItemTitle,
-  ItemDescription,
-  ItemActions,
   ItemSeparator,
+  ItemTitle,
 } from '~/components/ui/item'
 import {
   Dialog,
@@ -50,9 +58,11 @@ function ProfilesPage() {
   const updateProfile = useMutation(api.profiles.updateProfile)
   const deleteProfile = useMutation(api.profiles.deleteProfile)
 
-  const [editingProfile, setEditingProfile] = React.useState<Doc<'profiles'> | null>(null)
+  const [editingProfile, setEditingProfile] =
+    React.useState<Doc<'profiles'> | null>(null)
   const [editName, setEditName] = React.useState('')
-  const [deletingProfile, setDeletingProfile] = React.useState<Doc<'profiles'> | null>(null)
+  const [deletingProfile, setDeletingProfile] =
+    React.useState<Doc<'profiles'> | null>(null)
   const [deleteConfirmName, setDeleteConfirmName] = React.useState('')
   const [isDeleting, setIsDeleting] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
@@ -64,7 +74,10 @@ function ProfilesPage() {
 
   async function handleSaveEdit() {
     if (!editingProfile || !editName.trim()) return
-    await updateProfile({ profileId: editingProfile._id, name: editName.trim() })
+    await updateProfile({
+      profileId: editingProfile._id,
+      name: editName.trim(),
+    })
     setEditingProfile(null)
   }
 
@@ -135,7 +148,10 @@ function ProfilesPage() {
                       <ItemContent>
                         <ItemTitle>{profile.name}</ItemTitle>
                         <ItemDescription>
-                          Created {new Date(profile._creationTime).toLocaleDateString('fr-FR')}
+                          Created{' '}
+                          {new Date(profile._creationTime).toLocaleDateString(
+                            'fr-FR',
+                          )}
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions>
@@ -168,7 +184,12 @@ function ProfilesPage() {
         </div>
       </div>
 
-      <Dialog open={!!editingProfile} onOpenChange={(open) => { if (!open) setEditingProfile(null) }}>
+      <Dialog
+        open={!!editingProfile}
+        onOpenChange={(open) => {
+          if (!open) setEditingProfile(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Profile</DialogTitle>
@@ -197,19 +218,28 @@ function ProfilesPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!deletingProfile} onOpenChange={(open) => { if (!open) setDeletingProfile(null) }}>
+      <Dialog
+        open={!!deletingProfile}
+        onOpenChange={(open) => {
+          if (!open) setDeletingProfile(null)
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete Profile</DialogTitle>
             <DialogDescription>
-              Deleting <span className="font-semibold">{deletingProfile?.name}</span> is
+              Deleting{' '}
+              <span className="font-semibold">{deletingProfile?.name}</span> is
               permanent and cannot be undone. Deleting a profile also deletes
               all associated accounts & connections.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="delete-confirm" className="flex flex-wrap items-center gap-1">
+              <Label
+                htmlFor="delete-confirm"
+                className="flex flex-wrap items-center gap-1"
+              >
                 Type
                 <Badge
                   variant="secondary"
@@ -244,7 +274,9 @@ function ProfilesPage() {
             <Button
               variant="destructive"
               onClick={handleDelete}
-              disabled={deleteConfirmName !== deletingProfile?.name || isDeleting}
+              disabled={
+                deleteConfirmName !== deletingProfile?.name || isDeleting
+              }
             >
               Delete
             </Button>

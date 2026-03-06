@@ -1,6 +1,13 @@
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronsUpDown, Plus, User, Briefcase, Users, Settings } from 'lucide-react'
+import {
+  Briefcase,
+  ChevronsUpDown,
+  Plus,
+  Settings,
+  User,
+  Users,
+} from 'lucide-react'
 import { useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { useProfile } from '~/contexts/profile-context'
@@ -15,9 +22,9 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '~/components/ui/dialog'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -64,7 +71,9 @@ export function ProfileSwitcher() {
 
   const isAllProfiles = !activeProfile && profiles && profiles.length > 0
   const ActiveIcon = isAllProfiles ? Users : getIcon(activeProfile?.icon)
-  const activeLabel = isAllProfiles ? 'All Profiles' : (activeProfile?.name ?? 'Select Profile')
+  const activeLabel = isAllProfiles
+    ? 'All Profiles'
+    : (activeProfile?.name ?? 'Select Profile')
 
   async function handleCreate() {
     if (!newName.trim()) return
@@ -88,9 +97,7 @@ export function ProfileSwitcher() {
                   <ActiveIcon className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {activeLabel}
-                  </span>
+                  <span className="truncate font-semibold">{activeLabel}</span>
                 </div>
                 <ChevronsUpDown className="ml-auto size-4" />
               </SidebarMenuButton>

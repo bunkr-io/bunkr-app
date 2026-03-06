@@ -4,7 +4,7 @@ export interface PnL {
   isPositive: boolean
 }
 
-export function computePnL(data: { balance: number }[]): PnL | null {
+export function computePnL(data: Array<{ balance: number }>): PnL | null {
   if (data.length < 2) return null
 
   const first = data[0].balance

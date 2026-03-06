@@ -1,31 +1,41 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { api } from '../../../convex/_generated/api'
 import { toast } from 'sonner'
+import {
+  Check,
+  Clock,
+  Copy,
+  Lock,
+  ShieldCheck,
+  TriangleAlert,
+  UserCheck,
+  UserX,
+} from 'lucide-react'
+import { api } from '../../../convex/_generated/api'
 import { useEncryption } from '~/contexts/encryption-context'
 import {
-  generateKeyPair,
-  exportPublicKey,
-  exportPrivateKey,
+  clearStoredPrivateKey,
+  decryptData,
   deriveKeyFromPassphrase,
+  encryptData,
   encryptPrivateKey,
   envelopeEncryptString,
-  storePrivateKey,
-  clearStoredPrivateKey,
-  encryptData,
-  decryptData,
+  exportPrivateKey,
+  exportPublicKey,
+  generateKeyPair,
   importPublicKey,
+  storePrivateKey,
 } from '~/lib/crypto'
 import { useProfile } from '~/contexts/profile-context'
 import {
   ItemCard,
-  ItemCardItems,
   ItemCardItem,
-  ItemCardItemContent,
-  ItemCardItemTitle,
-  ItemCardItemDescription,
   ItemCardItemAction,
+  ItemCardItemContent,
+  ItemCardItemDescription,
+  ItemCardItemTitle,
+  ItemCardItems,
 } from '~/components/item-card'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
@@ -40,7 +50,6 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Label } from '~/components/ui/label'
-import { Check, Clock, Copy, Lock, ShieldCheck, TriangleAlert, UserCheck, UserX } from 'lucide-react'
 
 export const Route = createFileRoute('/_settings/settings/encryption')({
   component: EncryptionPage,
@@ -85,7 +94,9 @@ function EncryptionPage() {
   const unencryptedCount =
     (allConnections?.filter((c) => !c.encryptedData).length ?? 0) +
     (allBankAccounts?.filter(
-      (a) => !a.encryptedData && (a.balance !== 0 || a.number || a.iban || a.name !== 'Encrypted'),
+      (a) =>
+        !a.encryptedData &&
+        (a.balance !== 0 || a.number || a.iban || a.name !== 'Encrypted'),
     ).length ?? 0) +
     (allSnapshots?.filter((s) => !s.encryptedData && s.balance !== 0).length ??
       0) +
@@ -156,13 +167,20 @@ function EncryptionPage() {
                 <ItemCardItemDescription>
                   {!isEncryptionEnabled &&
                     'Enable encryption to protect your financial data at rest.'}
-                  {isEncryptionEnabled && !hasPersonalKey &&
+                  {isEncryptionEnabled &&
+                    !hasPersonalKey &&
                     'Encryption is enabled. Set up your passphrase to access encrypted data.'}
-                  {isEncryptionEnabled && hasPersonalKey && !hasWorkspaceAccess &&
+                  {isEncryptionEnabled &&
+                    hasPersonalKey &&
+                    !hasWorkspaceAccess &&
                     'Your passphrase is set up. Waiting for a workspace member to grant you access.'}
-                  {isEncryptionEnabled && isUnlocked &&
+                  {isEncryptionEnabled &&
+                    isUnlocked &&
                     'Your vault is unlocked. Data is being decrypted in your browser.'}
-                  {isEncryptionEnabled && hasPersonalKey && hasWorkspaceAccess && !isUnlocked &&
+                  {isEncryptionEnabled &&
+                    hasPersonalKey &&
+                    hasWorkspaceAccess &&
+                    !isUnlocked &&
                     'Your vault is locked. Enter your passphrase to view data.'}
                 </ItemCardItemDescription>
               </ItemCardItemContent>
@@ -185,12 +203,14 @@ function EncryptionPage() {
                     Set up passphrase
                   </Button>
                 )}
-                {isEncryptionEnabled && hasPersonalKey && !hasWorkspaceAccess && (
-                  <Badge variant="outline">
-                    <Clock className="size-3" />
-                    Pending access
-                  </Badge>
-                )}
+                {isEncryptionEnabled &&
+                  hasPersonalKey &&
+                  !hasWorkspaceAccess && (
+                    <Badge variant="outline">
+                      <Clock className="size-3" />
+                      Pending access
+                    </Badge>
+                  )}
                 {isEncryptionEnabled && isUnlocked && role === 'owner' && (
                   <Button
                     variant="ghost"
@@ -200,12 +220,15 @@ function EncryptionPage() {
                     Disable
                   </Button>
                 )}
-                {isEncryptionEnabled && hasPersonalKey && hasWorkspaceAccess && !isUnlocked && (
-                  <Badge variant="outline">
-                    <Lock className="size-3" />
-                    Locked
-                  </Badge>
-                )}
+                {isEncryptionEnabled &&
+                  hasPersonalKey &&
+                  hasWorkspaceAccess &&
+                  !isUnlocked && (
+                    <Badge variant="outline">
+                      <Lock className="size-3" />
+                      Locked
+                    </Badge>
+                  )}
               </ItemCardItemAction>
             </ItemCardItem>
 
@@ -251,14 +274,13 @@ function EncryptionPage() {
 
 function MembersAccessSection() {
   const { workspacePrivateKeyJwk } = useEncryption()
-  const membersStatus = useQuery(
-    api.encryptionKeys.listMembersEncryptionStatus,
-  )
+  const membersStatus = useQuery(api.encryptionKeys.listMembersEncryptionStatus)
   const resolveUsers = useAction(api.members.resolveUsers)
   const grantAccess = useMutation(api.encryptionKeys.grantMemberAccess)
-  const [userInfo, setUserInfo] = useState<
-    Record<string, { firstName: string | null; lastName: string | null; email: string }> | null
-  >(null)
+  const [userInfo, setUserInfo] = useState<Record<
+    string,
+    { firstName: string | null; lastName: string | null; email: string }
+  > | null>(null)
   const [granting, setGranting] = useState<string | null>(null)
   const resolvedRef = useRef(false)
 
@@ -278,7 +300,10 @@ function MembersAccessSection() {
 
   if (!membersStatus || membersStatus.length <= 1) return null
 
-  async function handleGrantAccess(targetUserId: string, targetPublicKey: string) {
+  async function handleGrantAccess(
+    targetUserId: string,
+    targetPublicKey: string,
+  ) {
     if (!workspacePrivateKeyJwk) return
     setGranting(targetUserId)
     try {
@@ -346,10 +371,10 @@ function MembersAccessSection() {
                     <Button
                       variant="outline"
                       size="sm"
-                      disabled={granting === m.userId || !workspacePrivateKeyJwk}
-                      onClick={() =>
-                        handleGrantAccess(m.userId, m.publicKey!)
+                      disabled={
+                        granting === m.userId || !workspacePrivateKeyJwk
                       }
+                      onClick={() => handleGrantAccess(m.userId, m.publicKey!)}
                     >
                       {granting === m.userId ? 'Granting...' : 'Grant access'}
                     </Button>
@@ -391,8 +416,12 @@ function SetupDialog({
     try {
       // Generate personal RSA keypair
       const personalKeyPair = await generateKeyPair()
-      const personalPublicKeyJwk = await exportPublicKey(personalKeyPair.publicKey)
-      const personalPrivateKeyJwk = await exportPrivateKey(personalKeyPair.privateKey)
+      const personalPublicKeyJwk = await exportPublicKey(
+        personalKeyPair.publicKey,
+      )
+      const personalPrivateKeyJwk = await exportPrivateKey(
+        personalKeyPair.privateKey,
+      )
 
       // Encrypt personal private key with passphrase
       const salt = crypto.getRandomValues(new Uint8Array(32))
@@ -443,8 +472,8 @@ function SetupDialog({
           <DialogTitle>Enable encryption</DialogTitle>
           <DialogDescription>
             Create a passphrase to protect your financial data. All workspace
-            members will need to set up their own passphrase to access
-            encrypted data.
+            members will need to set up their own passphrase to access encrypted
+            data.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -480,10 +509,7 @@ function SetupDialog({
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleEnable}
-            disabled={!valid || saving}
-          >
+          <Button onClick={handleEnable} disabled={!valid || saving}>
             {saving ? 'Setting up...' : 'Enable encryption'}
           </Button>
         </DialogFooter>
@@ -626,11 +652,11 @@ function MigrateDialog({
   const [migrating, setMigrating] = useState(false)
   const [progress, setProgress] = useState({ done: 0, total: 0 })
 
-  const unencryptedConnections = allConnections?.filter(
-    (c) => !c.encryptedData,
-  )
+  const unencryptedConnections = allConnections?.filter((c) => !c.encryptedData)
   const unencryptedAccounts = allBankAccounts?.filter(
-    (a) => !a.encryptedData && (a.balance !== 0 || a.number || a.iban || a.name !== 'Encrypted'),
+    (a) =>
+      !a.encryptedData &&
+      (a.balance !== 0 || a.number || a.iban || a.name !== 'Encrypted'),
   )
   const unencryptedSnapshots = allSnapshots?.filter(
     (s) => !s.encryptedData && s.balance !== 0,
@@ -837,7 +863,8 @@ function DisableDialog({
 
   const encryptedConnections =
     allConnections?.filter((c) => c.encryptedData) ?? []
-  const encryptedAccounts = allBankAccounts?.filter((a) => a.encryptedData) ?? []
+  const encryptedAccounts =
+    allBankAccounts?.filter((a) => a.encryptedData) ?? []
   const encryptedSnapshots = allSnapshots?.filter((s) => s.encryptedData) ?? []
   const encryptedInvestments =
     allInvestments?.filter((inv) => inv.encryptedData) ?? []
@@ -860,7 +887,7 @@ function DisableDialog({
       const data = await decryptData(conn.encryptedData!, privateKey)
       await decryptConn({
         connectionId: conn._id,
-        connectorName: (data.connectorName as string) ?? 'Unknown',
+        connectorName: (data.connectorName as string | undefined) ?? 'Unknown',
       })
       done++
       setProgress({ done, total })
@@ -870,10 +897,10 @@ function DisableDialog({
       const data = await decryptData(acct.encryptedData!, privateKey)
       await decryptAccount({
         bankAccountId: acct._id,
-        name: (data.name as string) ?? 'Unknown',
-        balance: (data.balance as number) ?? 0,
-        number: (data.number as string) ?? undefined,
-        iban: (data.iban as string) ?? undefined,
+        name: (data.name as string | undefined) ?? 'Unknown',
+        balance: (data.balance as number | undefined) ?? 0,
+        number: (data.number as string | undefined) ?? undefined,
+        iban: (data.iban as string | undefined) ?? undefined,
       })
       done++
       setProgress({ done, total })
@@ -883,7 +910,7 @@ function DisableDialog({
       const data = await decryptData(snap.encryptedData!, privateKey)
       await decryptSnapshot({
         snapshotId: snap._id,
-        balance: (data.balance as number) ?? 0,
+        balance: (data.balance as number | undefined) ?? 0,
       })
       done++
       setProgress({ done, total })
@@ -893,16 +920,17 @@ function DisableDialog({
       const data = await decryptData(inv.encryptedData!, privateKey)
       await decryptInvestment({
         investmentId: inv._id,
-        code: (data.code as string) ?? undefined,
-        label: (data.label as string) ?? 'Unknown',
-        description: (data.description as string) ?? undefined,
-        quantity: (data.quantity as number) ?? 0,
-        unitprice: (data.unitprice as number) ?? 0,
-        unitvalue: (data.unitvalue as number) ?? 0,
-        valuation: (data.valuation as number) ?? 0,
-        portfolioShare: (data.portfolioShare as number) ?? undefined,
-        diff: (data.diff as number) ?? undefined,
-        diffPercent: (data.diffPercent as number) ?? undefined,
+        code: (data.code as string | undefined) ?? undefined,
+        label: (data.label as string | undefined) ?? 'Unknown',
+        description: (data.description as string | undefined) ?? undefined,
+        quantity: (data.quantity as number | undefined) ?? 0,
+        unitprice: (data.unitprice as number | undefined) ?? 0,
+        unitvalue: (data.unitvalue as number | undefined) ?? 0,
+        valuation: (data.valuation as number | undefined) ?? 0,
+        portfolioShare:
+          (data.portfolioShare as number | undefined) ?? undefined,
+        diff: (data.diff as number | undefined) ?? undefined,
+        diffPercent: (data.diffPercent as number | undefined) ?? undefined,
       })
       done++
       setProgress({ done, total })
@@ -932,9 +960,9 @@ function DisableDialog({
           {totalEncrypted > 0 && (
             <p className="text-sm">
               <span className="font-medium">{totalEncrypted}</span>{' '}
-              {totalEncrypted === 1 ? 'record' : 'records'} will be
-              unprotected. This includes your account balances, IBANs, and
-              investment holdings.
+              {totalEncrypted === 1 ? 'record' : 'records'} will be unprotected.
+              This includes your account balances, IBANs, and investment
+              holdings.
             </p>
           )}
           <div className="grid gap-2">

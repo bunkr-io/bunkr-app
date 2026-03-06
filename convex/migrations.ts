@@ -1,6 +1,7 @@
 import { internalMutation } from './_generated/server'
 
 export const backfillBalanceSnapshots = internalMutation({
+  args: {},
   handler: async (ctx) => {
     const bankAccounts = await ctx.db.query('bankAccounts').collect()
     const now = new Date()
@@ -33,6 +34,7 @@ export const backfillBalanceSnapshots = internalMutation({
 })
 
 export const seedBalanceSnapshots = internalMutation({
+  args: {},
   handler: async (ctx) => {
     const bankAccounts = await ctx.db.query('bankAccounts').collect()
     const now = new Date()
@@ -67,12 +69,13 @@ export const seedBalanceSnapshots = internalMutation({
 })
 
 export const deleteSeedSnapshots = internalMutation({
+  args: {},
   handler: async (ctx) => {
     const all = await ctx.db.query('balanceSnapshots').collect()
     let count = 0
     for (const snap of all) {
       if (snap.seed) {
-        await ctx.db.delete(snap._id)
+        await ctx.db.delete('balanceSnapshots', snap._id)
         count++
       }
     }

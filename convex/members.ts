@@ -1,5 +1,10 @@
 import { v } from 'convex/values'
-import { action, internalMutation, internalQuery, query } from './_generated/server'
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  query,
+} from './_generated/server'
 import { internal } from './_generated/api'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
@@ -70,14 +75,20 @@ export const sendInvitation = action({
     if (clerkSecretKey) {
       await Promise.all(
         members.map(async (m) => {
-          const res = await fetch(`https://api.clerk.com/v1/users/${m.userId}`, {
-            headers: { Authorization: `Bearer ${clerkSecretKey}` },
-          })
+          const res = await fetch(
+            `https://api.clerk.com/v1/users/${m.userId}`,
+            {
+              headers: { Authorization: `Bearer ${clerkSecretKey}` },
+            },
+          )
           if (res.ok) {
-            const user = (await res.json()) as Record<string, unknown>
-            const email = (user.email_addresses as Array<Record<string, unknown>> | undefined)?.find(
+            const user = (await res.json()) as {
+              primary_email_address_id: string
+              email_addresses?: Array<{ id: string; email_address: string }>
+            }
+            const email = user.email_addresses?.find(
               (e) => e.id === user.primary_email_address_id,
-            )?.email_address as string | undefined
+            )?.email_address
             if (email) memberEmails.add(email.toLowerCase())
           }
         }),
@@ -107,7 +118,8 @@ export const sendInvitation = action({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL ?? 'Bunkr <onboarding@resend.dev>',
+          from:
+            process.env.RESEND_FROM_EMAIL ?? 'Bunkr <onboarding@resend.dev>',
           to: [email],
           subject: 'You have been invited to join a workspace on Bunkr',
           html: `<p>You have been invited to join a workspace on Bunkr.</p><p><a href="${siteUrl}">Sign in to accept the invitation</a></p>`,
@@ -126,7 +138,9 @@ export const sendInvitation = action({
 export const revokeInvitation = internalMutation({
   args: { invitationId: v.id('workspaceInvitations') },
   handler: async (ctx, { invitationId }) => {
-    await ctx.db.patch(invitationId, { status: 'revoked' })
+    await ctx.db.patch('workspaceInvitations', invitationId, {
+      status: 'revoked',
+    })
   },
 })
 
@@ -169,7 +183,7 @@ export const removeMember = action({
 export const deleteMember = internalMutation({
   args: { memberId: v.id('workspaceMembers') },
   handler: async (ctx, { memberId }) => {
-    const member = await ctx.db.get(memberId)
+    const member = await ctx.db.get('workspaceMembers', memberId)
     if (member) {
       // Remove workspace key slot
       const keySlot = await ctx.db
@@ -178,16 +192,16 @@ export const deleteMember = internalMutation({
           q.eq('workspaceId', member.workspaceId).eq('userId', member.userId),
         )
         .first()
-      if (keySlot) await ctx.db.delete(keySlot._id)
+      if (keySlot) await ctx.db.delete('workspaceKeySlots', keySlot._id)
 
       // Remove personal encryption key
       const personalKey = await ctx.db
         .query('encryptionKeys')
         .withIndex('by_userId', (q) => q.eq('userId', member.userId))
         .first()
-      if (personalKey) await ctx.db.delete(personalKey._id)
+      if (personalKey) await ctx.db.delete('encryptionKeys', personalKey._id)
     }
-    await ctx.db.delete(memberId)
+    await ctx.db.delete('workspaceMembers', memberId)
   },
 })
 
@@ -203,7 +217,12 @@ export const resolveUsers = action({
 
     const results: Record<
       string,
-      { firstName: string | null; lastName: string | null; imageUrl: string; email: string }
+      {
+        firstName: string | null
+        lastName: string | null
+        imageUrl: string
+        email: string
+      }
     > = {}
 
     await Promise.all(
@@ -212,15 +231,21 @@ export const resolveUsers = action({
           headers: { Authorization: `Bearer ${clerkSecretKey}` },
         })
         if (res.ok) {
-          const user = (await res.json()) as Record<string, unknown>
+          const user = (await res.json()) as {
+            first_name: string | null
+            last_name: string | null
+            image_url: string
+            primary_email_address_id: string
+            email_addresses?: Array<{ id: string; email_address: string }>
+          }
           results[id] = {
-            firstName: user.first_name as string | null,
-            lastName: user.last_name as string | null,
-            imageUrl: user.image_url as string,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            imageUrl: user.image_url,
             email:
-              ((user.email_addresses as Array<Record<string, unknown>> | undefined)?.find(
+              user.email_addresses?.find(
                 (e) => e.id === user.primary_email_address_id,
-              )?.email_address as string) ?? '',
+              )?.email_address ?? '',
           }
         }
       }),

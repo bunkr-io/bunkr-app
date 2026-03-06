@@ -5,9 +5,34 @@ import { encryptForProfile } from './lib/serverCrypto'
 
 const http = httpRouter()
 
+interface WebhookPayload {
+  type?: string
+  id_user?: number
+  id?: number
+  accounts?: Array<WebhookAccount>
+  connector?: { name?: string }
+  state?: string
+  last_update?: string
+}
+
+interface WebhookAccount {
+  id: number
+  number?: string
+  iban?: string
+  balance?: number
+  original_name?: string
+  name?: string
+  type?: string
+  currency?: { id?: string }
+  disabled?: boolean
+  deleted?: unknown
+  last_update?: string
+}
+
 http.route({
   path: '/powens/callback',
   method: 'GET',
+  // eslint-disable-next-line @typescript-eslint/require-await
   handler: httpAction(async (_, request) => {
     const url = new URL(request.url)
     const connectionId = url.searchParams.get('connection_id')
@@ -32,14 +57,14 @@ http.route({
   path: '/powens/webhook',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const payload = (await request.json()) as Record<string, unknown>
+    const payload = (await request.json()) as WebhookPayload
 
-    const type = payload.type as string | undefined
+    const type = payload.type
 
     if (type === 'CONNECTION_SYNCED') {
-      const powensUserId = payload.id_user as number | undefined
-      const powensConnectionId = payload.id as number | undefined
-      const accounts = payload.accounts as Array<Record<string, unknown>> | undefined
+      const powensUserId = payload.id_user
+      const powensConnectionId = payload.id
+      const accounts = payload.accounts
 
       if (!powensUserId || !powensConnectionId) {
         return new Response('Missing id_user or id', { status: 400 })
@@ -62,9 +87,7 @@ http.route({
         { profileId: profile._id },
       )
 
-      const realConnectorName =
-        ((payload.connector as Record<string, unknown>)?.name as string) ??
-        'Unknown'
+      const realConnectorName = payload.connector?.name ?? 'Unknown'
 
       let connectionEncryptedData: string | undefined
       if (publicKey) {
@@ -76,13 +99,10 @@ http.route({
 
       const bankAccounts = await Promise.all(
         (accounts ?? []).map(async (acct) => {
-          const number = (acct.number as string) ?? undefined
-          const iban = (acct.iban as string) ?? undefined
-          const balance = (acct.balance as number) ?? 0
-          const name =
-            (acct.original_name as string) ??
-            (acct.name as string) ??
-            'Unnamed Account'
+          const number = acct.number
+          const iban = acct.iban
+          const balance = acct.balance ?? 0
+          const name = acct.original_name ?? acct.name ?? 'Unnamed Account'
 
           let encryptedData: string | undefined
           if (publicKey) {
@@ -93,18 +113,16 @@ http.route({
           }
 
           return {
-            powensBankAccountId: acct.id as number,
+            powensBankAccountId: acct.id,
             name: publicKey ? 'Encrypted' : name,
             number: publicKey ? undefined : number,
             iban: publicKey ? undefined : iban,
-            type: (acct.type as string) ?? undefined,
+            type: acct.type,
             balance: publicKey ? 0 : balance,
-            currency:
-              ((acct.currency as Record<string, unknown>)?.id as string) ??
-              'EUR',
-            disabled: (acct.disabled as boolean | null) ?? false,
+            currency: acct.currency?.id ?? 'EUR',
+            disabled: acct.disabled ?? false,
             deleted: acct.deleted != null,
-            lastSync: (acct.last_update as string) ?? undefined,
+            lastSync: acct.last_update,
             encryptedData,
           }
         }),
@@ -114,8 +132,8 @@ http.route({
         profileId: profile._id,
         powensConnectionId,
         connectorName: publicKey ? 'Encrypted' : realConnectorName,
-        state: (payload.state as string) ?? undefined,
-        lastSync: (payload.last_update as string) ?? undefined,
+        state: payload.state,
+        lastSync: payload.last_update,
         bankAccounts,
         encryptedData: connectionEncryptedData,
       })
