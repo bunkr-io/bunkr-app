@@ -17,7 +17,8 @@
     "lint": "eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "dependencies": {
     "@clerk/backend": "^3.0.1",
@@ -57,6 +58,8 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.3",
     "concurrently": "~9.2.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
     "prettier": "^3.8.1",
     "shadcn": "^3.8.5",
     "tailwindcss": "^4.1.18",
@@ -66,5 +69,14 @@
     "vite-tsconfig-paths": "^6.0.5",
     "vitest": "^4.0.18",
     "wrangler": "^4.71.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+      "prettier --check"
+    ],
+    "*.{js,json,css,md}": [
+      "prettier --check"
+    ]
   }
 }
