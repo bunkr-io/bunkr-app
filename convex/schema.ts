@@ -30,6 +30,7 @@ export default defineSchema({
   workspaces: defineTable({
     name: v.string(),
     createdBy: v.string(),
+    encryptionEnabled: v.optional(v.boolean()),
   }),
 
   workspaceMembers: defineTable({

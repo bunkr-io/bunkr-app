@@ -2,76 +2,6 @@ import { v } from 'convex/values'
 import { internalQuery, mutation, query } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
-// Count records that need encryption migration.
-// Uses the by_profileId_encrypted index — records with encrypted=false or
-// encrypted=undefined (legacy) are counted.
-export const countUnencryptedRecords = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx)
-    if (!userId) return null
-
-    const membership = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_userId', (q) => q.eq('userId', userId))
-      .first()
-    if (!membership) return null
-
-    const wsEnc = await ctx.db
-      .query('workspaceEncryption')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
-      .first()
-    if (!wsEnc) return null
-
-    const profiles = await ctx.db
-      .query('profiles')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
-      .collect()
-
-    let count = 0
-    const tables = [
-      'connections',
-      'bankAccounts',
-      'investments',
-      'balanceSnapshots',
-    ] as const
-
-    for (const table of tables) {
-      const results = await Promise.all(
-        profiles.map((p) =>
-          ctx.db
-            .query(table)
-            .withIndex('by_profileId_encrypted', (q) =>
-              q.eq('profileId', p._id).eq('encrypted', false),
-            )
-            .collect(),
-        ),
-      )
-      count += results.flat().length
-
-      // Also count legacy records where encrypted is undefined
-      const legacy = await Promise.all(
-        profiles.map((p) =>
-          ctx.db
-            .query(table)
-            .withIndex('by_profileId_encrypted', (q) =>
-              q.eq('profileId', p._id),
-            )
-            .filter((q) => q.eq(q.field('encrypted'), undefined))
-            .collect(),
-        ),
-      )
-      count += legacy.flat().length
-    }
-
-    return count
-  },
-})
-
 // Returns workspace encryption status + current user's key slot
 export const getWorkspaceEncryption = query({
   args: {},
@@ -235,6 +165,11 @@ export const enableWorkspaceEncryption = mutation({
       createdAt: Date.now(),
     })
 
+    // Mark workspace as encryption-enabled
+    await ctx.db.patch('workspaces', membership.workspaceId, {
+      encryptionEnabled: true,
+    })
+
     // Store owner's key slot (workspace private key encrypted with owner's personal public key)
     await ctx.db.insert('workspaceKeySlots', {
       workspaceId: membership.workspaceId,
@@ -367,6 +302,11 @@ export const disableWorkspaceEncryption = mutation({
         .first()
       if (key) await ctx.db.delete('encryptionKeys', key._id)
     }
+
+    // Mark workspace as encryption-disabled
+    await ctx.db.patch('workspaces', membership.workspaceId, {
+      encryptionEnabled: false,
+    })
   },
 })
 
