@@ -67,7 +67,7 @@ export const Route = createRootRouteWithContext<{
       },
       {
         property: 'og:url',
-        content: 'https://bunkr.io',
+        content: 'https://app.bunkr.io',
       },
       {
         property: 'og:title',
@@ -80,7 +80,7 @@ export const Route = createRootRouteWithContext<{
       },
       {
         property: 'og:image',
-        content: 'https://bunkr.io/og-image.png',
+        content: 'https://app.bunkr.io/og-image.png',
       },
       {
         property: 'og:image:width',
@@ -110,7 +110,7 @@ export const Route = createRootRouteWithContext<{
       },
       {
         name: 'twitter:image',
-        content: 'https://bunkr.io/og-image.png',
+        content: 'https://app.bunkr.io/og-image.png',
       },
     ],
     links: [
@@ -134,7 +134,7 @@ export const Route = createRootRouteWithContext<{
       },
       { rel: 'manifest', href: '/site.webmanifest', color: '#fffff' },
       { rel: 'icon', href: '/favicon.ico' },
-      { rel: 'canonical', href: 'https://bunkr.io' },
+      { rel: 'canonical', href: 'https://app.bunkr.io' },
     ],
   }),
   beforeLoad: async (ctx) => {
