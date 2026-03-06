@@ -1,5 +1,5 @@
 import { useClerk, useUser } from '@clerk/tanstack-react-start'
-import { LogOut, MoreVertical, UserCircle } from 'lucide-react'
+import { LogOut, MoreVertical } from 'lucide-react'
 
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Skeleton } from '~/components/ui/skeleton'
@@ -97,11 +97,6 @@ export function NavUser() {
                 </div>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <UserCircle />
-              Account
-            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut()}>
               <LogOut />
