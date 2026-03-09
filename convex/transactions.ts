@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
-import { query } from './_generated/server'
-import { getAuthUserId } from './lib/auth'
+import { mutation, query } from './_generated/server'
+import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const listTransactionsByProfile = query({
   args: {
@@ -72,5 +72,33 @@ export const listAllTransactionsByProfiles = query({
     )
 
     return results.flat().filter((t) => !t.deleted)
+  },
+})
+
+export const updateTransactionCategory = mutation({
+  args: {
+    transactionId: v.id('transactions'),
+    categoryKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const transaction = await ctx.db.get('transactions', args.transactionId)
+    if (!transaction) throw new Error('Transaction not found')
+
+    const profile = await ctx.db.get('profiles', transaction.profileId)
+    if (!profile) throw new Error('Profile not found')
+
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member || member.workspaceId !== profile.workspaceId) {
+      throw new Error('Not authorized')
+    }
+
+    await ctx.db.patch('transactions', args.transactionId, {
+      userCategoryKey: args.categoryKey,
+    })
   },
 })

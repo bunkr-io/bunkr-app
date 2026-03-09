@@ -571,6 +571,7 @@ export const migrateTransactionBatch = mutation({
         comment: undefined,
         category: undefined,
         categoryParent: undefined,
+        userCategoryKey: undefined,
         encrypted: true,
       })
     }
@@ -592,6 +593,7 @@ export const decryptTransactionBatch = mutation({
         comment: v.optional(v.string()),
         category: v.optional(v.string()),
         categoryParent: v.optional(v.string()),
+        userCategoryKey: v.optional(v.string()),
       }),
     ),
   },

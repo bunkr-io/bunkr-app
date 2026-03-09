@@ -1303,6 +1303,7 @@ interface MappedTransaction {
   counterparty: string | undefined
   card: string | undefined
   comment: string | undefined
+  userCategoryKey?: string
   encryptedData?: string
 }
 
@@ -1355,6 +1356,7 @@ export const upsertTransactions = internalMutation({
         counterparty: v.optional(v.string()),
         card: v.optional(v.string()),
         comment: v.optional(v.string()),
+        userCategoryKey: v.optional(v.string()),
         encryptedData: v.optional(v.string()),
       }),
     ),
@@ -1368,7 +1370,7 @@ export const upsertTransactions = internalMutation({
         )
         .first()
 
-      const { encryptedData, ...txnFields } = txn
+      const { encryptedData, userCategoryKey, ...txnFields } = txn
       const txnEncrypted = !!encryptedData
       if (existing) {
         await ctx.db.patch('transactions', existing._id, {
@@ -1377,12 +1379,19 @@ export const upsertTransactions = internalMutation({
           profileId: args.profileId,
           encryptedData,
           encrypted: txnEncrypted,
+          // Preserve manual category overrides — never overwrite userCategoryKey
+          ...(existing.userCategoryKey
+            ? {}
+            : userCategoryKey
+              ? { userCategoryKey }
+              : {}),
         })
       } else {
         await ctx.db.insert('transactions', {
           bankAccountId: args.bankAccountId,
           profileId: args.profileId,
           ...txnFields,
+          ...(userCategoryKey ? { userCategoryKey } : {}),
           encryptedData,
           encrypted: txnEncrypted,
         })
@@ -1415,6 +1424,12 @@ export const syncTransactionsFromWebhook = internalAction({
     )
     if (!connection) return
 
+    // Load category rules for auto-categorization
+    const categoryRules = await ctx.runQuery(
+      internal.categoryRules.listRulesForWorkspace,
+      { workspaceId: profile.workspaceId },
+    )
+
     const bankAccounts = await ctx.runQuery(
       internal.powens.listBankAccountsByConnection,
       { connectionId: connection._id },
@@ -1442,6 +1457,30 @@ export const syncTransactionsFromWebhook = internalAction({
 
         if (rawTransactions.length === 0) break
 
+        // Apply category rules to incoming transactions
+        for (const txn of rawTransactions) {
+          if (txn.userCategoryKey) continue
+          const text = [txn.wording, txn.originalWording, txn.simplifiedWording]
+            .filter(Boolean)
+            .join(' ')
+          for (const rule of categoryRules) {
+            let matched = false
+            if (rule.matchType === 'contains') {
+              matched = text.toLowerCase().includes(rule.pattern.toLowerCase())
+            } else {
+              try {
+                matched = new RegExp(rule.pattern, 'i').test(text)
+              } catch {
+                // invalid regex, skip
+              }
+            }
+            if (matched) {
+              txn.userCategoryKey = rule.categoryKey
+              break
+            }
+          }
+        }
+
         let transactions: Array<MappedTransaction> = rawTransactions
         if (publicKey) {
           transactions = await Promise.all(
@@ -1458,6 +1497,7 @@ export const syncTransactionsFromWebhook = internalAction({
                   comment: txn.comment,
                   category: txn.category,
                   categoryParent: txn.categoryParent,
+                  userCategoryKey: txn.userCategoryKey,
                 },
                 publicKey,
               )
@@ -1473,6 +1513,7 @@ export const syncTransactionsFromWebhook = internalAction({
                 comment: undefined,
                 category: undefined,
                 categoryParent: undefined,
+                userCategoryKey: undefined,
                 encryptedData: encData,
               }
             }),

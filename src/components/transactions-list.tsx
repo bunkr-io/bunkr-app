@@ -38,10 +38,9 @@ import {
 } from '~/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import { useFormatCurrency } from '~/contexts/privacy-context'
-import {
-  TRANSACTION_CATEGORIES,
-  getTransactionCategoryKey,
-} from '~/lib/transaction-categories'
+import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
+import { CategoryPicker } from '~/components/category-picker'
+import { CreateRuleDialog } from '~/components/create-rule-dialog'
 import { cn } from '~/lib/utils'
 
 export interface TransactionRow {
@@ -50,6 +49,7 @@ export interface TransactionRow {
   wording: string
   category?: string
   categoryParent?: string
+  userCategoryKey?: string
   value: number
   type?: string
   coming: boolean
@@ -66,20 +66,31 @@ const PAGE_SIZE_OPTIONS = ['25', '50', '100']
 
 export function TransactionsList({ data, currency }: TransactionsListProps) {
   const formatCurrency = useFormatCurrency()
+  const { getCategory } = useCategories()
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: 'date', desc: true },
   ])
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all')
   const [flowFilter, setFlowFilter] = React.useState<FlowFilter>('all')
+  const [ruleDialog, setRuleDialog] = React.useState<{
+    open: boolean
+    pattern: string
+    categoryKey: string
+  }>({ open: false, pattern: '', categoryKey: '' })
+
+  const handleCreateRule = React.useCallback(
+    (wording: string, categoryKey: string) => {
+      setRuleDialog({ open: true, pattern: wording, categoryKey })
+    },
+    [],
+  )
 
   const filteredData = React.useMemo(() => {
     let result = data
     if (categoryFilter !== 'all') {
       result = result.filter(
-        (t) =>
-          getTransactionCategoryKey(t.categoryParent, t.category) ===
-          categoryFilter,
+        (t) => resolveTransactionCategoryKey(t) === categoryFilter,
       )
     }
     if (flowFilter === 'income') {
@@ -136,12 +147,18 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
         id: 'category',
         header: 'Category',
         accessorFn: (row) =>
-          TRANSACTION_CATEGORIES[
-            getTransactionCategoryKey(row.categoryParent, row.category)
-          ].label,
-        cell: ({ getValue }) => (
-          <span className="text-muted-foreground">{getValue<string>()}</span>
-        ),
+          getCategory(resolveTransactionCategoryKey(row)).label,
+        cell: ({ row }) => {
+          const categoryKey = resolveTransactionCategoryKey(row.original)
+          return (
+            <CategoryPicker
+              transactionId={row.original._id}
+              currentCategoryKey={categoryKey}
+              wording={row.original.wording}
+              onCreateRule={handleCreateRule}
+            />
+          )
+        },
       },
       {
         accessorKey: 'value',
@@ -178,7 +195,7 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
         },
       },
     ],
-    [currency, formatCurrency],
+    [currency, formatCurrency, getCategory, handleCreateRule],
   )
 
   const table = useReactTable({
@@ -199,9 +216,7 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
   })
 
   const usedCategories = React.useMemo(() => {
-    const keys = new Set(
-      data.map((t) => getTransactionCategoryKey(t.categoryParent, t.category)),
-    )
+    const keys = new Set(data.map((t) => resolveTransactionCategoryKey(t)))
     return [...keys].sort()
   }, [data])
 
@@ -230,7 +245,7 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
             <SelectItem value="all">All categories</SelectItem>
             {usedCategories.map((key) => (
               <SelectItem key={key} value={key}>
-                {TRANSACTION_CATEGORIES[key].label}
+                {getCategory(key).label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -342,7 +357,8 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
               <ChevronLeft className="size-4" />
             </Button>
             <span className="px-2 text-sm tabular-nums text-muted-foreground">
-              {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+              {table.getState().pagination.pageIndex + 1} /{' '}
+              {table.getPageCount()}
             </span>
             <Button
               variant="outline"
@@ -365,6 +381,13 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
           </div>
         </div>
       </div>
+
+      <CreateRuleDialog
+        open={ruleDialog.open}
+        onOpenChange={(open) => setRuleDialog((prev) => ({ ...prev, open }))}
+        defaultPattern={ruleDialog.pattern}
+        defaultCategoryKey={ruleDialog.categoryKey}
+      />
     </div>
   )
 }

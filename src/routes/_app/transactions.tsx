@@ -25,10 +25,7 @@ import {
   TransactionPeriodSelector,
   useTransactionPeriod,
 } from '~/components/transaction-period-selector'
-import {
-  TRANSACTION_CATEGORIES,
-  getTransactionCategoryKey,
-} from '~/lib/transaction-categories'
+import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
 
 interface TransactionRecord {
   _id: string
@@ -36,6 +33,7 @@ interface TransactionRecord {
   wording: string
   category?: string
   categoryParent?: string
+  userCategoryKey?: string
   value: number
   type?: string
   coming: boolean
@@ -69,6 +67,7 @@ function TransactionsContent() {
   } = useProfile()
 
   const period = useTransactionPeriod()
+  const { getCategory } = useCategories()
 
   const transactionsSingle = useQuery(
     api.transactions.listTransactionsByProfile,
@@ -129,7 +128,7 @@ function TransactionsContent() {
     let expenseSum = 0
     for (const t of transactions) {
       if (t.value >= 0) continue
-      const key = getTransactionCategoryKey(t.categoryParent, t.category)
+      const key = resolveTransactionCategoryKey(t)
       categoryTotals.set(
         key,
         (categoryTotals.get(key) ?? 0) + Math.abs(t.value),
@@ -138,17 +137,20 @@ function TransactionsContent() {
     }
     const data = [...categoryTotals.entries()]
       .sort(([, a], [, b]) => b - a)
-      .map(([key, value]) => ({
-        key,
-        label: TRANSACTION_CATEGORIES[key].label,
-        value: Math.round(value * 100) / 100,
-        color: TRANSACTION_CATEGORIES[key].color,
-      }))
+      .map(([key, value]) => {
+        const cat = getCategory(key)
+        return {
+          key,
+          label: cat.label,
+          value: Math.round(value * 100) / 100,
+          color: cat.color,
+        }
+      })
     return {
       categoryData: data,
       totalExpenses: Math.round(expenseSum * 100) / 100,
     }
-  }, [transactions])
+  }, [transactions, getCategory])
 
   const sankeyData = React.useMemo(() => {
     if (!transactions) return { nodes: [], links: [] }
@@ -160,7 +162,7 @@ function TransactionsContent() {
       if (t.value > 0) {
         totalIncome += t.value
       } else {
-        const key = getTransactionCategoryKey(t.categoryParent, t.category)
+        const key = resolveTransactionCategoryKey(t)
         categoryExpenses.set(
           key,
           (categoryExpenses.get(key) ?? 0) + Math.abs(t.value),
@@ -176,25 +178,31 @@ function TransactionsContent() {
       { name: 'Income', color: 'hsl(142 71% 45%)' },
       ...[...categoryExpenses.entries()]
         .sort(([, a], [, b]) => b - a)
-        .map(([key]) => ({
-          name: TRANSACTION_CATEGORIES[key].label,
-          color: TRANSACTION_CATEGORIES[key].color,
-        })),
+        .map(([key]) => {
+          const cat = getCategory(key)
+          return {
+            name: cat.label,
+            color: cat.color,
+          }
+        }),
     ]
 
     const sortedEntries = [...categoryExpenses.entries()].sort(
       ([, a], [, b]) => b - a,
     )
 
-    const links = sortedEntries.map(([key, value], i) => ({
-      source: 0,
-      target: i + 1,
-      value: Math.round(value * 100) / 100,
-      stroke: TRANSACTION_CATEGORIES[key].color,
-    }))
+    const links = sortedEntries.map(([key, value], i) => {
+      const cat = getCategory(key)
+      return {
+        source: 0,
+        target: i + 1,
+        value: Math.round(value * 100) / 100,
+        stroke: cat.color,
+      }
+    })
 
     return { nodes, links }
-  }, [transactions])
+  }, [transactions, getCategory])
 
   const tableData = React.useMemo<Array<TransactionRow>>(() => {
     if (!transactions) return []
@@ -204,6 +212,7 @@ function TransactionsContent() {
       wording: t.wording,
       category: t.category,
       categoryParent: t.categoryParent,
+      userCategoryKey: t.userCategoryKey,
       value: t.value,
       type: t.type,
       coming: t.coming,

@@ -24,6 +24,7 @@ import { Route as SettingsSettingsProfileRouteImport } from './routes/_settings/
 import { Route as SettingsSettingsMembersRouteImport } from './routes/_settings/settings.members'
 import { Route as SettingsSettingsEncryptionRouteImport } from './routes/_settings/settings.encryption'
 import { Route as SettingsSettingsConnectionsRouteImport } from './routes/_settings/settings.connections'
+import { Route as SettingsSettingsCategoriesRouteImport } from './routes/_settings/settings.categories'
 import { Route as SettingsSettingsBillingRouteImport } from './routes/_settings/settings.billing'
 import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts.$accountId'
 
@@ -103,6 +104,12 @@ const SettingsSettingsConnectionsRoute =
     path: '/settings/connections',
     getParentRoute: () => SettingsRoute,
   } as any)
+const SettingsSettingsCategoriesRoute =
+  SettingsSettingsCategoriesRouteImport.update({
+    id: '/settings/categories',
+    path: '/settings/categories',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const SettingsSettingsBillingRoute = SettingsSettingsBillingRouteImport.update({
   id: '/settings/billing',
   path: '/settings/billing',
@@ -123,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/settings/billing': typeof SettingsSettingsBillingRoute
+  '/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
@@ -140,6 +148,7 @@ export interface FileRoutesByTo {
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/settings/billing': typeof SettingsSettingsBillingRoute
+  '/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
@@ -160,6 +169,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/accounts/$accountId': typeof AppAccountsAccountIdRoute
   '/_settings/settings/billing': typeof SettingsSettingsBillingRoute
+  '/_settings/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/_settings/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/_settings/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/_settings/settings/members': typeof SettingsSettingsMembersRoute
@@ -179,6 +189,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/accounts/$accountId'
     | '/settings/billing'
+    | '/settings/categories'
     | '/settings/connections'
     | '/settings/encryption'
     | '/settings/members'
@@ -196,6 +207,7 @@ export interface FileRouteTypes {
     | '/sign-in/$'
     | '/accounts/$accountId'
     | '/settings/billing'
+    | '/settings/categories'
     | '/settings/connections'
     | '/settings/encryption'
     | '/settings/members'
@@ -215,6 +227,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/accounts/$accountId'
     | '/_settings/settings/billing'
+    | '/_settings/settings/categories'
     | '/_settings/settings/connections'
     | '/_settings/settings/encryption'
     | '/_settings/settings/members'
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsConnectionsRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/_settings/settings/categories': {
+      id: '/_settings/settings/categories'
+      path: '/settings/categories'
+      fullPath: '/settings/categories'
+      preLoaderRoute: typeof SettingsSettingsCategoriesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/_settings/settings/billing': {
       id: '/_settings/settings/billing'
       path: '/settings/billing'
@@ -376,6 +396,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface SettingsRouteChildren {
   SettingsSettingsBillingRoute: typeof SettingsSettingsBillingRoute
+  SettingsSettingsCategoriesRoute: typeof SettingsSettingsCategoriesRoute
   SettingsSettingsConnectionsRoute: typeof SettingsSettingsConnectionsRoute
   SettingsSettingsEncryptionRoute: typeof SettingsSettingsEncryptionRoute
   SettingsSettingsMembersRoute: typeof SettingsSettingsMembersRoute
@@ -386,6 +407,7 @@ interface SettingsRouteChildren {
 
 const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSettingsBillingRoute: SettingsSettingsBillingRoute,
+  SettingsSettingsCategoriesRoute: SettingsSettingsCategoriesRoute,
   SettingsSettingsConnectionsRoute: SettingsSettingsConnectionsRoute,
   SettingsSettingsEncryptionRoute: SettingsSettingsEncryptionRoute,
   SettingsSettingsMembersRoute: SettingsSettingsMembersRoute,

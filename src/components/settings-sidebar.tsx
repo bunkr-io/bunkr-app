@@ -6,6 +6,7 @@ import {
   Lock,
   Palette,
   Shield,
+  Tag,
   User,
   Users,
 } from 'lucide-react'
@@ -81,6 +82,14 @@ export function SettingsSidebar({
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/settings/categories">
+                    <Tag />
+                    <span>Categories</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link to="/settings/connections">

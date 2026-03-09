@@ -174,6 +174,7 @@ export default defineSchema({
     counterparty: v.optional(v.string()),
     card: v.optional(v.string()),
     comment: v.optional(v.string()),
+    userCategoryKey: v.optional(v.string()),
     encryptedData: v.optional(v.string()),
     encrypted: v.optional(v.boolean()),
   })
@@ -182,6 +183,28 @@ export default defineSchema({
     .index('by_profileId_date', ['profileId', 'date'])
     .index('by_powensTransactionId', ['powensTransactionId'])
     .index('by_profileId_encrypted', ['profileId', 'encrypted']),
+
+  transactionCategories: defineTable({
+    workspaceId: v.id('workspaces'),
+    key: v.string(),
+    label: v.string(),
+    color: v.string(),
+    icon: v.optional(v.string()),
+    parentKey: v.optional(v.string()),
+    builtIn: v.boolean(),
+    sortOrder: v.optional(v.number()),
+  })
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_workspaceId_key', ['workspaceId', 'key']),
+
+  categoryRules: defineTable({
+    workspaceId: v.id('workspaces'),
+    pattern: v.string(),
+    matchType: v.union(v.literal('contains'), v.literal('regex')),
+    categoryKey: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index('by_workspaceId', ['workspaceId']),
 
   dailyCategoryBalance: defineTable({
     profileId: v.id('profiles'),
