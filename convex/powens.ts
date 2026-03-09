@@ -65,10 +65,12 @@ interface PowensRawTransaction {
   category?: {
     id?: number | null
     name?: string | null
-    code?: string | null
-    parent_code?: string | null
     parent?: { name?: string | null } | null
   } | null
+  categories?: Array<{
+    code?: string | null
+    parent_code?: string | null
+  }> | null
   coming?: boolean | null
   active?: boolean | null
   deleted?: unknown
@@ -1457,9 +1459,11 @@ function mapPowensTransaction(raw: PowensRawTransaction): MappedTransaction {
     wording: raw.wording ?? raw.original_wording ?? 'Unknown',
     originalWording: raw.original_wording ?? undefined,
     simplifiedWording: raw.simplified_wording ?? undefined,
-    category: raw.category?.code ?? raw.category?.name ?? undefined,
+    category: raw.categories?.[0]?.code ?? raw.category?.name ?? undefined,
     categoryParent:
-      raw.category?.parent_code ?? raw.category?.parent?.name ?? undefined,
+      raw.categories?.[0]?.parent_code ??
+      raw.category?.parent?.name ??
+      undefined,
     coming: raw.coming ?? false,
     active: raw.active ?? true,
     deleted: raw.deleted != null,
@@ -1582,7 +1586,7 @@ export const syncTransactionsFromWebhook = internalAction({
 
       for (;;) {
         const response = await fetch(
-          `${baseUrl}/users/me/accounts/${ba.powensBankAccountId}/transactions?limit=${limit}&offset=${offset}&expand=category`,
+          `${baseUrl}/users/me/accounts/${ba.powensBankAccountId}/transactions?limit=${limit}&offset=${offset}&expand=categories`,
           { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
         )
 
