@@ -1,5 +1,10 @@
 import { v } from 'convex/values'
-import { internalMutation, internalQuery, mutation, query } from './_generated/server'
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
 // Returns workspace encryption status + current user's key slot

@@ -260,10 +260,7 @@ function EncryptionPage() {
                   </ItemCardItemDescription>
                 </ItemCardItemContent>
                 <ItemCardItemAction>
-                  <Button
-                    variant="outline"
-                    onClick={() => setRotateOpen(true)}
-                  >
+                  <Button variant="outline" onClick={() => setRotateOpen(true)}>
                     <KeyRound className="size-4" />
                     Rotate keys
                   </Button>
@@ -401,9 +398,7 @@ function MembersAccessSection() {
                           handleGrantAccess(m.userId, m.publicKey!)
                         }
                       >
-                        {granting === m.userId
-                          ? 'Granting...'
-                          : 'Grant access'}
+                        {granting === m.userId ? 'Granting...' : 'Grant access'}
                       </Button>
                       {!workspacePrivateKeyJwk && (
                         <p className="text-xs text-muted-foreground">
@@ -1191,9 +1186,7 @@ function KeyRotationDialog({
   const BATCH_SIZE = 50
 
   const rotateKey = useMutation(api.encryptionKeys.rotateWorkspaceKey)
-  const completeRotation = useMutation(
-    api.encryptionKeys.completeKeyRotation,
-  )
+  const completeRotation = useMutation(api.encryptionKeys.completeKeyRotation)
   const migrateConnection = useMutation(api.encryptionKeys.migrateConnection)
   const migrateAccounts = useMutation(api.encryptionKeys.migrateBankAccount)
   const migrateSnapshotBatch = useMutation(
@@ -1251,9 +1244,7 @@ function KeyRotationDialog({
       // Generate new workspace RSA-4096 keypair
       const newWsKeyPair = await generateKeyPair()
       const newWsPublicKeyJwk = await exportPublicKey(newWsKeyPair.publicKey)
-      const newWsPrivateKeyJwk = await exportPrivateKey(
-        newWsKeyPair.privateKey,
-      )
+      const newWsPrivateKeyJwk = await exportPrivateKey(newWsKeyPair.privateKey)
 
       // Encrypt new workspace private key with owner's personal public key
       const personalPublicKey = await importPublicKey(ownerMember.publicKey)

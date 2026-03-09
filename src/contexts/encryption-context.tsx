@@ -236,7 +236,11 @@ export function useDecryptRecords<
           if (r.encryptedData) {
             try {
               // Pass record _id as AAD — decryptData checks version internally
-              const data = await decryptData(r.encryptedData, privateKey!, r._id)
+              const data = await decryptData(
+                r.encryptedData,
+                privateKey!,
+                r._id,
+              )
               result = { ...result, ...data }
             } catch {
               // keep original

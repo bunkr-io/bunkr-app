@@ -177,7 +177,11 @@ export async function decryptData(
   if (v === 2 && aad) {
     aesParams.additionalData = new TextEncoder().encode(aad)
   }
-  const decrypted = await crypto.subtle.decrypt(aesParams, aesKey, fromBase64(ct))
+  const decrypted = await crypto.subtle.decrypt(
+    aesParams,
+    aesKey,
+    fromBase64(ct),
+  )
   return JSON.parse(new TextDecoder().decode(decrypted))
 }
 
