@@ -143,10 +143,7 @@ export function SankeyChart({ nodes, links, currency }: SankeyChartProps) {
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         <div className="w-full overflow-x-auto">
-          <div
-            className="min-w-[600px]"
-            style={{ height: chartHeight }}
-          >
+          <div className="min-w-[600px]" style={{ height: chartHeight }}>
             <Sankey
               width={900}
               height={chartHeight}

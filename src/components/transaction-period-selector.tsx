@@ -1,6 +1,13 @@
 import * as React from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
-import { endOfMonth, endOfYear, format, startOfMonth, startOfYear } from 'date-fns'
+import {
+  endOfMonth,
+  endOfYear,
+  format,
+  startOfMonth,
+  startOfYear,
+} from 'date-fns'
+import type { DateSelectorValue } from '~/components/reui/date-selector'
 import { Button } from '~/components/ui/button'
 import {
   Dialog,
@@ -11,7 +18,6 @@ import {
   DialogTrigger,
 } from '~/components/ui/dialog'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
-import type { DateSelectorValue } from '~/components/reui/date-selector'
 import { DateSelector } from '~/components/reui/date-selector'
 
 export type TransactionPeriodType = '1M' | '3M' | '1Y' | 'custom'
@@ -125,13 +131,13 @@ function resolveeDateSelectorRange(
   }
 
   if (value.period === 'month') {
-    if (
-      value.operator === 'between' &&
-      value.rangeStart &&
-      value.rangeEnd
-    ) {
-      const start = startOfMonth(new Date(value.rangeStart.year, value.rangeStart.value))
-      const end = endOfMonth(new Date(value.rangeEnd.year, value.rangeEnd.value))
+    if (value.operator === 'between' && value.rangeStart && value.rangeEnd) {
+      const start = startOfMonth(
+        new Date(value.rangeStart.year, value.rangeStart.value),
+      )
+      const end = endOfMonth(
+        new Date(value.rangeEnd.year, value.rangeEnd.value),
+      )
       return { start: fmt(start), end: fmt(end) }
     }
     if (value.operator === 'is' && value.year != null && value.month != null) {
@@ -143,16 +149,20 @@ function resolveeDateSelectorRange(
   }
 
   if (value.period === 'quarter') {
-    if (
-      value.operator === 'between' &&
-      value.rangeStart &&
-      value.rangeEnd
-    ) {
-      const start = startOfMonth(new Date(value.rangeStart.year, (value.rangeStart.value - 1) * 3))
-      const end = endOfMonth(new Date(value.rangeEnd.year, value.rangeEnd.value * 3 - 1))
+    if (value.operator === 'between' && value.rangeStart && value.rangeEnd) {
+      const start = startOfMonth(
+        new Date(value.rangeStart.year, (value.rangeStart.value - 1) * 3),
+      )
+      const end = endOfMonth(
+        new Date(value.rangeEnd.year, value.rangeEnd.value * 3 - 1),
+      )
       return { start: fmt(start), end: fmt(end) }
     }
-    if (value.operator === 'is' && value.year != null && value.quarter != null) {
+    if (
+      value.operator === 'is' &&
+      value.year != null &&
+      value.quarter != null
+    ) {
       const start = startOfMonth(new Date(value.year, (value.quarter - 1) * 3))
       const end = endOfMonth(new Date(value.year, value.quarter * 3 - 1))
       return { start: fmt(start), end: fmt(end) }
@@ -161,16 +171,20 @@ function resolveeDateSelectorRange(
   }
 
   if (value.period === 'half-year') {
-    if (
-      value.operator === 'between' &&
-      value.rangeStart &&
-      value.rangeEnd
-    ) {
-      const start = startOfMonth(new Date(value.rangeStart.year, (value.rangeStart.value - 1) * 6))
-      const end = endOfMonth(new Date(value.rangeEnd.year, value.rangeEnd.value * 6 - 1))
+    if (value.operator === 'between' && value.rangeStart && value.rangeEnd) {
+      const start = startOfMonth(
+        new Date(value.rangeStart.year, (value.rangeStart.value - 1) * 6),
+      )
+      const end = endOfMonth(
+        new Date(value.rangeEnd.year, value.rangeEnd.value * 6 - 1),
+      )
       return { start: fmt(start), end: fmt(end) }
     }
-    if (value.operator === 'is' && value.year != null && value.halfYear != null) {
+    if (
+      value.operator === 'is' &&
+      value.year != null &&
+      value.halfYear != null
+    ) {
       const start = startOfMonth(new Date(value.year, (value.halfYear - 1) * 6))
       const end = endOfMonth(new Date(value.year, value.halfYear * 6 - 1))
       return { start: fmt(start), end: fmt(end) }
@@ -178,24 +192,17 @@ function resolveeDateSelectorRange(
     return null
   }
 
-  if (value.period === 'year') {
-    if (
-      value.operator === 'between' &&
-      value.rangeStart &&
-      value.rangeEnd
-    ) {
-      const start = startOfYear(new Date(value.rangeStart.year, 0))
-      const end = endOfYear(new Date(value.rangeEnd.year, 0))
-      return { start: fmt(start), end: fmt(end) }
-    }
-    if (value.operator === 'is' && value.year != null) {
-      const start = startOfYear(new Date(value.year, 0))
-      const end = endOfYear(new Date(value.year, 0))
-      return { start: fmt(start), end: fmt(end) }
-    }
-    return null
+  // value.period === 'year' (only remaining case)
+  if (value.operator === 'between' && value.rangeStart && value.rangeEnd) {
+    const start = startOfYear(new Date(value.rangeStart.year, 0))
+    const end = endOfYear(new Date(value.rangeEnd.year, 0))
+    return { start: fmt(start), end: fmt(end) }
   }
-
+  if (value.operator === 'is' && value.year != null) {
+    const start = startOfYear(new Date(value.year, 0))
+    const end = endOfYear(new Date(value.year, 0))
+    return { start: fmt(start), end: fmt(end) }
+  }
   return null
 }
 
@@ -261,10 +268,7 @@ function CustomDateRangeDialog({
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button
-            onClick={handleApply}
-            disabled={!resolvedRange}
-          >
+          <Button onClick={handleApply} disabled={!resolvedRange}>
             Apply
           </Button>
         </DialogFooter>
@@ -342,12 +346,9 @@ export function useTransactionPeriod() {
     [periodType, offset],
   )
 
-  const handleNavigate = React.useCallback(
-    (direction: 'prev' | 'next') => {
-      setOffset((prev) => prev + (direction === 'prev' ? -1 : 1))
-    },
-    [],
-  )
+  const handleNavigate = React.useCallback((direction: 'prev' | 'next') => {
+    setOffset((prev) => prev + (direction === 'prev' ? -1 : 1))
+  }, [])
 
   const canGoNext = offset < 0
 
