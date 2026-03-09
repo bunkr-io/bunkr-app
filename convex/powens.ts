@@ -52,19 +52,23 @@ interface PowensTransactionResponse {
 
 interface PowensRawTransaction {
   id: number
-  date?: string
-  rdate?: string
-  vdate?: string
-  value?: number
-  original_value?: number
-  original_currency?: { id?: string }
-  type?: string
-  original_wording?: string
-  simplified_wording?: string
-  wording?: string
-  category?: { id?: number; name?: string; parent?: { name?: string } }
-  coming?: boolean
-  active?: boolean
+  date?: string | null
+  rdate?: string | null
+  vdate?: string | null
+  value?: number | null
+  original_value?: number | null
+  original_currency?: { id?: string | null } | null
+  type?: string | null
+  original_wording?: string | null
+  simplified_wording?: string | null
+  wording?: string | null
+  category?: {
+    id?: number | null
+    name?: string | null
+    parent?: { name?: string | null } | null
+  } | null
+  coming?: boolean | null
+  active?: boolean | null
   deleted?: unknown
   counterparty?: string | null
   card?: string | null
@@ -1442,17 +1446,17 @@ function mapPowensTransaction(raw: PowensRawTransaction): MappedTransaction {
   return {
     powensTransactionId: raw.id,
     date: raw.date ?? new Date().toISOString().slice(0, 10),
-    rdate: raw.rdate,
-    vdate: raw.vdate,
+    rdate: raw.rdate ?? undefined,
+    vdate: raw.vdate ?? undefined,
     value: raw.value ?? 0,
-    originalValue: raw.original_value,
-    originalCurrency: raw.original_currency?.id,
-    type: raw.type,
+    originalValue: raw.original_value ?? undefined,
+    originalCurrency: raw.original_currency?.id ?? undefined,
+    type: raw.type ?? undefined,
     wording: raw.wording ?? raw.original_wording ?? 'Unknown',
-    originalWording: raw.original_wording,
-    simplifiedWording: raw.simplified_wording,
-    category: raw.category?.name,
-    categoryParent: raw.category?.parent?.name,
+    originalWording: raw.original_wording ?? undefined,
+    simplifiedWording: raw.simplified_wording ?? undefined,
+    category: raw.category?.name ?? undefined,
+    categoryParent: raw.category?.parent?.name ?? undefined,
     coming: raw.coming ?? false,
     active: raw.active ?? true,
     deleted: raw.deleted != null,
