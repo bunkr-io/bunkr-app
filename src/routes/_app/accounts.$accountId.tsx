@@ -1,7 +1,6 @@
 import * as React from 'react'
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
-import { ArrowLeft } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import type { Period } from '~/lib/chart-periods'
@@ -64,19 +63,15 @@ function AccountDetailPage() {
   return (
     <>
       <SiteHeader
-        title={bankAccount?.connectorName ?? bankAccount?.name ?? 'Account'}
+        breadcrumbs={[
+          { label: 'Accounts', href: '/accounts' },
+          {
+            label: bankAccount?.connectorName ?? bankAccount?.name ?? 'Account',
+          },
+        ]}
       />
       <div className="flex flex-1 flex-col">
         <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-          <Link
-            to="/accounts"
-            search={{}}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground w-fit"
-          >
-            <ArrowLeft className="size-4" />
-            Back to accounts
-          </Link>
-
           {isLoading ? (
             <div className="space-y-4">
               <Skeleton className="h-8 w-64" />

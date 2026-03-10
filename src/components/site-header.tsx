@@ -1,6 +1,15 @@
+import * as React from 'react'
 import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { Button } from '~/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbItem as BreadcrumbItemUI,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '~/components/ui/breadcrumb'
 import { Separator } from '~/components/ui/separator'
 import { SidebarTrigger } from '~/components/ui/sidebar'
 import {
@@ -11,7 +20,18 @@ import {
 import { usePrivacy } from '~/contexts/privacy-context'
 import { useEncryption } from '~/contexts/encryption-context'
 
-export function SiteHeader({ title = 'Dashboard' }: { title?: string }) {
+export interface BreadcrumbItem {
+  label: string
+  href?: string
+}
+
+export function SiteHeader({
+  title = 'Dashboard',
+  breadcrumbs,
+}: {
+  title?: string
+  breadcrumbs?: Array<BreadcrumbItem>
+}) {
   const { isPrivate, togglePrivacy } = usePrivacy()
   const { isEncryptionEnabled, isUnlocked, lock } = useEncryption()
 
@@ -23,7 +43,31 @@ export function SiteHeader({ title = 'Dashboard' }: { title?: string }) {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">{title}</h1>
+        {breadcrumbs && breadcrumbs.length > 0 ? (
+          <Breadcrumb>
+            <BreadcrumbList>
+              {breadcrumbs.map((item, index) => {
+                const isLast = index === breadcrumbs.length - 1
+                return (
+                  <React.Fragment key={index}>
+                    {index > 0 && <BreadcrumbSeparator />}
+                    <BreadcrumbItemUI>
+                      {isLast ? (
+                        <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Link to={item.href}>{item.label}</Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItemUI>
+                  </React.Fragment>
+                )
+              })}
+            </BreadcrumbList>
+          </Breadcrumb>
+        ) : (
+          <h1 className="text-base font-medium">{title}</h1>
+        )}
         <div className="ml-auto flex items-center gap-1">
           {isEncryptionEnabled && isUnlocked ? (
             <EncryptionStatusButton onLock={lock} />
