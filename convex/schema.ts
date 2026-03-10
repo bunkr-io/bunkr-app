@@ -208,6 +208,15 @@ export default defineSchema({
     createdAt: v.number(),
   }).index('by_workspaceId', ['workspaceId']),
 
+  filterViews: defineTable({
+    workspaceId: v.id('workspaces'),
+    entityType: v.string(),
+    name: v.string(),
+    filters: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index('by_workspaceId_entityType', ['workspaceId', 'entityType']),
+
   dailyCategoryBalance: defineTable({
     profileId: v.id('profiles'),
     workspaceId: v.id('workspaces'),

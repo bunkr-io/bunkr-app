@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
 import {
   Sheet,
   SheetContent,
@@ -80,8 +79,6 @@ interface TransactionsListProps {
   currency: string
 }
 
-type FlowFilter = 'all' | 'income' | 'expense'
-
 const PAGE_SIZE_OPTIONS = ['25', '50', '100']
 
 function formatDate(date: string): string {
@@ -99,8 +96,6 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
     { id: 'date', desc: true },
   ])
   const [globalFilter, setGlobalFilter] = React.useState('')
-  const [categoryFilter, setCategoryFilter] = React.useState<string>('all')
-  const [flowFilter, setFlowFilter] = React.useState<FlowFilter>('all')
   const [selectedTransaction, setSelectedTransaction] =
     React.useState<TransactionRow | null>(null)
   const [ruleDialog, setRuleDialog] = React.useState<{
@@ -115,21 +110,6 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
     },
     [],
   )
-
-  const filteredData = React.useMemo(() => {
-    let result = data
-    if (categoryFilter !== 'all') {
-      result = result.filter(
-        (t) => resolveTransactionCategoryKey(t) === categoryFilter,
-      )
-    }
-    if (flowFilter === 'income') {
-      result = result.filter((t) => t.value > 0)
-    } else if (flowFilter === 'expense') {
-      result = result.filter((t) => t.value < 0)
-    }
-    return result
-  }, [data, categoryFilter, flowFilter])
 
   const columns = React.useMemo<Array<ColumnDef<TransactionRow>>>(
     () => [
@@ -243,7 +223,7 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
   )
 
   const table = useReactTable({
-    data: filteredData,
+    data,
     columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
@@ -258,11 +238,6 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
       return wording.includes(filterValue.toLowerCase())
     },
   })
-
-  const usedCategories = React.useMemo(() => {
-    const keys = new Set(data.map((t) => resolveTransactionCategoryKey(t)))
-    return [...keys].sort()
-  }, [data])
 
   const { pageIndex, pageSize } = table.getState().pagination
   const totalRows = table.getFilteredRowModel().rows.length
@@ -281,32 +256,6 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
             className="pl-9"
           />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {usedCategories.map((key) => (
-              <SelectItem key={key} value={key}>
-                {getCategory(key).label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={flowFilter}
-          onValueChange={(val) => {
-            if (val) setFlowFilter(val as FlowFilter)
-          }}
-        >
-          <ToggleGroupItem value="all">All</ToggleGroupItem>
-          <ToggleGroupItem value="income">Income</ToggleGroupItem>
-          <ToggleGroupItem value="expense">Expense</ToggleGroupItem>
-        </ToggleGroup>
       </div>
 
       <div className="rounded-md border">

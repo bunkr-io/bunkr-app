@@ -5,6 +5,7 @@ import { ArrowLeftRight } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { CashFlowData } from '~/components/cash-flow-chart'
 import type { TransactionRow } from '~/components/transactions-list'
+import type { EnumOption, FilterConfig } from '~/lib/filters/types'
 import {
   Empty,
   EmptyDescription,
@@ -26,7 +27,9 @@ import {
   useTransactionPeriod,
 } from '~/components/transaction-period-selector'
 import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
-import { AccountFilter } from '~/components/account-filter'
+import { useFilters } from '~/hooks/use-filters'
+import { createTransactionFilterConfig } from '~/lib/filters/transactions'
+import { ActiveFilters, FilterActions } from '~/components/filters/filter-bar'
 
 interface TransactionRecord {
   _id: string
@@ -61,9 +64,7 @@ function TransactionsPage() {
     <>
       <SiteHeader />
       <div className="flex flex-1 flex-col">
-        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
-          <TransactionsContent />
-        </div>
+        <TransactionsContent />
       </div>
     </>
   )
@@ -78,7 +79,7 @@ function TransactionsContent() {
   } = useProfile()
 
   const period = useTransactionPeriod()
-  const { getCategory } = useCategories()
+  const { categories, getCategory } = useCategories()
 
   const transactionsSingle = useQuery(
     api.transactions.listTransactionsByProfile,
@@ -141,15 +142,57 @@ function TransactionsContent() {
     return map
   }, [bankAccounts])
 
-  const [accountFilter, setAccountFilter] = React.useState<Set<string>>(
-    new Set(),
+  const accountOptions = React.useMemo<Array<EnumOption>>(() => {
+    if (!bankAccounts) return []
+    return bankAccounts
+      .filter((ba) => !ba.disabled && !ba.deleted)
+      .map((ba) => ({
+        value: ba._id,
+        label: accountNameMap.get(ba._id) ?? ba.name,
+      }))
+  }, [bankAccounts, accountNameMap])
+
+  const categoryOptions = React.useMemo<Array<EnumOption>>(
+    () =>
+      categories.map((c) => ({
+        value: c.key,
+        label: c.label,
+        color: c.color,
+      })),
+    [categories],
   )
 
-  const filteredTransactions = React.useMemo(() => {
-    if (!transactions) return undefined
-    if (accountFilter.size === 0) return transactions
-    return transactions.filter((t) => accountFilter.has(t.bankAccountId))
-  }, [transactions, accountFilter])
+  const transactionTypeOptions = React.useMemo<Array<EnumOption>>(() => {
+    if (!transactions) return []
+    const types = new Set(
+      transactions.map((t) => t.type).filter(Boolean) as Array<string>,
+    )
+    return [...types].sort().map((t) => ({ value: t, label: t }))
+  }, [transactions])
+
+  const transactionConfig = React.useMemo(
+    () =>
+      createTransactionFilterConfig({
+        accountOptions,
+        categoryOptions,
+        transactionTypeOptions,
+      }),
+    [accountOptions, categoryOptions, transactionTypeOptions],
+  )
+
+  const {
+    conditions,
+    filteredData: filteredTransactions,
+    addCondition,
+    updateCondition,
+    removeCondition,
+    clearAll,
+    loadConditions,
+    hasActiveFilters,
+  } = useFilters<string, TransactionRecord>(
+    transactions,
+    transactionConfig as FilterConfig<string>,
+  )
 
   const currency = 'EUR'
 
@@ -260,16 +303,6 @@ function TransactionsContent() {
     return { nodes, links }
   }, [filteredTransactions, getCategory])
 
-  const accountOptions = React.useMemo(() => {
-    if (!bankAccounts) return []
-    return bankAccounts
-      .filter((ba) => !ba.disabled && !ba.deleted)
-      .map((ba) => ({
-        id: ba._id,
-        label: accountNameMap.get(ba._id) ?? ba.name,
-      }))
-  }, [bankAccounts, accountNameMap])
-
   const tableData = React.useMemo<Array<TransactionRow>>(() => {
     if (!filteredTransactions) return []
     return filteredTransactions.map((t) => ({
@@ -299,20 +332,22 @@ function TransactionsContent() {
 
   if (profileLoading || transactions === undefined) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-[250px] w-full" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Skeleton className="h-[300px] w-full" />
-          <Skeleton className="h-[300px] w-full" />
+      <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <div className="space-y-6">
+          <Skeleton className="h-[250px] w-full" />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Skeleton className="h-[300px] w-full" />
+            <Skeleton className="h-[300px] w-full" />
+          </div>
         </div>
       </div>
     )
   }
 
-  if (transactions.length === 0) {
+  if (transactions.length === 0 && !hasActiveFilters) {
     return (
       <>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6">
           <TransactionPeriodSelector
             periodType={period.periodType}
             range={period.range}
@@ -321,33 +356,28 @@ function TransactionsContent() {
             onCustomRangeChange={period.onCustomRangeChange}
             canGoNext={period.canGoNext}
           />
-          {accountOptions.length > 0 && (
-            <AccountFilter
-              accounts={accountOptions}
-              selected={accountFilter}
-              onChange={setAccountFilter}
-            />
-          )}
         </div>
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ArrowLeftRight />
-            </EmptyMedia>
-            <EmptyTitle>No Transactions</EmptyTitle>
-            <EmptyDescription>
-              No transactions found for this period. Try selecting a different
-              date range or account filter.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ArrowLeftRight />
+              </EmptyMedia>
+              <EmptyTitle>No Transactions</EmptyTitle>
+              <EmptyDescription>
+                No transactions found for this period. Try selecting a different
+                date range.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
       </>
     )
   }
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6">
         <TransactionPeriodSelector
           periodType={period.periodType}
           range={period.range}
@@ -356,46 +386,63 @@ function TransactionsContent() {
           onCustomRangeChange={period.onCustomRangeChange}
           canGoNext={period.canGoNext}
         />
-        {accountOptions.length > 0 && (
-          <AccountFilter
-            accounts={accountOptions}
-            selected={accountFilter}
-            onChange={setAccountFilter}
-          />
-        )}
+        <FilterActions
+          config={transactionConfig}
+          conditions={conditions}
+          onAdd={addCondition}
+          onUpdate={updateCondition}
+          onRemove={removeCondition}
+          onLoadConditions={loadConditions}
+          entityType="transactions"
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3 md:gap-6">
-        <div className="lg:col-span-2">
-          <CashFlowChart
-            data={cashFlowData}
-            currency={currency}
-            isLoading={false}
+      {conditions.length > 0 && (
+        <div className="border-b px-4 py-3 lg:px-6">
+          <ActiveFilters
+            config={transactionConfig}
+            conditions={conditions}
+            onUpdate={updateCondition}
+            onRemove={removeCondition}
+            onClearAll={clearAll}
+            entityType="transactions"
           />
         </div>
-        <CategoryPieChart
-          data={categoryData}
-          currency={currency}
-          total={totalExpenses}
-        />
-      </div>
-
-      {sankeyData.nodes.length > 0 && (
-        <SankeyChart
-          nodes={sankeyData.nodes}
-          links={sankeyData.links}
-          currency={currency}
-        />
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TransactionsList data={tableData} currency={currency} />
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <div className="grid gap-4 lg:grid-cols-3 md:gap-6">
+          <div className="lg:col-span-2">
+            <CashFlowChart
+              data={cashFlowData}
+              currency={currency}
+              isLoading={false}
+            />
+          </div>
+          <CategoryPieChart
+            data={categoryData}
+            currency={currency}
+            total={totalExpenses}
+          />
+        </div>
+
+        {sankeyData.nodes.length > 0 && (
+          <SankeyChart
+            nodes={sankeyData.nodes}
+            links={sankeyData.links}
+            currency={currency}
+          />
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Transactions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TransactionsList data={tableData} currency={currency} />
+          </CardContent>
+        </Card>
+      </div>
     </>
   )
 }
