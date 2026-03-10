@@ -11,12 +11,10 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  ListFilter,
   Search,
 } from 'lucide-react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
@@ -47,11 +45,6 @@ import {
   SheetTitle,
 } from '~/components/ui/sheet'
 import { Separator } from '~/components/ui/separator'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '~/components/ui/popover'
 import { useFormatCurrency } from '~/contexts/privacy-context'
 import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
 import { CategoryPicker } from '~/components/category-picker'
@@ -82,15 +75,9 @@ export interface TransactionRow {
   accountNumber?: string
 }
 
-export interface AccountOption {
-  id: string
-  label: string
-}
-
 interface TransactionsListProps {
   data: Array<TransactionRow>
   currency: string
-  accounts?: Array<AccountOption>
 }
 
 type FlowFilter = 'all' | 'income' | 'expense'
@@ -105,11 +92,7 @@ function formatDate(date: string): string {
   })
 }
 
-export function TransactionsList({
-  data,
-  currency,
-  accounts = [],
-}: TransactionsListProps) {
+export function TransactionsList({ data, currency }: TransactionsListProps) {
   const formatCurrency = useFormatCurrency()
   const { getCategory } = useCategories()
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -117,9 +100,6 @@ export function TransactionsList({
   ])
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all')
-  const [accountFilter, setAccountFilter] = React.useState<Set<string>>(
-    new Set(),
-  )
   const [flowFilter, setFlowFilter] = React.useState<FlowFilter>('all')
   const [selectedTransaction, setSelectedTransaction] =
     React.useState<TransactionRow | null>(null)
@@ -138,11 +118,6 @@ export function TransactionsList({
 
   const filteredData = React.useMemo(() => {
     let result = data
-    if (accountFilter.size > 0) {
-      result = result.filter(
-        (t) => t.bankAccountId && accountFilter.has(t.bankAccountId),
-      )
-    }
     if (categoryFilter !== 'all') {
       result = result.filter(
         (t) => resolveTransactionCategoryKey(t) === categoryFilter,
@@ -154,7 +129,7 @@ export function TransactionsList({
       result = result.filter((t) => t.value < 0)
     }
     return result
-  }, [data, accountFilter, categoryFilter, flowFilter])
+  }, [data, categoryFilter, flowFilter])
 
   const columns = React.useMemo<Array<ColumnDef<TransactionRow>>>(
     () => [
@@ -306,71 +281,6 @@ export function TransactionsList({
             className="pl-9"
           />
         </div>
-        {accounts.length > 0 && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <ListFilter className="size-3.5" />
-                Accounts
-                {accountFilter.size > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1 size-5 rounded-full p-0 text-[10px]"
-                  >
-                    {accountFilter.size}
-                  </Badge>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[260px] p-2" align="start">
-              <div className="flex flex-col gap-0.5">
-                {accounts.map((acct) => {
-                  const selected = accountFilter.has(acct.id)
-                  return (
-                    <button
-                      key={acct.id}
-                      className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
-                      onClick={() => {
-                        setAccountFilter((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(acct.id)) {
-                            next.delete(acct.id)
-                          } else {
-                            next.add(acct.id)
-                          }
-                          return next
-                        })
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          'flex size-4 shrink-0 items-center justify-center rounded-sm border',
-                          selected
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-muted-foreground/30',
-                        )}
-                      >
-                        {selected && <Check className="size-3" />}
-                      </div>
-                      <span className="truncate">{acct.label}</span>
-                    </button>
-                  )
-                })}
-                {accountFilter.size > 0 && (
-                  <>
-                    <Separator className="my-1" />
-                    <button
-                      className="px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-                      onClick={() => setAccountFilter(new Set())}
-                    >
-                      Clear filter
-                    </button>
-                  </>
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        )}
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Category" />

@@ -26,6 +26,7 @@ import {
   useTransactionPeriod,
 } from '~/components/transaction-period-selector'
 import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
+import { AccountFilter } from '~/components/account-filter'
 
 interface TransactionRecord {
   _id: string
@@ -140,12 +141,22 @@ function TransactionsContent() {
     return map
   }, [bankAccounts])
 
+  const [accountFilter, setAccountFilter] = React.useState<Set<string>>(
+    new Set(),
+  )
+
+  const filteredTransactions = React.useMemo(() => {
+    if (!transactions) return undefined
+    if (accountFilter.size === 0) return transactions
+    return transactions.filter((t) => accountFilter.has(t.bankAccountId))
+  }, [transactions, accountFilter])
+
   const currency = 'EUR'
 
   const cashFlowData = React.useMemo<Array<CashFlowData>>(() => {
-    if (!transactions) return []
+    if (!filteredTransactions) return []
     const monthMap = new Map<string, { income: number; expenses: number }>()
-    for (const t of transactions) {
+    for (const t of filteredTransactions) {
       const month = t.date.slice(0, 7) // YYYY-MM
       const entry = monthMap.get(month) ?? { income: 0, expenses: 0 }
       if (t.value > 0) {
@@ -165,13 +176,13 @@ function TransactionsContent() {
         income: Math.round(data.income * 100) / 100,
         expenses: Math.round(data.expenses * 100) / 100,
       }))
-  }, [transactions])
+  }, [filteredTransactions])
 
   const { categoryData, totalExpenses } = React.useMemo(() => {
-    if (!transactions) return { categoryData: [], totalExpenses: 0 }
+    if (!filteredTransactions) return { categoryData: [], totalExpenses: 0 }
     const categoryTotals = new Map<string, number>()
     let expenseSum = 0
-    for (const t of transactions) {
+    for (const t of filteredTransactions) {
       if (t.value >= 0) continue
       const key = resolveTransactionCategoryKey(t)
       categoryTotals.set(
@@ -195,15 +206,15 @@ function TransactionsContent() {
       categoryData: data,
       totalExpenses: Math.round(expenseSum * 100) / 100,
     }
-  }, [transactions, getCategory])
+  }, [filteredTransactions, getCategory])
 
   const sankeyData = React.useMemo(() => {
-    if (!transactions) return { nodes: [], links: [] }
+    if (!filteredTransactions) return { nodes: [], links: [] }
 
     let totalIncome = 0
     const categoryExpenses = new Map<string, number>()
 
-    for (const t of transactions) {
+    for (const t of filteredTransactions) {
       if (t.value > 0) {
         totalIncome += t.value
       } else {
@@ -247,7 +258,7 @@ function TransactionsContent() {
     })
 
     return { nodes, links }
-  }, [transactions, getCategory])
+  }, [filteredTransactions, getCategory])
 
   const accountOptions = React.useMemo(() => {
     if (!bankAccounts) return []
@@ -260,8 +271,8 @@ function TransactionsContent() {
   }, [bankAccounts, accountNameMap])
 
   const tableData = React.useMemo<Array<TransactionRow>>(() => {
-    if (!transactions) return []
-    return transactions.map((t) => ({
+    if (!filteredTransactions) return []
+    return filteredTransactions.map((t) => ({
       _id: t._id,
       bankAccountId: t.bankAccountId,
       date: t.date,
@@ -284,7 +295,7 @@ function TransactionsContent() {
       accountName: accountNameMap.get(t.bankAccountId),
       accountNumber: accountNumberMap.get(t.bankAccountId),
     }))
-  }, [transactions, accountNameMap, accountNumberMap])
+  }, [filteredTransactions, accountNameMap, accountNumberMap])
 
   if (profileLoading || transactions === undefined) {
     return (
@@ -301,14 +312,23 @@ function TransactionsContent() {
   if (transactions.length === 0) {
     return (
       <>
-        <TransactionPeriodSelector
-          periodType={period.periodType}
-          range={period.range}
-          onPeriodTypeChange={period.onPeriodTypeChange}
-          onNavigate={period.onNavigate}
-          onCustomRangeChange={period.onCustomRangeChange}
-          canGoNext={period.canGoNext}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <TransactionPeriodSelector
+            periodType={period.periodType}
+            range={period.range}
+            onPeriodTypeChange={period.onPeriodTypeChange}
+            onNavigate={period.onNavigate}
+            onCustomRangeChange={period.onCustomRangeChange}
+            canGoNext={period.canGoNext}
+          />
+          {accountOptions.length > 0 && (
+            <AccountFilter
+              accounts={accountOptions}
+              selected={accountFilter}
+              onChange={setAccountFilter}
+            />
+          )}
+        </div>
         <Empty className="border">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -317,7 +337,7 @@ function TransactionsContent() {
             <EmptyTitle>No Transactions</EmptyTitle>
             <EmptyDescription>
               No transactions found for this period. Try selecting a different
-              date range.
+              date range or account filter.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -327,14 +347,23 @@ function TransactionsContent() {
 
   return (
     <>
-      <TransactionPeriodSelector
-        periodType={period.periodType}
-        range={period.range}
-        onPeriodTypeChange={period.onPeriodTypeChange}
-        onNavigate={period.onNavigate}
-        onCustomRangeChange={period.onCustomRangeChange}
-        canGoNext={period.canGoNext}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <TransactionPeriodSelector
+          periodType={period.periodType}
+          range={period.range}
+          onPeriodTypeChange={period.onPeriodTypeChange}
+          onNavigate={period.onNavigate}
+          onCustomRangeChange={period.onCustomRangeChange}
+          canGoNext={period.canGoNext}
+        />
+        {accountOptions.length > 0 && (
+          <AccountFilter
+            accounts={accountOptions}
+            selected={accountFilter}
+            onChange={setAccountFilter}
+          />
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3 md:gap-6">
         <div className="lg:col-span-2">
@@ -364,11 +393,7 @@ function TransactionsContent() {
           <CardTitle>Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          <TransactionsList
-            data={tableData}
-            currency={currency}
-            accounts={accountOptions}
-          />
+          <TransactionsList data={tableData} currency={currency} />
         </CardContent>
       </Card>
     </>
