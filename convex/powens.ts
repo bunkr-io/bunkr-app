@@ -252,10 +252,11 @@ function getPowensConfig() {
   const baseUrl = process.env.POWENS_BASE_URL
   const clientId = process.env.POWENS_CLIENT_ID
   const clientSecret = process.env.POWENS_CLIENT_SECRET
-  if (!baseUrl || !clientId || !clientSecret) {
+  const domain = process.env.POWENS_DOMAIN
+  if (!baseUrl || !clientId || !clientSecret || !domain) {
     throw new Error('Powens environment variables not configured')
   }
-  return { baseUrl, clientId, clientSecret }
+  return { baseUrl, clientId, clientSecret, domain }
 }
 
 export const createPowensUser = action({
@@ -296,7 +297,7 @@ export const generateConnectUrl = action({
   args: { profileId: v.id('profiles') },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    const { baseUrl, clientId, clientSecret } = getPowensConfig()
+    const { baseUrl, clientId, clientSecret, domain } = getPowensConfig()
     const siteUrl = process.env.SITE_URL
     if (!siteUrl) throw new Error('SITE_URL not configured')
 
@@ -349,7 +350,7 @@ export const generateConnectUrl = action({
     const code = codeData.code
 
     const redirectUri = `${siteUrl}/powens/callback`
-    const connectUrl = `https://webview.powens.com/connect?domain=aurum-sandbox&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+    const connectUrl = `https://webview.powens.com/connect?domain=${domain}&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
 
     return connectUrl
   },
@@ -363,7 +364,7 @@ export const generateManageUrl = action({
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
     await requireAuthUserId(ctx)
-    const { baseUrl, clientId } = getPowensConfig()
+    const { baseUrl, clientId, domain } = getPowensConfig()
     const siteUrl = process.env.SITE_URL
     if (!siteUrl) throw new Error('SITE_URL not configured')
 
@@ -399,7 +400,7 @@ export const generateManageUrl = action({
     const code = codeData.code
 
     const redirectUri = `${siteUrl}/powens/callback`
-    return `https://webview.powens.com/manage?domain=aurum-sandbox&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}&connection_id=${connection.powensConnectionId}`
+    return `https://webview.powens.com/manage?domain=${domain}&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}&connection_id=${connection.powensConnectionId}`
   },
 })
 
