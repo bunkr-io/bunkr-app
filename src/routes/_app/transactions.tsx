@@ -29,14 +29,24 @@ import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
 
 interface TransactionRecord {
   _id: string
+  bankAccountId: string
   date: string
+  rdate?: string
+  vdate?: string
   wording: string
+  originalWording?: string
+  simplifiedWording?: string
   category?: string
   categoryParent?: string
   userCategoryKey?: string
   value: number
+  originalValue?: number
+  originalCurrency?: string
   type?: string
   coming: boolean
+  counterparty?: string
+  card?: string
+  comment?: string
   encryptedData?: string
 }
 
@@ -94,6 +104,30 @@ function TransactionsContent() {
     'transactions',
     rawTransactions as Array<TransactionRecord> | undefined,
   )
+
+  const bankAccountsSingle = useQuery(
+    api.powens.listBankAccounts,
+    singleProfileId ? { profileId: singleProfileId } : 'skip',
+  )
+  const bankAccountsAll = useQuery(
+    api.powens.listAllBankAccounts,
+    isAllProfiles && allProfileIds.length > 0
+      ? { profileIds: allProfileIds }
+      : 'skip',
+  )
+  const rawBankAccounts = isAllProfiles ? bankAccountsAll : bankAccountsSingle
+  const bankAccounts = useCachedDecryptRecords('bankAccounts', rawBankAccounts)
+
+  const accountNameMap = React.useMemo(() => {
+    const map = new Map<string, string>()
+    if (!bankAccounts) return map
+    for (const ba of bankAccounts) {
+      const connector = (ba as { connectorName?: string }).connectorName
+      const label = connector ? `${connector} – ${ba.name}` : ba.name
+      map.set(ba._id, label)
+    }
+    return map
+  }, [bankAccounts])
 
   const currency = 'EUR'
 
@@ -204,20 +238,41 @@ function TransactionsContent() {
     return { nodes, links }
   }, [transactions, getCategory])
 
+  const accountOptions = React.useMemo(() => {
+    if (!bankAccounts) return []
+    return bankAccounts
+      .filter((ba) => !ba.disabled && !ba.deleted)
+      .map((ba) => ({
+        id: ba._id,
+        label: accountNameMap.get(ba._id) ?? ba.name,
+      }))
+  }, [bankAccounts, accountNameMap])
+
   const tableData = React.useMemo<Array<TransactionRow>>(() => {
     if (!transactions) return []
     return transactions.map((t) => ({
       _id: t._id,
+      bankAccountId: t.bankAccountId,
       date: t.date,
+      rdate: t.rdate,
+      vdate: t.vdate,
       wording: t.wording,
+      originalWording: t.originalWording,
+      simplifiedWording: t.simplifiedWording,
       category: t.category,
       categoryParent: t.categoryParent,
       userCategoryKey: t.userCategoryKey,
       value: t.value,
+      originalValue: t.originalValue,
+      originalCurrency: t.originalCurrency,
       type: t.type,
       coming: t.coming,
+      counterparty: t.counterparty,
+      card: t.card,
+      comment: t.comment,
+      accountName: accountNameMap.get(t.bankAccountId),
     }))
-  }, [transactions])
+  }, [transactions, accountNameMap])
 
   if (profileLoading || transactions === undefined) {
     return (
@@ -297,7 +352,11 @@ function TransactionsContent() {
           <CardTitle>Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          <TransactionsList data={tableData} currency={currency} />
+          <TransactionsList
+            data={tableData}
+            currency={currency}
+            accounts={accountOptions}
+          />
         </CardContent>
       </Card>
     </>

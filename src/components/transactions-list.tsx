@@ -11,10 +11,12 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ListFilter,
   Search,
 } from 'lucide-react'
 import type { ColumnDef, SortingState } from '@tanstack/react-table'
@@ -37,6 +39,19 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { ToggleGroup, ToggleGroupItem } from '~/components/ui/toggle-group'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '~/components/ui/sheet'
+import { Separator } from '~/components/ui/separator'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '~/components/ui/popover'
 import { useFormatCurrency } from '~/contexts/privacy-context'
 import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
 import { CategoryPicker } from '~/components/category-picker'
@@ -45,26 +60,55 @@ import { cn } from '~/lib/utils'
 
 export interface TransactionRow {
   _id: string
+  bankAccountId?: string
   date: string
   wording: string
+  originalWording?: string
+  simplifiedWording?: string
   category?: string
   categoryParent?: string
   userCategoryKey?: string
   value: number
+  originalValue?: number
+  originalCurrency?: string
   type?: string
   coming: boolean
+  counterparty?: string
+  card?: string
+  comment?: string
+  rdate?: string
+  vdate?: string
+  accountName?: string
+}
+
+export interface AccountOption {
+  id: string
+  label: string
 }
 
 interface TransactionsListProps {
   data: Array<TransactionRow>
   currency: string
+  accounts?: Array<AccountOption>
 }
 
 type FlowFilter = 'all' | 'income' | 'expense'
 
 const PAGE_SIZE_OPTIONS = ['25', '50', '100']
 
-export function TransactionsList({ data, currency }: TransactionsListProps) {
+function formatDate(date: string): string {
+  return new Date(date).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+export function TransactionsList({
+  data,
+  currency,
+  accounts = [],
+}: TransactionsListProps) {
   const formatCurrency = useFormatCurrency()
   const { getCategory } = useCategories()
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -72,7 +116,12 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
   ])
   const [globalFilter, setGlobalFilter] = React.useState('')
   const [categoryFilter, setCategoryFilter] = React.useState<string>('all')
+  const [accountFilter, setAccountFilter] = React.useState<Set<string>>(
+    new Set(),
+  )
   const [flowFilter, setFlowFilter] = React.useState<FlowFilter>('all')
+  const [selectedTransaction, setSelectedTransaction] =
+    React.useState<TransactionRow | null>(null)
   const [ruleDialog, setRuleDialog] = React.useState<{
     open: boolean
     pattern: string
@@ -88,6 +137,11 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
 
   const filteredData = React.useMemo(() => {
     let result = data
+    if (accountFilter.size > 0) {
+      result = result.filter(
+        (t) => t.bankAccountId && accountFilter.has(t.bankAccountId),
+      )
+    }
     if (categoryFilter !== 'all') {
       result = result.filter(
         (t) => resolveTransactionCategoryKey(t) === categoryFilter,
@@ -99,7 +153,7 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
       result = result.filter((t) => t.value < 0)
     }
     return result
-  }, [data, categoryFilter, flowFilter])
+  }, [data, accountFilter, categoryFilter, flowFilter])
 
   const columns = React.useMemo<Array<ColumnDef<TransactionRow>>>(
     () => [
@@ -120,20 +174,13 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
             )}
           </button>
         ),
-        cell: ({ getValue }) => {
-          const date = getValue<string>()
-          return new Date(date).toLocaleDateString('fr-FR', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-          })
-        },
+        cell: ({ getValue }) => formatDate(getValue<string>()),
       },
       {
         accessorKey: 'wording',
         header: 'Description',
         cell: ({ row }) => (
-          <div className="flex max-w-[150px] items-center gap-2 sm:max-w-[250px] md:max-w-[350px] lg:max-w-[450px]">
+          <div className="flex max-w-[150px] items-center gap-2 sm:max-w-[200px] md:max-w-[300px] lg:max-w-[400px]">
             <span className="truncate">{row.original.wording}</span>
             {row.original.coming && (
               <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -142,6 +189,18 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
             )}
           </div>
         ),
+      },
+      {
+        accessorKey: 'accountName',
+        header: 'Account',
+        cell: ({ getValue }) => {
+          const name = getValue<string | undefined>()
+          return name ? (
+            <span className="max-w-[120px] truncate text-muted-foreground">
+              {name}
+            </span>
+          ) : null
+        },
       },
       {
         id: 'category',
@@ -237,6 +296,71 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
             className="pl-9"
           />
         </div>
+        {accounts.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <ListFilter className="size-3.5" />
+                Accounts
+                {accountFilter.size > 0 && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 size-5 rounded-full p-0 text-[10px]"
+                  >
+                    {accountFilter.size}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[260px] p-2" align="start">
+              <div className="flex flex-col gap-0.5">
+                {accounts.map((acct) => {
+                  const selected = accountFilter.has(acct.id)
+                  return (
+                    <button
+                      key={acct.id}
+                      className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                      onClick={() => {
+                        setAccountFilter((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(acct.id)) {
+                            next.delete(acct.id)
+                          } else {
+                            next.add(acct.id)
+                          }
+                          return next
+                        })
+                      }}
+                    >
+                      <div
+                        className={cn(
+                          'flex size-4 shrink-0 items-center justify-center rounded-sm border',
+                          selected
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-muted-foreground/30',
+                        )}
+                      >
+                        {selected && <Check className="size-3" />}
+                      </div>
+                      <span className="truncate">{acct.label}</span>
+                    </button>
+                  )
+                })}
+                {accountFilter.size > 0 && (
+                  <>
+                    <Separator className="my-1" />
+                    <button
+                      className="px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+                      onClick={() => setAccountFilter(new Set())}
+                    >
+                      Clear filter
+                    </button>
+                  </>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Category" />
@@ -286,7 +410,11 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedTransaction(row.original)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -382,6 +510,16 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
         </div>
       </div>
 
+      <TransactionDetailSheet
+        transaction={selectedTransaction}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTransaction(null)
+        }}
+        currency={currency}
+        formatCurrency={formatCurrency}
+        onCreateRule={handleCreateRule}
+      />
+
       <CreateRuleDialog
         open={ruleDialog.open}
         onOpenChange={(open) => setRuleDialog((prev) => ({ ...prev, open }))}
@@ -389,5 +527,119 @@ export function TransactionsList({ data, currency }: TransactionsListProps) {
         defaultCategoryKey={ruleDialog.categoryKey}
       />
     </div>
+  )
+}
+
+function TransactionDetailSheet({
+  transaction,
+  onOpenChange,
+  currency,
+  formatCurrency,
+  onCreateRule,
+}: {
+  transaction: TransactionRow | null
+  onOpenChange: (open: boolean) => void
+  currency: string
+  formatCurrency: (value: number, currency: string) => string
+  onCreateRule: (wording: string, categoryKey: string) => void
+}) {
+  if (!transaction) return null
+
+  const categoryKey = resolveTransactionCategoryKey(transaction)
+
+  const details: Array<{ label: string; value: string | undefined }> = [
+    { label: 'Date', value: formatDate(transaction.date) },
+    {
+      label: 'Value date',
+      value: transaction.vdate ? formatDate(transaction.vdate) : undefined,
+    },
+    {
+      label: 'Accounting date',
+      value: transaction.rdate ? formatDate(transaction.rdate) : undefined,
+    },
+    { label: 'Account', value: transaction.accountName },
+    { label: 'Type', value: transaction.type },
+    { label: 'Counterparty', value: transaction.counterparty },
+    { label: 'Card', value: transaction.card },
+    {
+      label: 'Original wording',
+      value: transaction.originalWording,
+    },
+    {
+      label: 'Simplified wording',
+      value: transaction.simplifiedWording,
+    },
+    { label: 'Comment', value: transaction.comment },
+  ]
+
+  const hasOriginalCurrency =
+    transaction.originalCurrency &&
+    transaction.originalCurrency !== currency &&
+    transaction.originalValue != null
+
+  return (
+    <Sheet open={!!transaction} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
+        <SheetHeader>
+          <SheetTitle className="pr-6">{transaction.wording}</SheetTitle>
+          <SheetDescription>
+            {transaction.coming
+              ? 'Pending transaction'
+              : 'Completed transaction'}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-col gap-6 px-4 pb-4">
+          <div className="flex items-center justify-between">
+            <span
+              className={cn(
+                'text-2xl font-semibold font-mono tabular-nums',
+                transaction.value > 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-red-600 dark:text-red-400',
+              )}
+            >
+              {transaction.value > 0 ? '+' : ''}
+              {formatCurrency(transaction.value, currency)}
+            </span>
+          </div>
+
+          {hasOriginalCurrency && (
+            <p className="text-sm text-muted-foreground">
+              Original:{' '}
+              {formatCurrency(
+                transaction.originalValue!,
+                transaction.originalCurrency!,
+              )}
+            </p>
+          )}
+
+          <div>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">
+              Category
+            </p>
+            <CategoryPicker
+              transactionId={transaction._id}
+              currentCategoryKey={categoryKey}
+              wording={transaction.wording}
+              onCreateRule={onCreateRule}
+            />
+          </div>
+
+          <Separator />
+
+          <dl className="grid gap-3">
+            {details
+              .filter((d) => d.value)
+              .map((d) => (
+                <div key={d.label} className="grid grid-cols-[120px_1fr] gap-2">
+                  <dt className="text-sm text-muted-foreground">{d.label}</dt>
+                  <dd className="text-sm break-words">{d.value}</dd>
+                </div>
+              ))}
+          </dl>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

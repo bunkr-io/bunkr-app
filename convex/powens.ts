@@ -1403,24 +1403,43 @@ export const syncTransactionsFromWebhook = internalAction({
       { connectionId: connection._id },
     )
 
+    console.log(
+      `[powens] Syncing transactions for ${bankAccounts.length} bank accounts`,
+    )
+
     for (const ba of bankAccounts) {
       // Skip investment-type accounts — they don't have transactions
-      if (INVESTMENT_TYPES.includes(ba.type ?? '')) continue
+      if (INVESTMENT_TYPES.includes(ba.type ?? '')) {
+        console.log(
+          `[powens] Skipping investment account ${ba.powensBankAccountId} (type: ${ba.type})`,
+        )
+        continue
+      }
 
       let offset = 0
       const limit = 1000
 
       for (;;) {
-        const response = await fetch(
-          `${baseUrl}/users/me/accounts/${ba.powensBankAccountId}/transactions?limit=${limit}&offset=${offset}&expand=categories`,
-          { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
-        )
+        const url = `${baseUrl}/users/me/accounts/${ba.powensBankAccountId}/transactions?limit=${limit}&offset=${offset}&expand=categories`
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${profile.powensUserToken}` },
+        })
 
-        if (!response.ok) break
+        if (!response.ok) {
+          const text = await response.text()
+          console.error(
+            `[powens] Transaction fetch failed for account ${ba.powensBankAccountId}: ${response.status} ${text}`,
+          )
+          break
+        }
 
         const data = (await response.json()) as PowensTransactionResponse
         const rawTransactions = (data.transactions ?? []).map(
           mapPowensTransaction,
+        )
+
+        console.log(
+          `[powens] Fetched ${rawTransactions.length} transactions for account ${ba.powensBankAccountId} (offset: ${offset})`,
         )
 
         if (rawTransactions.length === 0) break
