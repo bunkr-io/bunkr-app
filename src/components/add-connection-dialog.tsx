@@ -35,7 +35,8 @@ export function AddConnectionDialog({
       const url = await generateConnectUrl({ profileId: singleProfileId })
       window.location.href = url
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to connect')
+      console.error('Failed to generate connect URL:', err)
+      setError('Something went wrong. Please try again.')
       setLoading(false)
     }
   }
