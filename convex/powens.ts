@@ -430,220 +430,13 @@ export const handleConnectionCallback = action({
     connectionId: v.number(),
     profileId: v.id('profiles'),
   },
-  returns: v.id('connections'),
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
-    const { baseUrl } = getPowensConfig()
 
-    const profile = await ctx.runQuery(internal.powens.getProfileInternal, {
-      profileId: args.profileId,
-    })
-    if (!profile?.powensUserToken) {
-      throw new Error('Profile has no Powens user token')
-    }
-
-    // Fetch connection details with expanded connector
-    const connResponse = await fetch(
-      `${baseUrl}/users/me/connections/${args.connectionId}?expand=connector`,
-      {
-        headers: { Authorization: `Bearer ${profile.powensUserToken}` },
-      },
-    )
-
-    if (!connResponse.ok) {
-      const text = await connResponse.text()
-      throw new Error(
-        `Powens connection fetch failed: ${connResponse.status} ${text}`,
-      )
-    }
-
-    const connData = (await connResponse.json()) as PowensConnectionResponse
-
-    // Check if encryption is enabled
-    const publicKey: string | null = await ctx.runQuery(
-      internal.encryptionKeys.getPublicKeyForProfile,
-      { profileId: args.profileId },
-    )
-
-    // Store connection (without encrypted data first to get ID)
-    const realConnectorName = connData.connector?.name ?? 'Unknown'
-
-    const connectionDocId: Id<'connections'> = await ctx.runMutation(
-      internal.powens.upsertConnection,
-      {
-        profileId: args.profileId,
-        powensConnectionId: args.connectionId,
-        connectorName: publicKey ? 'Encrypted' : realConnectorName,
-        state: connData.state ?? undefined,
-        lastSync: connData.last_update ?? undefined,
-        encryptedData: undefined,
-      },
-    )
-
-    // Encrypt connection data with AAD using the record ID
-    if (publicKey) {
-      const connectionEncryptedData = await encryptForProfile(
-        { connectorName: realConnectorName },
-        publicKey,
-        connectionDocId,
-      )
-      await ctx.runMutation(
-        internal.encryptionKeys.patchConnectionEncryptedData,
-        {
-          items: [
-            { id: connectionDocId, encryptedData: connectionEncryptedData },
-          ],
-        },
-      )
-    }
-
-    // Sync bank accounts for this connection
-    const acctResponse = await fetch(
-      `${baseUrl}/users/me/connections/${args.connectionId}/accounts`,
-      {
-        headers: { Authorization: `Bearer ${profile.powensUserToken}` },
-      },
-    )
-
-    if (acctResponse.ok) {
-      const acctData = (await acctResponse.json()) as PowensAccountResponse
-      const bankAccts = acctData.accounts ?? []
-
-      for (const acct of bankAccts) {
-        const number = acct.number
-        const iban = acct.iban
-        const balance = acct.balance ?? 0
-        const name = acct.original_name ?? acct.name ?? 'Unnamed Account'
-
-        // Upsert without encrypted data first to get ID
-        const bankAccountId = await ctx.runMutation(
-          internal.powens.upsertBankAccount,
-          {
-            connectionId: connectionDocId,
-            profileId: args.profileId,
-            powensBankAccountId: acct.id,
-            name: publicKey ? 'Encrypted' : name,
-            number: publicKey ? undefined : (number ?? undefined),
-            iban: publicKey ? undefined : (iban ?? undefined),
-            type: acct.type ?? undefined,
-            balance: publicKey ? 0 : balance,
-            currency: acct.currency?.id ?? 'EUR',
-            disabled: acct.disabled ?? false,
-            deleted: acct.deleted != null,
-            lastSync: acct.last_update ?? undefined,
-            encryptedData: undefined,
-          },
-        )
-
-        // Encrypt bank account data with AAD
-        if (publicKey) {
-          const encryptedData = await encryptForProfile(
-            { name, number, iban, balance },
-            publicKey,
-            bankAccountId,
-          )
-          await ctx.runMutation(
-            internal.encryptionKeys.patchBankAccountEncryptedData,
-            { items: [{ id: bankAccountId, encryptedData }] },
-          )
-        }
-
-        if (INVESTMENT_TYPES.includes(acct.type ?? '')) {
-          const investmentsResponse = await fetch(
-            `${baseUrl}/users/me/accounts/${acct.id}/investments`,
-            { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
-          )
-          if (investmentsResponse.ok) {
-            const investmentsData =
-              (await investmentsResponse.json()) as PowensInvestmentResponse
-            const rawInvestments = (investmentsData.investments ?? []).map(
-              mapPowensInvestment,
-            )
-
-            if (publicKey) {
-              // Upsert without encrypted data to get IDs
-              const plainInvestments = rawInvestments.map((inv) => ({
-                ...inv,
-                code: undefined,
-                label: 'Encrypted',
-                description: undefined,
-                quantity: 0,
-                unitprice: 0,
-                unitvalue: 0,
-                valuation: 0,
-                portfolioShare: undefined,
-                diff: undefined,
-                diffPercent: undefined,
-                encryptedData: undefined,
-              }))
-
-              const investmentIds = (await ctx.runMutation(
-                internal.powens.upsertInvestments,
-                {
-                  bankAccountId,
-                  profileId: args.profileId,
-                  investments: plainInvestments,
-                },
-              )) as Array<{
-                powensInvestmentId: number
-                id: Id<'investments'>
-              }>
-
-              // Encrypt with AAD and patch
-              const patches: Array<{
-                id: Id<'investments'>
-                encryptedData: string
-              }> = []
-              for (const inv of rawInvestments) {
-                const idEntry = investmentIds.find(
-                  (e) => e.powensInvestmentId === inv.powensInvestmentId,
-                )
-                if (!idEntry) continue
-
-                const encData = await encryptForProfile(
-                  {
-                    code: inv.code,
-                    label: inv.label,
-                    description: inv.description,
-                    quantity: inv.quantity,
-                    unitprice: inv.unitprice,
-                    unitvalue: inv.unitvalue,
-                    valuation: inv.valuation,
-                    portfolioShare: inv.portfolioShare,
-                    diff: inv.diff,
-                    diffPercent: inv.diffPercent,
-                  },
-                  publicKey,
-                  idEntry.id,
-                )
-                patches.push({ id: idEntry.id, encryptedData: encData })
-              }
-
-              if (patches.length > 0) {
-                await ctx.runMutation(
-                  internal.encryptionKeys.patchInvestmentEncryptedData,
-                  { items: patches },
-                )
-              }
-            } else {
-              await ctx.runMutation(internal.powens.upsertInvestments, {
-                bankAccountId,
-                profileId: args.profileId,
-                investments: rawInvestments,
-              })
-            }
-          }
-        }
-      }
-    }
-
-    // Sync transactions for all non-investment accounts
-    await ctx.runAction(internal.powens.syncTransactionsFromWebhook, {
+    await ctx.runAction(internal.powens.syncConnectionFromPowens, {
       profileId: args.profileId,
       powensConnectionId: args.connectionId,
     })
-
-    return connectionDocId
   },
 })
 
@@ -762,116 +555,142 @@ export const findProfileByPowensUserId = internalQuery({
   },
 })
 
-export const syncConnectionFromWebhook = internalMutation({
+export const syncConnectionFromPowens = internalAction({
   args: {
     profileId: v.id('profiles'),
     powensConnectionId: v.number(),
-    connectorName: v.string(),
     state: v.optional(v.string()),
     lastSync: v.optional(v.string()),
-    encryptedData: v.optional(v.string()),
-    bankAccounts: v.array(
-      v.object({
-        powensBankAccountId: v.number(),
-        name: v.string(),
-        number: v.optional(v.string()),
-        iban: v.optional(v.string()),
-        type: v.optional(v.string()),
-        balance: v.number(),
-        currency: v.string(),
-        disabled: v.boolean(),
-        deleted: v.boolean(),
-        lastSync: v.optional(v.string()),
-        encryptedData: v.optional(v.string()),
-      }),
-    ),
   },
   handler: async (ctx, args) => {
-    // Upsert connection
-    const existingConn = await ctx.db
-      .query('connections')
-      .withIndex('by_powensConnectionId', (q) =>
-        q.eq('powensConnectionId', args.powensConnectionId),
-      )
-      .first()
+    const { baseUrl } = getPowensConfig()
 
-    let connectionId: Id<'connections'>
-    if (existingConn) {
-      await ctx.db.patch('connections', existingConn._id, {
-        connectorName: args.connectorName,
+    const profile = await ctx.runQuery(internal.powens.getProfileInternal, {
+      profileId: args.profileId,
+    })
+    if (!profile?.powensUserToken) {
+      console.warn('[powens] No user token found for profile — skipping sync')
+      return
+    }
+
+    const publicKey: string | null = await ctx.runQuery(
+      internal.encryptionKeys.getPublicKeyForProfile,
+      { profileId: args.profileId },
+    )
+
+    // Fetch connection details with expanded connector
+    const connResponse = await fetch(
+      `${baseUrl}/users/me/connections/${args.powensConnectionId}?expand=connector`,
+      { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
+    )
+
+    if (!connResponse.ok) {
+      const text = await connResponse.text()
+      console.error(
+        `[powens] Failed to fetch connection ${args.powensConnectionId}: ${connResponse.status} ${text}`,
+      )
+      // Still update state from webhook payload even if API fetch fails
+      await ctx.runMutation(internal.powens.updateConnectionState, {
+        powensConnectionId: args.powensConnectionId,
         state: args.state,
-        lastSync: args.lastSync,
-        encryptedData: args.encryptedData,
-        encrypted: !!args.encryptedData,
       })
-      connectionId = existingConn._id
-    } else {
-      connectionId = await ctx.db.insert('connections', {
+      return
+    }
+
+    const connData = (await connResponse.json()) as PowensConnectionResponse
+    const realConnectorName = connData.connector?.name ?? 'Unknown'
+
+    const connectionDocId: Id<'connections'> = await ctx.runMutation(
+      internal.powens.upsertConnection,
+      {
         profileId: args.profileId,
         powensConnectionId: args.powensConnectionId,
-        connectorName: args.connectorName,
-        state: args.state,
-        lastSync: args.lastSync,
-        encryptedData: args.encryptedData,
-        encrypted: !!args.encryptedData,
-      })
+        connectorName: publicKey ? 'Encrypted' : realConnectorName,
+        state: connData.state ?? args.state ?? undefined,
+        lastSync: connData.last_update ?? args.lastSync ?? undefined,
+        encryptedData: undefined,
+      },
+    )
+
+    if (publicKey) {
+      const connectionEncryptedData = await encryptForProfile(
+        { connectorName: realConnectorName },
+        publicKey,
+        connectionDocId,
+      )
+      await ctx.runMutation(
+        internal.encryptionKeys.patchConnectionEncryptedData,
+        {
+          items: [
+            { id: connectionDocId, encryptedData: connectionEncryptedData },
+          ],
+        },
+      )
     }
 
-    // Upsert bank accounts and collect IDs
-    const bankAccountIds: Array<{
-      powensBankAccountId: number
-      id: Id<'bankAccounts'>
-    }> = []
-    for (const acct of args.bankAccounts) {
-      const existing = await ctx.db
-        .query('bankAccounts')
-        .withIndex('by_connectionId', (q) => q.eq('connectionId', connectionId))
-        .filter((q) =>
-          q.eq(q.field('powensBankAccountId'), acct.powensBankAccountId),
+    // Fetch and sync bank accounts
+    const acctResponse = await fetch(
+      `${baseUrl}/users/me/connections/${args.powensConnectionId}/accounts`,
+      { headers: { Authorization: `Bearer ${profile.powensUserToken}` } },
+    )
+
+    if (acctResponse.ok) {
+      const acctData = (await acctResponse.json()) as PowensAccountResponse
+      const bankAccts = acctData.accounts ?? []
+
+      for (const acct of bankAccts) {
+        const number = acct.number
+        const iban = acct.iban
+        const balance = acct.balance ?? 0
+        const name = acct.original_name ?? acct.name ?? 'Unnamed Account'
+
+        const bankAccountId = await ctx.runMutation(
+          internal.powens.upsertBankAccount,
+          {
+            connectionId: connectionDocId,
+            profileId: args.profileId,
+            powensBankAccountId: acct.id,
+            name: publicKey ? 'Encrypted' : name,
+            number: publicKey ? undefined : (number ?? undefined),
+            iban: publicKey ? undefined : (iban ?? undefined),
+            type: acct.type ?? undefined,
+            balance: publicKey ? 0 : balance,
+            currency: acct.currency?.id ?? 'EUR',
+            disabled: acct.disabled ?? false,
+            deleted: acct.deleted != null,
+            lastSync: acct.last_update ?? undefined,
+            encryptedData: undefined,
+          },
         )
-        .first()
 
-      const acctEncrypted = !!acct.encryptedData
-      let bankAccountId: Id<'bankAccounts'>
-      if (existing) {
-        await ctx.db.patch('bankAccounts', existing._id, {
-          name: acct.name,
-          number: acct.number,
-          iban: acct.iban,
-          type: acct.type,
-          balance: acct.balance,
-          currency: acct.currency,
-          disabled: acct.disabled,
-          deleted: acct.deleted,
-          lastSync: acct.lastSync,
-          encryptedData: acct.encryptedData,
-          encrypted: acctEncrypted,
-        })
-        bankAccountId = existing._id
-      } else {
-        bankAccountId = await ctx.db.insert('bankAccounts', {
-          connectionId,
-          profileId: args.profileId,
-          ...acct,
-          encrypted: acctEncrypted,
-        })
+        if (publicKey) {
+          const encryptedData = await encryptForProfile(
+            { name, number, iban, balance },
+            publicKey,
+            bankAccountId,
+          )
+          await ctx.runMutation(
+            internal.encryptionKeys.patchBankAccountEncryptedData,
+            { items: [{ id: bankAccountId, encryptedData }] },
+          )
+        }
       }
-
-      bankAccountIds.push({
-        powensBankAccountId: acct.powensBankAccountId,
-        id: bankAccountId,
-      })
-
-      await recordBalanceSnapshot(ctx, {
-        bankAccountId,
-        profileId: args.profileId,
-        balance: acct.balance,
-        currency: acct.currency,
-        encryptedData: acct.encryptedData,
-      })
     }
 
-    return { connectionId, bankAccountIds }
+    // Sync investments and transactions
+    await ctx.runAction(internal.powens.syncInvestmentsFromWebhook, {
+      profileId: args.profileId,
+      powensConnectionId: args.powensConnectionId,
+    })
+
+    await ctx.runAction(internal.powens.syncTransactionsFromWebhook, {
+      profileId: args.profileId,
+      powensConnectionId: args.powensConnectionId,
+    })
+
+    console.log(
+      `[powens] Sync complete for connection ${args.powensConnectionId}`,
+    )
   },
 })
 
