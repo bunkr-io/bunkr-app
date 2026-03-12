@@ -26,13 +26,13 @@ export function parseAIFilterResponse(
   raw: AIFilterResponse,
   fields: Array<SerializableField>,
 ): Array<FilterCondition> {
-  if (!raw?.filters || !Array.isArray(raw.filters)) return []
+  if (!Array.isArray(raw.filters)) return []
 
   const fieldMap = new Map(fields.map((f) => [f.name, f]))
   const conditions: Array<FilterCondition> = []
 
   for (const filter of raw.filters) {
-    if (!filter || typeof filter.field !== 'string') continue
+    if (typeof filter.field !== 'string') continue
 
     const field = fieldMap.get(filter.field)
     if (!field) continue

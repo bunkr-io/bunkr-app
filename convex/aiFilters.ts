@@ -3,11 +3,11 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { v } from 'convex/values'
+import { aiFilterSchema } from '../src/lib/filters/ai/schema'
+import { parseAIFilterResponse } from '../src/lib/filters/ai/parse'
+import { buildSystemPrompt } from '../src/lib/filters/ai/prompt'
 import { action } from './_generated/server'
 import { requireAuthUserId } from './lib/auth'
-import { aiFilterSchema } from '../src/lib/filters/ai/schema'
-import { buildSystemPrompt } from '../src/lib/filters/ai/prompt'
-import { parseAIFilterResponse } from '../src/lib/filters/ai/parse'
 import type { SerializableField } from '../src/lib/filters/ai/prompt'
 
 export const askAI = action({
