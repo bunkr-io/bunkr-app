@@ -1,5 +1,9 @@
 import * as React from 'react'
-import { ChevronRight, ListFilter } from 'lucide-react'
+import { ChevronRight, ListFilter, Loader2, Sparkles } from 'lucide-react'
+import { useAction } from 'convex/react'
+import { toast } from 'sonner'
+import { api } from '../../../convex/_generated/api'
+import { serializeFilterConfig } from '~/lib/filters/ai/prompt'
 import { FilterValueInput } from './filter-value-input'
 import type {
   FilterCondition,
@@ -28,6 +32,7 @@ interface FilterDropdownProps {
   onAdd: (condition: FilterCondition) => void
   onUpdate: (id: string, updates: Partial<Omit<FilterCondition, 'id'>>) => void
   onRemove: (id: string) => void
+  onLoadConditions?: (conditions: Array<FilterCondition>) => void
   trigger?: React.ReactNode
 }
 
@@ -36,6 +41,7 @@ export function FilterDropdown({
   onAdd,
   onUpdate,
   onRemove,
+  onLoadConditions,
   trigger,
 }: FilterDropdownProps) {
   const [open, setOpen] = React.useState(false)
@@ -47,6 +53,10 @@ export function FilterDropdown({
   const [liveConditionId, setLiveConditionId] = React.useState<string | null>(
     null,
   )
+  const [aiMode, setAIMode] = React.useState(false)
+  const [aiQuery, setAIQuery] = React.useState('')
+  const [aiLoading, setAILoading] = React.useState(false)
+  const askAI = useAction(api.aiFilters.askAI)
   const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout>>(null)
   const triggerRef = React.useRef<HTMLSpanElement>(null)
   const [anchorRect, setAnchorRect] = React.useState<{
@@ -58,6 +68,9 @@ export function FilterDropdown({
     setHoveredField(null)
     setPendingValue(undefined)
     setLiveConditionId(null)
+    setAIMode(false)
+    setAIQuery('')
+    setAILoading(false)
   }
 
   const handleOpenChange = (nextOpen: boolean) => {
@@ -194,6 +207,28 @@ export function FilterDropdown({
     }
   }
 
+  const handleAISubmit = async () => {
+    const trimmed = aiQuery.trim()
+    if (!trimmed || aiLoading || !onLoadConditions) return
+
+    setAILoading(true)
+    try {
+      const fields = serializeFilterConfig(config)
+      const conditions = await askAI({ query: trimmed, fields })
+      if (conditions.length === 0) {
+        toast.info("Couldn't interpret that, try rephrasing")
+      } else {
+        onLoadConditions(conditions)
+        reset()
+        setOpen(false)
+      }
+    } catch {
+      toast.error('Failed to generate filters')
+    } finally {
+      setAILoading(false)
+    }
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -220,39 +255,77 @@ export function FilterDropdown({
       )}
       <PopoverContent className="w-[220px] p-0" align="start">
         <div className="relative">
-          <Command>
-            <CommandInput placeholder="Filter by..." />
-            <CommandList>
-              <CommandEmpty>No fields found.</CommandEmpty>
-              <CommandGroup>
-                {config.fields.map((field) => {
-                  const isValueless = VALUELESS_OPERATORS.has(
-                    field.defaultOperator,
-                  )
-                  return (
-                    <CommandItem
-                      key={field.name}
-                      value={field.label}
-                      onSelect={() => handleFieldClick(field)}
-                      onMouseEnter={(e) => handleFieldHover(field, e)}
-                      onMouseLeave={handleFieldLeave}
-                      className="justify-between"
-                    >
-                      <span className="flex items-center gap-2">
-                        {field.icon && (
-                          <field.icon className="size-4 text-muted-foreground" />
-                        )}
-                        {field.label}
-                      </span>
-                      {!isValueless && (
-                        <ChevronRight className="size-3.5 text-muted-foreground" />
-                      )}
+          {aiMode ? (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2 border-b px-3 py-2">
+                <Sparkles className="size-4 shrink-0 text-muted-foreground" />
+                <input
+                  autoFocus
+                  value={aiQuery}
+                  onChange={(e) => setAIQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleAISubmit()
+                    if (e.key === 'Escape') {
+                      e.preventDefault()
+                      setAIMode(false)
+                      setAIQuery('')
+                    }
+                  }}
+                  placeholder="Describe your filter..."
+                  className="flex h-8 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+                  disabled={aiLoading}
+                />
+                {aiLoading && (
+                  <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />
+                )}
+              </div>
+              <p className="px-3 py-3 text-xs text-muted-foreground">
+                e.g. &ldquo;food expenses over 50€ last month&rdquo;
+              </p>
+            </div>
+          ) : (
+            <Command>
+              <CommandInput placeholder="Filter by..." />
+              <CommandList>
+                <CommandEmpty>No fields found.</CommandEmpty>
+                {onLoadConditions && (
+                  <CommandGroup>
+                    <CommandItem onSelect={() => setAIMode(true)}>
+                      <Sparkles className="size-4 text-muted-foreground" />
+                      Ask AI
                     </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+                  </CommandGroup>
+                )}
+                <CommandGroup heading="Fields">
+                  {config.fields.map((field) => {
+                    const isValueless = VALUELESS_OPERATORS.has(
+                      field.defaultOperator,
+                    )
+                    return (
+                      <CommandItem
+                        key={field.name}
+                        value={field.label}
+                        onSelect={() => handleFieldClick(field)}
+                        onMouseEnter={(e) => handleFieldHover(field, e)}
+                        onMouseLeave={handleFieldLeave}
+                        className="justify-between"
+                      >
+                        <span className="flex items-center gap-2">
+                          {field.icon && (
+                            <field.icon className="size-4 text-muted-foreground" />
+                          )}
+                          {field.label}
+                        </span>
+                        {!isValueless && (
+                          <ChevronRight className="size-3.5 text-muted-foreground" />
+                        )}
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          )}
 
           {hoveredField &&
             !VALUELESS_OPERATORS.has(hoveredField.defaultOperator) && (
