@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
-import { Mail, X } from 'lucide-react'
+import { Ellipsis, Mail, UserX, X } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
+import { ConfirmDialog } from '~/components/confirm-dialog'
+import { useEncryption } from '~/contexts/encryption-context'
+import { envelopeEncryptString, importPublicKey } from '~/lib/crypto'
 import {
   ItemCard,
   ItemCardHeader,
@@ -28,7 +31,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '~/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 
 export const Route = createFileRoute('/_settings/settings/members')({
@@ -48,6 +58,12 @@ function MembersPage() {
   const resolveUsers = useAction(api.members.resolveUsers)
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})
   const [usersLoading, setUsersLoading] = useState(true)
+
+  const { isEncryptionEnabled, isUnlocked, role } = useEncryption()
+  const membersStatus = useQuery(
+    api.encryptionKeys.listMembersEncryptionStatus,
+    isEncryptionEnabled ? {} : 'skip',
+  )
 
   const fetchUsers = useCallback(async () => {
     if (!data?.members.length) return
@@ -81,6 +97,13 @@ function MembersPage() {
   }
 
   if (!data) return null
+
+  // Build a lookup map from userId to encryption status
+  const encryptionStatusMap = new Map(
+    membersStatus?.map((m) => [m.userId, m]) ?? [],
+  )
+
+  const isOwner = role === 'owner'
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
@@ -147,6 +170,8 @@ function MembersPage() {
                     .toUpperCase()
                     .slice(0, 2)
 
+                  const encStatus = encryptionStatusMap.get(member.userId)
+
                   return (
                     <ItemCardItem key={member._id}>
                       <div className="flex items-center gap-3">
@@ -171,9 +196,20 @@ function MembersPage() {
                         </ItemCardItemContent>
                       </div>
                       <ItemCardItemAction>
-                        <Badge variant="outline" className="capitalize">
-                          {member.role}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <MemberActionBadge
+                            encStatus={encStatus}
+                            isOwner={isOwner}
+                            isUnlocked={isUnlocked}
+                            isEncryptionEnabled={isEncryptionEnabled}
+                          />
+                          {isOwner && member.userId !== data.currentUserId && (
+                            <RemoveMemberMenu
+                              memberId={member._id}
+                              memberName={name}
+                            />
+                          )}
+                        </div>
                       </ItemCardItemAction>
                     </ItemCardItem>
                   )
@@ -188,6 +224,259 @@ function MembersPage() {
         </ItemCard>
       </div>
     </div>
+  )
+}
+
+function RemoveMemberMenu({
+  memberId,
+  memberName,
+}: {
+  memberId: string
+  memberName: string
+}) {
+  const removeMember = useAction(api.members.removeMember)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  async function handleRemove() {
+    setRemoving(true)
+    try {
+      await removeMember({ memberId: memberId as never })
+      toast.success('Member removed')
+      setConfirmOpen(false)
+    } catch {
+      toast.error('Failed to remove member')
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8">
+            <Ellipsis className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            Remove member
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Remove member"
+        description={`Are you sure you want to remove ${memberName} from this workspace? They will lose access to all shared data.`}
+        confirmValue={memberName}
+        confirmLabel="Remove"
+        loading={removing}
+        onConfirm={handleRemove}
+      />
+    </>
+  )
+}
+
+function MemberActionBadge({
+  encStatus,
+  isOwner,
+  isUnlocked,
+  isEncryptionEnabled,
+}: {
+  encStatus:
+    | {
+        userId: string
+        hasPersonalKey: boolean
+        hasKeySlot: boolean
+        publicKey: string | null
+      }
+    | undefined
+  isOwner: boolean
+  isUnlocked: boolean
+  isEncryptionEnabled: boolean
+}) {
+  if (!isEncryptionEnabled || !encStatus) {
+    return null
+  }
+
+  let status: 'access' | 'pending' | 'no-setup'
+  if (encStatus.hasKeySlot) status = 'access'
+  else if (encStatus.hasPersonalKey) status = 'pending'
+  else status = 'no-setup'
+
+  return (
+    <div className="flex items-center gap-2">
+      {status === 'pending' && isOwner && (
+        <GrantAccessButton
+          targetUserId={encStatus.userId}
+          targetPublicKey={encStatus.publicKey!}
+          isUnlocked={isUnlocked}
+        />
+      )}
+      {status === 'pending' && !isOwner && (
+        <Badge variant="outline">Pending access</Badge>
+      )}
+      {status === 'no-setup' && (
+        <Badge variant="outline">
+          <UserX className="size-3" />
+          Pending setup
+        </Badge>
+      )}
+    </div>
+  )
+}
+
+function GrantAccessButton({
+  targetUserId,
+  targetPublicKey,
+}: {
+  targetUserId: string
+  targetPublicKey: string
+  isUnlocked: boolean
+}) {
+  const { workspacePrivateKeyJwk, unlock } = useEncryption()
+  const grantAccess = useMutation(api.encryptionKeys.grantMemberAccess)
+  const [granting, setGranting] = useState(false)
+  const [passphraseOpen, setPassphraseOpen] = useState(false)
+  const [pendingGrant, setPendingGrant] = useState(false)
+
+  async function doGrantAccess(wsPrivateKeyJwk: string) {
+    setGranting(true)
+    try {
+      const recipientPubKey = await importPublicKey(targetPublicKey)
+      const encryptedWsPrivateKey = await envelopeEncryptString(
+        wsPrivateKeyJwk,
+        recipientPubKey,
+      )
+      await grantAccess({
+        targetUserId,
+        encryptedPrivateKey: encryptedWsPrivateKey,
+      })
+      toast.success('Access granted')
+    } catch (err) {
+      toast.error('Failed to grant access')
+      console.error(err)
+    } finally {
+      setGranting(false)
+    }
+  }
+
+  // After passphrase dialog unlocks the vault, workspacePrivateKeyJwk becomes
+  // available on the next render. This effect auto-triggers the grant.
+  useEffect(() => {
+    if (pendingGrant && workspacePrivateKeyJwk) {
+      setPendingGrant(false)
+      doGrantAccess(workspacePrivateKeyJwk)
+    }
+  })
+
+  async function handleClick() {
+    if (workspacePrivateKeyJwk) {
+      await doGrantAccess(workspacePrivateKeyJwk)
+    } else {
+      setPassphraseOpen(true)
+    }
+  }
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={granting}
+        onClick={handleClick}
+      >
+        {granting ? 'Granting...' : 'Grant access'}
+      </Button>
+      <PassphraseDialog
+        open={passphraseOpen}
+        onOpenChange={setPassphraseOpen}
+        unlock={unlock}
+        onUnlocked={() => {
+          setPassphraseOpen(false)
+          setPendingGrant(true)
+        }}
+      />
+    </>
+  )
+}
+
+function PassphraseDialog({
+  open,
+  onOpenChange,
+  unlock,
+  onUnlocked,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  unlock: (passphrase: string) => Promise<void>
+  onUnlocked: () => void
+}) {
+  const [passphrase, setPassphrase] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [unlocking, setUnlocking] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!passphrase) return
+    setError(null)
+    setUnlocking(true)
+    try {
+      await unlock(passphrase)
+      setPassphrase('')
+      onUnlocked()
+    } catch {
+      setError('Invalid passphrase. Please try again.')
+    } finally {
+      setUnlocking(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Enter your passphrase</DialogTitle>
+          <DialogDescription>
+            Your passphrase is needed to decrypt the workspace key before
+            granting access to this member.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="grant-passphrase">Passphrase</Label>
+              <Input
+                id="grant-passphrase"
+                type="password"
+                placeholder="Your encryption passphrase"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                autoFocus
+              />
+              {error && <p className="text-sm text-destructive">{error}</p>}
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!passphrase || unlocking}>
+              {unlocking ? 'Unlocking...' : 'Unlock & grant access'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 

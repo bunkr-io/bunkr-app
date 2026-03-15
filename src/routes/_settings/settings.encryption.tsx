@@ -1,14 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
-import {
-  KeyRound,
-  ShieldCheck,
-  TriangleAlert,
-  UserCheck,
-  UserX,
-} from 'lucide-react'
+import { KeyRound, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import { useEncryption } from '~/contexts/encryption-context'
 import {
@@ -34,8 +28,8 @@ import {
 } from '~/components/item-card'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Button } from '~/components/ui/button'
-import { Input } from '~/components/ui/input'
 import { Badge } from '~/components/ui/badge'
+import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
 import {
   Dialog,
@@ -151,145 +145,11 @@ function EncryptionPage() {
             )}
           </ItemCardItems>
         </ItemCard>
-
-        {isEncryptionEnabled && isUnlocked && <MembersAccessSection />}
       </div>
 
       {rotateOpen && (
         <KeyRotationDialog open={rotateOpen} onOpenChange={setRotateOpen} />
       )}
-    </div>
-  )
-}
-
-function MembersAccessSection() {
-  const { workspacePrivateKeyJwk } = useEncryption()
-  const membersStatus = useQuery(api.encryptionKeys.listMembersEncryptionStatus)
-  const resolveUsers = useAction(api.members.resolveUsers)
-  const grantAccess = useMutation(api.encryptionKeys.grantMemberAccess)
-  const [userInfo, setUserInfo] = useState<Record<
-    string,
-    { firstName: string | null; lastName: string | null; email: string }
-  > | null>(null)
-  const [granting, setGranting] = useState<string | null>(null)
-  const resolvedRef = useRef(false)
-
-  // Resolve user info from Clerk
-  useEffect(() => {
-    if (!membersStatus || membersStatus.length === 0) return
-    if (resolvedRef.current) return
-    resolvedRef.current = true
-
-    const userIds = membersStatus.map((m) => m.userId)
-    resolveUsers({ userIds })
-      .then(setUserInfo)
-      .catch(() => {
-        resolvedRef.current = false
-      })
-  }, [membersStatus, resolveUsers])
-
-  if (!membersStatus || membersStatus.length <= 1) return null
-
-  async function handleGrantAccess(
-    targetUserId: string,
-    targetPublicKey: string,
-  ) {
-    if (!workspacePrivateKeyJwk) return
-    setGranting(targetUserId)
-    try {
-      const recipientPubKey = await importPublicKey(targetPublicKey)
-      const encryptedWsPrivateKey = await envelopeEncryptString(
-        workspacePrivateKeyJwk,
-        recipientPubKey,
-      )
-      await grantAccess({
-        targetUserId,
-        encryptedPrivateKey: encryptedWsPrivateKey,
-      })
-      toast.success('Access granted')
-    } catch (err) {
-      toast.error('Failed to grant access')
-      console.error(err)
-    } finally {
-      setGranting(null)
-    }
-  }
-
-  return (
-    <div>
-      <h2 className="text-lg font-medium">Member access</h2>
-      <p className="mb-4 text-sm text-muted-foreground">
-        Manage which workspace members can decrypt financial data.
-      </p>
-      <ItemCard>
-        <ItemCardItems>
-          {membersStatus.map((m) => {
-            const info = userInfo?.[m.userId]
-            const displayName = info
-              ? [info.firstName, info.lastName].filter(Boolean).join(' ') ||
-                info.email
-              : m.userId
-
-            let status: 'access' | 'pending' | 'no-setup'
-            if (m.hasKeySlot) status = 'access'
-            else if (m.hasPersonalKey) status = 'pending'
-            else status = 'no-setup'
-
-            return (
-              <ItemCardItem key={m.userId}>
-                <ItemCardItemContent>
-                  <ItemCardItemTitle>
-                    {displayName}
-                    {m.role === 'owner' && (
-                      <Badge variant="outline" className="ml-2">
-                        Owner
-                      </Badge>
-                    )}
-                  </ItemCardItemTitle>
-                  <ItemCardItemDescription>
-                    {info?.email && info.email !== displayName && info.email}
-                  </ItemCardItemDescription>
-                </ItemCardItemContent>
-                <ItemCardItemAction>
-                  {status === 'access' && (
-                    <Badge variant="secondary">
-                      <UserCheck className="size-3" />
-                      Has access
-                    </Badge>
-                  )}
-                  {status === 'pending' && (
-                    <div className="flex flex-col items-end gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={
-                          granting === m.userId || !workspacePrivateKeyJwk
-                        }
-                        onClick={() =>
-                          handleGrantAccess(m.userId, m.publicKey!)
-                        }
-                      >
-                        {granting === m.userId ? 'Granting...' : 'Grant access'}
-                      </Button>
-                      {!workspacePrivateKeyJwk && (
-                        <p className="text-xs text-muted-foreground">
-                          Re-enter passphrase to grant access
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {status === 'no-setup' && (
-                    <Badge variant="outline">
-                      <UserX className="size-3" />
-                      Pending setup
-                    </Badge>
-                  )}
-                </ItemCardItemAction>
-              </ItemCardItem>
-            )
-          })}
-        </ItemCardItems>
-      </ItemCard>
     </div>
   )
 }

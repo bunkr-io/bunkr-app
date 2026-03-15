@@ -35,14 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
+import { ConfirmDialog } from '~/components/confirm-dialog'
 
 export const Route = createFileRoute('/_settings/settings/connections')({
   component: ConnectionsPage,
@@ -282,34 +275,16 @@ function ConnectionItem({
         </ItemCardItemAction>
       </ItemCardItem>
 
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Disconnect {connection.connectorName}?</DialogTitle>
-            <DialogDescription>
-              This will remove the connection and all associated bank accounts.
-              You can reconnect later.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-              disabled={deleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting && <Loader2 className="mr-2 size-4 animate-spin" />}
-              Disconnect
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={`Disconnect ${connection.connectorName}?`}
+        description="This will remove the connection and all associated bank accounts. You can reconnect later."
+        confirmValue={connection.connectorName}
+        confirmLabel="Disconnect"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
     </>
   )
 }

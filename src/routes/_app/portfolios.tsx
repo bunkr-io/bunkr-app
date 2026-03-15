@@ -1,9 +1,10 @@
 import * as React from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
-import { Check, Copy, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
+import { ConfirmDialog } from '~/components/confirm-dialog'
 import { SiteHeader } from '~/components/site-header'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { Button } from '~/components/ui/button'
@@ -24,7 +25,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Skeleton } from '~/components/ui/skeleton'
-import { Badge } from '~/components/ui/badge'
 import { PortfolioAvatar } from '~/components/portfolio-avatar'
 import { CreatePortfolioDialog } from '~/components/create-portfolio-dialog'
 
@@ -55,9 +54,7 @@ function PortfoliosPage() {
   const [editName, setEditName] = React.useState('')
   const [deletingPortfolio, setDeletingPortfolio] =
     React.useState<Doc<'portfolios'> | null>(null)
-  const [deleteConfirmName, setDeleteConfirmName] = React.useState('')
   const [isDeleting, setIsDeleting] = React.useState(false)
-  const [copied, setCopied] = React.useState(false)
 
   function openEdit(portfolio: Doc<'portfolios'>) {
     setEditingPortfolio(portfolio)
@@ -75,15 +72,6 @@ function PortfoliosPage() {
 
   function openDelete(portfolio: Doc<'portfolios'>) {
     setDeletingPortfolio(portfolio)
-    setDeleteConfirmName('')
-    setCopied(false)
-  }
-
-  async function handleCopyName() {
-    if (!deletingPortfolio) return
-    await navigator.clipboard.writeText(deletingPortfolio.name)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
   }
 
   async function handleDelete() {
@@ -220,71 +208,18 @@ function PortfoliosPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
         open={!!deletingPortfolio}
         onOpenChange={(open) => {
           if (!open) setDeletingPortfolio(null)
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Portfolio</DialogTitle>
-            <DialogDescription>
-              Deleting{' '}
-              <span className="font-semibold">{deletingPortfolio?.name}</span>{' '}
-              is permanent and cannot be undone. Deleting a portfolio also
-              deletes all associated accounts & connections.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label
-                htmlFor="delete-confirm"
-                className="flex flex-wrap items-center gap-1"
-              >
-                Type
-                <Badge
-                  variant="secondary"
-                  className="cursor-pointer gap-1 font-mono"
-                  onClick={handleCopyName}
-                >
-                  {deletingPortfolio?.name}
-                  {copied ? (
-                    <Check className="size-3" />
-                  ) : (
-                    <Copy className="size-3" />
-                  )}
-                </Badge>
-                to confirm
-              </Label>
-              <Input
-                id="delete-confirm"
-                value={deleteConfirmName}
-                onChange={(e) => setDeleteConfirmName(e.target.value)}
-                placeholder={deletingPortfolio?.name}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDeletingPortfolio(null)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={
-                deleteConfirmName !== deletingPortfolio?.name || isDeleting
-              }
-            >
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        title="Delete Portfolio"
+        description={`Deleting ${deletingPortfolio?.name} is permanent and cannot be undone. Deleting a portfolio also deletes all associated accounts & connections.`}
+        confirmValue={deletingPortfolio?.name}
+        confirmLabel="Delete"
+        loading={isDeleting}
+        onConfirm={handleDelete}
+      />
 
       <CreatePortfolioDialog
         open={createDialogOpen}
