@@ -101,6 +101,8 @@ function ChartArea({
           tickMargin={8}
           tickFormatter={formatCurrency}
           width={80}
+          domain={['dataMin', 'dataMax']}
+          padding={{ top: 20, bottom: 20 }}
         />
         <ChartTooltip
           cursor={false}
@@ -120,7 +122,7 @@ function ChartArea({
         />
         <Area
           dataKey="balance"
-          type="natural"
+          type="monotone"
           stroke="var(--color-primary)"
           fill="url(#balanceFill)"
           strokeWidth={2}

@@ -192,7 +192,7 @@ function ChartContent({
           <Area
             key={cat.key}
             dataKey={cat.key}
-            type="natural"
+            type="monotone"
             stackId="1"
             stroke={cat.color}
             fill={`url(#fill-${cat.key})`}
