@@ -290,7 +290,6 @@ export const reEncryptConnection = mutation({
     await requireAuthUserId(ctx)
     await ctx.db.patch('connections', args.connectionId, {
       encryptedData: args.encryptedData,
-      connectorName: 'Encrypted',
     })
   },
 })
@@ -306,10 +305,6 @@ export const reEncryptBankAccount = mutation({
     await ctx.db.patch('bankAccounts', args.bankAccountId, {
       encryptedIdentity: args.encryptedIdentity,
       encryptedBalance: args.encryptedBalance,
-      name: 'Encrypted',
-      balance: 0,
-      number: undefined,
-      iban: undefined,
     })
   },
 })
@@ -350,16 +345,6 @@ export const reEncryptInvestmentBatch = mutation({
       await ctx.db.patch('investments', item.investmentId, {
         encryptedIdentity: item.encryptedIdentity,
         encryptedValuation: item.encryptedValuation,
-        code: undefined,
-        label: 'Encrypted',
-        description: undefined,
-        quantity: 0,
-        unitprice: 0,
-        unitvalue: 0,
-        valuation: 0,
-        portfolioShare: undefined,
-        diff: undefined,
-        diffPercent: undefined,
       })
     }
   },
@@ -383,17 +368,6 @@ export const reEncryptTransactionBatch = mutation({
         encryptedDetails: item.encryptedDetails,
         encryptedFinancials: item.encryptedFinancials,
         encryptedCategories: item.encryptedCategories,
-        wording: 'Encrypted',
-        value: 0,
-        originalWording: undefined,
-        simplifiedWording: undefined,
-        originalValue: undefined,
-        counterparty: undefined,
-        card: undefined,
-        comment: undefined,
-        category: undefined,
-        categoryParent: undefined,
-        userCategoryKey: undefined,
       })
     }
   },
