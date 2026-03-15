@@ -171,6 +171,10 @@ export const enableWorkspaceEncryption = mutation({
     })
 
     // Mark workspace as encryption-enabled
+    const workspace = await ctx.db.get('workspaces', membership.workspaceId)
+    if (!workspace) {
+      throw new Error('Workspace not found')
+    }
     await ctx.db.patch('workspaces', membership.workspaceId, {
       encryptionEnabled: true,
     })

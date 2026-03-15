@@ -16,6 +16,12 @@ export const getOnboardingState = query({
 
     if (!member) return { status: 'none' as const }
 
+    // Verify the workspace still exists — orphaned members should restart
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    if (!workspace) {
+      return { status: 'none' as const }
+    }
+
     if (member.onboardingStep === 'complete') {
       return {
         status: 'complete' as const,
@@ -183,11 +189,20 @@ export const createWorkspaceOnboarding = mutation({
       .first()
 
     if (existing) {
-      // Update onboarding step
-      await ctx.db.patch('workspaceMembers', existing._id, {
-        onboardingStep: 'invite',
-      })
-      return existing.workspaceId
+      // Verify the workspace still exists
+      const workspace = await ctx.db.get('workspaces', existing.workspaceId)
+      if (workspace) {
+        // Update workspace name and advance onboarding step
+        await ctx.db.patch('workspaces', existing.workspaceId, {
+          name: args.workspaceName,
+        })
+        await ctx.db.patch('workspaceMembers', existing._id, {
+          onboardingStep: 'invite',
+        })
+        return existing.workspaceId
+      }
+      // Workspace was deleted — remove orphaned member and recreate below
+      await ctx.db.delete('workspaceMembers', existing._id)
     }
 
     const workspaceId = await ctx.db.insert('workspaces', {

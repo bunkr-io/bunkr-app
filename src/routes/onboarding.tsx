@@ -575,13 +575,28 @@ function VaultStep({
   )
   const setupMember = useMutation(api.encryptionKeys.setupMemberEncryption)
   const updateStep = useMutation(api.onboarding.updateOnboardingStep)
+  const encryptionState = useQuery(api.encryptionKeys.getWorkspaceEncryption)
 
   const valid = passphrase.length >= 8 && passphrase === confirm
+
+  // If encryption is already fully set up (existing user), skip this step
+  const encryptionAlreadySetUp =
+    encryptionState?.enabled === true && encryptionState.hasPersonalKey
+  // Capture initial state to avoid UI flash when encryption is set up mid-submit
+  const initiallySetUp = useRef(encryptionAlreadySetUp)
+  const alreadySetUp = initiallySetUp.current
 
   async function handleSetup() {
     setSaving(true)
     onSubmitting(true)
     try {
+      if (alreadySetUp) {
+        // Encryption already configured — just advance
+        await updateStep({ step: 'portfolio' })
+        onNext()
+        return
+      }
+
       const personalKeyPair = await generateKeyPair()
       const personalPublicKeyJwk = await exportPublicKey(
         personalKeyPair.publicKey,
@@ -637,6 +652,28 @@ function VaultStep({
       setSaving(false)
       onSubmitting(false)
     }
+  }
+
+  if (alreadySetUp) {
+    return (
+      <Card className="relative">
+        <StepBackButton onClick={onBack} />
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-2 flex size-16 items-center justify-center rounded-full bg-primary/10">
+            <Shield className="size-8 text-primary" />
+          </div>
+          <CardTitle className="text-2xl">Vault already set up</CardTitle>
+          <CardDescription>
+            Your encryption is already configured. Continue to the next step.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button className="w-full" disabled={saving} onClick={handleSetup}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : 'Continue'}
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
