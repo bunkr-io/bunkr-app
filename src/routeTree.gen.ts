@@ -22,6 +22,7 @@ import { Route as SettingsSettingsIndexRouteImport } from './routes/_settings/se
 import { Route as AppAccountsIndexRouteImport } from './routes/_app/accounts.index'
 import { Route as SettingsSettingsSecurityRouteImport } from './routes/_settings/settings.security'
 import { Route as SettingsSettingsProfileRouteImport } from './routes/_settings/settings.profile'
+import { Route as SettingsSettingsNotificationsRouteImport } from './routes/_settings/settings.notifications'
 import { Route as SettingsSettingsMembersRouteImport } from './routes/_settings/settings.members'
 import { Route as SettingsSettingsEncryptionRouteImport } from './routes/_settings/settings.encryption'
 import { Route as SettingsSettingsConnectionsRouteImport } from './routes/_settings/settings.connections'
@@ -93,6 +94,12 @@ const SettingsSettingsProfileRoute = SettingsSettingsProfileRouteImport.update({
   path: '/settings/profile',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsSettingsNotificationsRoute =
+  SettingsSettingsNotificationsRouteImport.update({
+    id: '/settings/notifications',
+    path: '/settings/notifications',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const SettingsSettingsMembersRoute = SettingsSettingsMembersRouteImport.update({
   id: '/settings/members',
   path: '/settings/members',
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
+  '/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
   '/settings/security': typeof SettingsSettingsSecurityRoute
   '/accounts/': typeof AppAccountsIndexRoute
@@ -160,6 +168,7 @@ export interface FileRoutesByTo {
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
+  '/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
   '/settings/security': typeof SettingsSettingsSecurityRoute
   '/accounts': typeof AppAccountsIndexRoute
@@ -182,6 +191,7 @@ export interface FileRoutesById {
   '/_settings/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/_settings/settings/encryption': typeof SettingsSettingsEncryptionRoute
   '/_settings/settings/members': typeof SettingsSettingsMembersRoute
+  '/_settings/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/_settings/settings/profile': typeof SettingsSettingsProfileRoute
   '/_settings/settings/security': typeof SettingsSettingsSecurityRoute
   '/_app/accounts/': typeof AppAccountsIndexRoute
@@ -203,6 +213,7 @@ export interface FileRouteTypes {
     | '/settings/connections'
     | '/settings/encryption'
     | '/settings/members'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/accounts/'
@@ -222,6 +233,7 @@ export interface FileRouteTypes {
     | '/settings/connections'
     | '/settings/encryption'
     | '/settings/members'
+    | '/settings/notifications'
     | '/settings/profile'
     | '/settings/security'
     | '/accounts'
@@ -243,6 +255,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/connections'
     | '/_settings/settings/encryption'
     | '/_settings/settings/members'
+    | '/_settings/settings/notifications'
     | '/_settings/settings/profile'
     | '/_settings/settings/security'
     | '/_app/accounts/'
@@ -351,6 +364,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsProfileRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/_settings/settings/notifications': {
+      id: '/_settings/settings/notifications'
+      path: '/settings/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsSettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/_settings/settings/members': {
       id: '/_settings/settings/members'
       path: '/settings/members'
@@ -420,6 +440,7 @@ interface SettingsRouteChildren {
   SettingsSettingsConnectionsRoute: typeof SettingsSettingsConnectionsRoute
   SettingsSettingsEncryptionRoute: typeof SettingsSettingsEncryptionRoute
   SettingsSettingsMembersRoute: typeof SettingsSettingsMembersRoute
+  SettingsSettingsNotificationsRoute: typeof SettingsSettingsNotificationsRoute
   SettingsSettingsProfileRoute: typeof SettingsSettingsProfileRoute
   SettingsSettingsSecurityRoute: typeof SettingsSettingsSecurityRoute
   SettingsSettingsIndexRoute: typeof SettingsSettingsIndexRoute
@@ -431,6 +452,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSettingsConnectionsRoute: SettingsSettingsConnectionsRoute,
   SettingsSettingsEncryptionRoute: SettingsSettingsEncryptionRoute,
   SettingsSettingsMembersRoute: SettingsSettingsMembersRoute,
+  SettingsSettingsNotificationsRoute: SettingsSettingsNotificationsRoute,
   SettingsSettingsProfileRoute: SettingsSettingsProfileRoute,
   SettingsSettingsSecurityRoute: SettingsSettingsSecurityRoute,
   SettingsSettingsIndexRoute: SettingsSettingsIndexRoute,

@@ -270,3 +270,37 @@ export const completeOnboarding = mutation({
     }
   },
 })
+
+export const getConsents = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+
+    return await ctx.db
+      .query('userConsents')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+  },
+})
+
+export const updateMarketingConsent = mutation({
+  args: {
+    marketingCommunications: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const existing = await ctx.db
+      .query('userConsents')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+
+    if (!existing) throw new Error('No consent record found')
+
+    await ctx.db.patch('userConsents', existing._id, {
+      marketingCommunications: args.marketingCommunications,
+      marketingCommunicationsAt: Date.now(),
+    })
+  },
+})

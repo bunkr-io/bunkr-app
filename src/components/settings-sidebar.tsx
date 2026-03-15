@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import {
   ArrowLeft,
+  Bell,
   CreditCard,
   Link2,
   Lock,
@@ -76,6 +77,14 @@ export function SettingsSidebar({
                   <Link to="/settings/encryption">
                     <Lock />
                     <span>Encryption</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/settings/notifications">
+                    <Bell />
+                    <span>Notifications</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
