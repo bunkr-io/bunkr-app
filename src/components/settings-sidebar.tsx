@@ -6,6 +6,7 @@ import {
   Link2,
   Lock,
   Palette,
+  Settings,
   Shield,
   Tag,
   User,
@@ -113,6 +114,14 @@ export function SettingsSidebar({
             <SidebarGroupLabel>Workspace</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/settings/general">
+                      <Settings />
+                      <span>General</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
                     <Link to="/settings/categories">

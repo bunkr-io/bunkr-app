@@ -24,6 +24,7 @@ import { Route as SettingsSettingsSecurityRouteImport } from './routes/_settings
 import { Route as SettingsSettingsProfileRouteImport } from './routes/_settings/settings.profile'
 import { Route as SettingsSettingsNotificationsRouteImport } from './routes/_settings/settings.notifications'
 import { Route as SettingsSettingsMembersRouteImport } from './routes/_settings/settings.members'
+import { Route as SettingsSettingsGeneralRouteImport } from './routes/_settings/settings.general'
 import { Route as SettingsSettingsEncryptionRouteImport } from './routes/_settings/settings.encryption'
 import { Route as SettingsSettingsConnectionsRouteImport } from './routes/_settings/settings.connections'
 import { Route as SettingsSettingsCategoriesRouteImport } from './routes/_settings/settings.categories'
@@ -105,6 +106,11 @@ const SettingsSettingsMembersRoute = SettingsSettingsMembersRouteImport.update({
   path: '/settings/members',
   getParentRoute: () => SettingsRoute,
 } as any)
+const SettingsSettingsGeneralRoute = SettingsSettingsGeneralRouteImport.update({
+  id: '/settings/general',
+  path: '/settings/general',
+  getParentRoute: () => SettingsRoute,
+} as any)
 const SettingsSettingsEncryptionRoute =
   SettingsSettingsEncryptionRouteImport.update({
     id: '/settings/encryption',
@@ -147,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
+  '/settings/general': typeof SettingsSettingsGeneralRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
   '/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
@@ -167,6 +174,7 @@ export interface FileRoutesByTo {
   '/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/settings/encryption': typeof SettingsSettingsEncryptionRoute
+  '/settings/general': typeof SettingsSettingsGeneralRoute
   '/settings/members': typeof SettingsSettingsMembersRoute
   '/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/settings/profile': typeof SettingsSettingsProfileRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/_settings/settings/categories': typeof SettingsSettingsCategoriesRoute
   '/_settings/settings/connections': typeof SettingsSettingsConnectionsRoute
   '/_settings/settings/encryption': typeof SettingsSettingsEncryptionRoute
+  '/_settings/settings/general': typeof SettingsSettingsGeneralRoute
   '/_settings/settings/members': typeof SettingsSettingsMembersRoute
   '/_settings/settings/notifications': typeof SettingsSettingsNotificationsRoute
   '/_settings/settings/profile': typeof SettingsSettingsProfileRoute
@@ -212,6 +221,7 @@ export interface FileRouteTypes {
     | '/settings/categories'
     | '/settings/connections'
     | '/settings/encryption'
+    | '/settings/general'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/settings/categories'
     | '/settings/connections'
     | '/settings/encryption'
+    | '/settings/general'
     | '/settings/members'
     | '/settings/notifications'
     | '/settings/profile'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/categories'
     | '/_settings/settings/connections'
     | '/_settings/settings/encryption'
+    | '/_settings/settings/general'
     | '/_settings/settings/members'
     | '/_settings/settings/notifications'
     | '/_settings/settings/profile'
@@ -378,6 +390,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsMembersRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/_settings/settings/general': {
+      id: '/_settings/settings/general'
+      path: '/settings/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof SettingsSettingsGeneralRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/_settings/settings/encryption': {
       id: '/_settings/settings/encryption'
       path: '/settings/encryption'
@@ -439,6 +458,7 @@ interface SettingsRouteChildren {
   SettingsSettingsCategoriesRoute: typeof SettingsSettingsCategoriesRoute
   SettingsSettingsConnectionsRoute: typeof SettingsSettingsConnectionsRoute
   SettingsSettingsEncryptionRoute: typeof SettingsSettingsEncryptionRoute
+  SettingsSettingsGeneralRoute: typeof SettingsSettingsGeneralRoute
   SettingsSettingsMembersRoute: typeof SettingsSettingsMembersRoute
   SettingsSettingsNotificationsRoute: typeof SettingsSettingsNotificationsRoute
   SettingsSettingsProfileRoute: typeof SettingsSettingsProfileRoute
@@ -451,6 +471,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
   SettingsSettingsCategoriesRoute: SettingsSettingsCategoriesRoute,
   SettingsSettingsConnectionsRoute: SettingsSettingsConnectionsRoute,
   SettingsSettingsEncryptionRoute: SettingsSettingsEncryptionRoute,
+  SettingsSettingsGeneralRoute: SettingsSettingsGeneralRoute,
   SettingsSettingsMembersRoute: SettingsSettingsMembersRoute,
   SettingsSettingsNotificationsRoute: SettingsSettingsNotificationsRoute,
   SettingsSettingsProfileRoute: SettingsSettingsProfileRoute,

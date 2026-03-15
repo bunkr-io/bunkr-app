@@ -1,18 +1,24 @@
 import { useUser } from '@clerk/tanstack-react-start'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useAction, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '~/components/confirm-dialog'
 import {
   ItemCard,
   ItemCardItem,
   ItemCardItemAction,
   ItemCardItemContent,
+  ItemCardItemDescription,
   ItemCardItems,
   ItemCardItemTitle,
 } from '~/components/item-card'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
+import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useEncryption } from '~/contexts/encryption-context'
+import { api } from '../../../convex/_generated/api'
 
 export const Route = createFileRoute('/_settings/settings/profile')({
   component: ProfilePage,
@@ -49,6 +55,7 @@ function ProfilePage() {
             <FullNameItem />
           </ItemCardItems>
         </ItemCard>
+        <WorkspaceSection />
       </div>
     </div>
   )
@@ -150,5 +157,133 @@ function FullNameItem() {
         />
       </ItemCardItemAction>
     </ItemCardItem>
+  )
+}
+
+function WorkspaceSection() {
+  const { role } = useEncryption()
+  const workspace = useQuery(api.workspaces.getMyWorkspace)
+
+  if (role === null || !workspace) return null
+
+  if (role === 'owner')
+    return <DeleteWorkspaceCard workspaceName={workspace.name} />
+  return <LeaveWorkspaceCard workspaceName={workspace.name} />
+}
+
+function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string }) {
+  const leaveWorkspace = useAction(api.workspaces.leaveWorkspace)
+  const navigate = useNavigate()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleLeave() {
+    setLoading(true)
+    try {
+      await leaveWorkspace()
+      toast.success('You have left the workspace')
+      navigate({ to: '/' })
+    } catch {
+      toast.error('Failed to leave workspace')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">Workspace access</h2>
+      <ItemCard>
+        <ItemCardItems>
+          <ItemCardItem>
+            <ItemCardItemContent>
+              <ItemCardItemTitle>Leave workspace</ItemCardItemTitle>
+              <ItemCardItemDescription>
+                You will lose access to all shared data in this workspace.
+              </ItemCardItemDescription>
+            </ItemCardItemContent>
+            <ItemCardItemAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setConfirmOpen(true)}
+              >
+                Leave
+              </Button>
+            </ItemCardItemAction>
+          </ItemCardItem>
+        </ItemCardItems>
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Leave workspace"
+          description={`Are you sure you want to leave ${workspaceName}? You will lose access to all shared data.`}
+          confirmValue={workspaceName}
+          confirmLabel="Leave"
+          loading={loading}
+          onConfirm={handleLeave}
+        />
+      </ItemCard>
+    </section>
+  )
+}
+
+function DeleteWorkspaceCard({ workspaceName }: { workspaceName: string }) {
+  const deleteWorkspace = useAction(api.workspaces.deleteWorkspace)
+  const navigate = useNavigate()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleDelete() {
+    setLoading(true)
+    try {
+      await deleteWorkspace()
+      toast.success('Workspace deleted')
+      navigate({ to: '/' })
+    } catch {
+      toast.error('Failed to delete workspace')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <section>
+      <h2 className="mb-4 text-lg font-semibold">Workspace access</h2>
+      <ItemCard>
+        <ItemCardItems>
+          <ItemCardItem>
+            <ItemCardItemContent>
+              <ItemCardItemTitle>Delete workspace</ItemCardItemTitle>
+              <ItemCardItemDescription>
+                Permanently delete this workspace and all associated data. This
+                action cannot be undone.
+              </ItemCardItemDescription>
+            </ItemCardItemContent>
+            <ItemCardItemAction>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setConfirmOpen(true)}
+              >
+                Delete
+              </Button>
+            </ItemCardItemAction>
+          </ItemCardItem>
+        </ItemCardItems>
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          title="Delete workspace"
+          description={`This will permanently delete ${workspaceName} and all associated data including connections, transactions, investments, and member data. This action cannot be undone.`}
+          confirmValue={workspaceName}
+          confirmLabel="Delete"
+          loading={loading}
+          onConfirm={handleDelete}
+        />
+      </ItemCard>
+    </section>
   )
 }
