@@ -90,7 +90,9 @@ function BillingPage() {
   if (!subscription) return null
 
   const seatPrice =
-    subscription.interval === 'yearly' ? SEAT_PRICES.yearly : SEAT_PRICES.monthly
+    subscription.interval === 'yearly'
+      ? SEAT_PRICES.yearly
+      : SEAT_PRICES.monthly
 
   const trialDaysRemaining = subscription.trialEndsAt
     ? Math.max(

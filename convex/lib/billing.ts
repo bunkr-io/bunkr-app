@@ -38,8 +38,7 @@ export async function getWorkspaceSubscription(
 
   // Find the first active or trialing subscription
   const subscription = subscriptions.find(
-    (s: { status: string }) =>
-      s.status === 'active' || s.status === 'trialing',
+    (s: { status: string }) => s.status === 'active' || s.status === 'trialing',
   )
 
   if (!subscription) {
