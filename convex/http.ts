@@ -1,7 +1,7 @@
-import { httpRouter } from 'convex/server'
-import { httpAction } from './_generated/server'
-import { internal, components } from './_generated/api'
 import { registerRoutes } from '@convex-dev/stripe'
+import { httpRouter } from 'convex/server'
+import { components, internal } from './_generated/api'
+import { httpAction } from './_generated/server'
 
 const http = httpRouter()
 

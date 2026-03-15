@@ -38,7 +38,7 @@ export async function getWorkspaceSubscription(
 
   // Find the first active or trialing subscription
   const subscription = subscriptions.find(
-    (s: { status: string }) => s.status === 'active' || s.status === 'trialing',
+    (s) => s.status === 'active' || s.status === 'trialing',
   )
 
   if (!subscription) {
@@ -48,22 +48,15 @@ export async function getWorkspaceSubscription(
   const isTrial = subscription.status === 'trialing'
   const isActive = true
 
-  const trialEndsAt =
-    isTrial && subscription.trialEnd
-      ? new Date(subscription.trialEnd * 1000).getTime()
-      : null
+  // During trial, currentPeriodEnd is the trial end date
+  const trialEndsAt = isTrial ? subscription.currentPeriodEnd * 1000 : null
 
-  const renewsAt = subscription.currentPeriodEnd
-    ? new Date(subscription.currentPeriodEnd * 1000).getTime()
-    : null
+  const renewsAt = subscription.currentPeriodEnd * 1000
 
-  // Determine interval from the price's recurring interval
+  // Determine interval by comparing priceId against configured prices
+  const monthlyPriceId = process.env.STRIPE_MONTHLY_PRICE_ID
   const interval: 'monthly' | 'yearly' | null =
-    subscription.interval === 'month'
-      ? 'monthly'
-      : subscription.interval === 'year'
-        ? 'yearly'
-        : null
+    subscription.priceId === monthlyPriceId ? 'monthly' : 'yearly'
 
   return {
     isActive,
@@ -72,9 +65,9 @@ export async function getWorkspaceSubscription(
     renewsAt,
     seats: subscription.quantity ?? 1,
     interval,
-    amount: subscription.amount ?? null,
-    currency: subscription.currency ?? null,
-    subscriptionId: subscription.stripeSubscriptionId ?? null,
-    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
+    amount: null,
+    currency: null,
+    subscriptionId: subscription.stripeSubscriptionId,
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
   }
 }

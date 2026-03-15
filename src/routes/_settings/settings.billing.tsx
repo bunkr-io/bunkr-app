@@ -3,6 +3,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { ExternalLink } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
+import { SEAT_PRICES } from '../../../convex/stripe'
 import {
   ItemCard,
   ItemCardFooter,
@@ -16,7 +17,6 @@ import {
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { Skeleton } from '~/components/ui/skeleton'
-import { SEAT_PRICES } from '../../../convex/stripe'
 
 export const Route = createFileRoute('/_settings/settings/billing')({
   component: BillingPage,
