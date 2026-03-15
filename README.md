@@ -81,7 +81,7 @@ Bunkr uses **client-held key encryption at rest** to protect your financial data
 
 **What this does NOT mean:**
 
-- This is NOT end-to-end encryption in the traditional sense. When Powens sends webhook data to the server, the data is briefly in plaintext on the Convex runtime before being encrypted with your public key. A compromised server runtime could theoretically intercept data during this window.
+- This is NOT zero-knowledge encryption in the traditional sense. When Powens sends webhook data to the server, the data is briefly in plaintext on the Convex runtime before being encrypted with your public key. A compromised server runtime could theoretically intercept data during this window.
 - The server infrastructure (Convex) could theoretically be modified to exfiltrate plaintext during webhook processing. This is an inherent limitation of receiving third-party webhooks — the client isn't online when data arrives.
 
 ### Threat Model

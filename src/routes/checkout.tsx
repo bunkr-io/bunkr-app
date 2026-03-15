@@ -24,7 +24,7 @@ const FEATURES = [
   'Full transaction history',
   'Net worth tracking',
   'Portfolio analytics',
-  'End-to-end encryption',
+  'Zero-knowledge encryption',
   'Workspace collaboration',
   'Priority support',
 ]
