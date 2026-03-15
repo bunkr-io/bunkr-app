@@ -39,11 +39,31 @@ export function PortfolioSwitcher() {
     )
   }
 
-  const isAllPortfolios =
-    !activePortfolio && portfolios && portfolios.length > 0
-  const activeLabel = isAllPortfolios
-    ? 'All Portfolios'
-    : (activePortfolio?.name ?? 'Select Portfolio')
+  if (!portfolios || portfolios.length === 0) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            size="lg"
+            onClick={() => setDialogOpen(true)}
+            className="gap-2"
+          >
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg border bg-background">
+              <Plus className="size-4" />
+            </div>
+            <div className="grid flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-semibold text-muted-foreground">
+                Add portfolio
+              </span>
+            </div>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <CreatePortfolioDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      </SidebarMenu>
+    )
+  }
+
+  const activeLabel = activePortfolio ? activePortfolio.name : 'All Portfolios'
 
   return (
     <>
@@ -55,11 +75,7 @@ export function PortfolioSwitcher() {
                 size="lg"
                 className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
-                {isAllPortfolios ? (
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Users className="size-4" />
-                  </div>
-                ) : activePortfolio ? (
+                {activePortfolio ? (
                   <PortfolioAvatar
                     name={activePortfolio.name}
                     className="aspect-square size-8"
@@ -94,7 +110,7 @@ export function PortfolioSwitcher() {
                 All Portfolios
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {portfolios?.map((portfolio) => (
+              {portfolios.map((portfolio) => (
                 <DropdownMenuItem
                   key={portfolio._id}
                   onClick={() => setActivePortfolioId(portfolio._id)}

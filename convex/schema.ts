@@ -39,9 +39,20 @@ export default defineSchema({
     workspaceId: v.id('workspaces'),
     userId: v.string(),
     role: v.union(v.literal('owner'), v.literal('member')),
+    onboardingStep: v.optional(v.string()),
   })
     .index('by_userId', ['userId'])
     .index('by_workspaceId', ['workspaceId']),
+
+  userConsents: defineTable({
+    userId: v.string(),
+    termsOfService: v.boolean(),
+    termsOfServiceAt: v.number(),
+    privacyPolicy: v.boolean(),
+    privacyPolicyAt: v.number(),
+    marketingCommunications: v.boolean(),
+    marketingCommunicationsAt: v.number(),
+  }).index('by_userId', ['userId']),
 
   workspaceInvitations: defineTable({
     workspaceId: v.id('workspaces'),
@@ -75,11 +86,9 @@ export default defineSchema({
     state: v.optional(v.string()),
     lastSync: v.optional(v.string()),
     encryptedData: v.optional(v.string()),
-    encrypted: v.optional(v.boolean()),
   })
     .index('by_portfolioId', ['portfolioId'])
-    .index('by_powensConnectionId', ['powensConnectionId'])
-    .index('by_portfolioId_encrypted', ['portfolioId', 'encrypted']),
+    .index('by_powensConnectionId', ['powensConnectionId']),
 
   bankAccounts: defineTable({
     connectionId: v.id('connections'),
@@ -95,11 +104,9 @@ export default defineSchema({
     deleted: v.boolean(),
     lastSync: v.optional(v.string()),
     encryptedData: v.optional(v.string()),
-    encrypted: v.optional(v.boolean()),
   })
     .index('by_connectionId', ['connectionId'])
-    .index('by_portfolioId', ['portfolioId'])
-    .index('by_portfolioId_encrypted', ['portfolioId', 'encrypted']),
+    .index('by_portfolioId', ['portfolioId']),
 
   investments: defineTable({
     bankAccountId: v.id('bankAccounts'),
@@ -121,12 +128,10 @@ export default defineSchema({
     vdate: v.optional(v.string()),
     deleted: v.boolean(),
     encryptedData: v.optional(v.string()),
-    encrypted: v.optional(v.boolean()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_portfolioId', ['portfolioId'])
-    .index('by_powensInvestmentId', ['powensInvestmentId'])
-    .index('by_portfolioId_encrypted', ['portfolioId', 'encrypted']),
+    .index('by_powensInvestmentId', ['powensInvestmentId']),
 
   balanceSnapshots: defineTable({
     bankAccountId: v.id('bankAccounts'),
@@ -137,12 +142,10 @@ export default defineSchema({
     timestamp: v.number(),
     seed: v.optional(v.boolean()),
     encryptedData: v.optional(v.string()),
-    encrypted: v.optional(v.boolean()),
   })
     .index('by_bankAccountId_timestamp', ['bankAccountId', 'timestamp'])
     .index('by_bankAccountId_date', ['bankAccountId', 'date'])
-    .index('by_portfolioId_timestamp', ['portfolioId', 'timestamp'])
-    .index('by_portfolioId_encrypted', ['portfolioId', 'encrypted']),
+    .index('by_portfolioId_timestamp', ['portfolioId', 'timestamp']),
 
   dailyNetWorth: defineTable({
     portfolioId: v.id('portfolios'),
@@ -181,13 +184,11 @@ export default defineSchema({
     userCategoryKey: v.optional(v.string()),
     labelIds: v.optional(v.array(v.id('labels'))),
     encryptedData: v.optional(v.string()),
-    encrypted: v.optional(v.boolean()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_portfolioId', ['portfolioId'])
     .index('by_portfolioId_date', ['portfolioId', 'date'])
-    .index('by_powensTransactionId', ['powensTransactionId'])
-    .index('by_portfolioId_encrypted', ['portfolioId', 'encrypted']),
+    .index('by_powensTransactionId', ['powensTransactionId']),
 
   transactionCategories: defineTable({
     workspaceId: v.id('workspaces'),

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as SettingsRouteImport } from './routes/_settings'
 import { Route as AppRouteImport } from './routes/_app'
@@ -28,6 +29,11 @@ import { Route as SettingsSettingsCategoriesRouteImport } from './routes/_settin
 import { Route as SettingsSettingsBillingRouteImport } from './routes/_settings/settings.billing'
 import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts.$accountId'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
   path: '/checkout',
@@ -124,6 +130,7 @@ const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/checkout': typeof CheckoutRoute
+  '/onboarding': typeof OnboardingRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
   '/powens/callback': typeof PowensCallbackRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/checkout': typeof CheckoutRoute
+  '/onboarding': typeof OnboardingRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
   '/powens/callback': typeof PowensCallbackRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_settings': typeof SettingsRouteWithChildren
   '/checkout': typeof CheckoutRoute
+  '/onboarding': typeof OnboardingRoute
   '/_app/portfolios': typeof AppPortfoliosRoute
   '/_app/transactions': typeof AppTransactionsRoute
   '/powens/callback': typeof PowensCallbackRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/checkout'
+    | '/onboarding'
     | '/portfolios'
     | '/transactions'
     | '/powens/callback'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/checkout'
+    | '/onboarding'
     | '/portfolios'
     | '/transactions'
     | '/powens/callback'
@@ -220,6 +231,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_settings'
     | '/checkout'
+    | '/onboarding'
     | '/_app/portfolios'
     | '/_app/transactions'
     | '/powens/callback'
@@ -241,12 +253,20 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   SettingsRoute: typeof SettingsRouteWithChildren
   CheckoutRoute: typeof CheckoutRoute
+  OnboardingRoute: typeof OnboardingRoute
   PowensCallbackRoute: typeof PowensCallbackRoute
   SignInSplatRoute: typeof SignInSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout': {
       id: '/checkout'
       path: '/checkout'
@@ -424,6 +444,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
   CheckoutRoute: CheckoutRoute,
+  OnboardingRoute: OnboardingRoute,
   PowensCallbackRoute: PowensCallbackRoute,
   SignInSplatRoute: SignInSplatRoute,
 }

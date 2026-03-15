@@ -4,14 +4,18 @@ import {
   Scripts,
   createRootRouteWithContext,
   redirect,
+  useLocation,
+  useNavigate,
   useRouteContext,
 } from '@tanstack/react-router'
 import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
 import { auth } from '@clerk/tanstack-react-start/server'
 import { createServerFn } from '@tanstack/react-start'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import { useConvexAuth, useQuery } from 'convex/react'
 import * as React from 'react'
 import { ThemeProvider } from 'next-themes'
+import { api } from '../../convex/_generated/api'
 import type { QueryClient } from '@tanstack/react-query'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { ConvexReactClient } from 'convex/react'
@@ -170,7 +174,9 @@ function RootComponent() {
               <EncryptionProvider>
                 <PrivacyProvider>
                   <RootDocument>
-                    <Outlet />
+                    <OnboardingGuard>
+                      <Outlet />
+                    </OnboardingGuard>
                   </RootDocument>
                 </PrivacyProvider>
               </EncryptionProvider>
@@ -180,6 +186,40 @@ function RootComponent() {
       </ConvexProviderWithClerk>
     </ClerkProvider>
   )
+}
+
+const EXEMPT_PATHS = ['/onboarding', '/sign-in', '/powens/callback']
+
+function OnboardingGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  const isExempt = EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))
+
+  const onboardingState = useQuery(
+    api.onboarding.getOnboardingState,
+    isAuthenticated && !isExempt ? {} : 'skip',
+  )
+
+  React.useEffect(() => {
+    if (isAuthLoading || isExempt || !isAuthenticated) return
+    if (onboardingState === undefined) return // still loading
+
+    if (onboardingState.status === 'none') {
+      void navigate({ to: '/onboarding', search: { step: 'legal' } })
+    } else if (
+      onboardingState.status === 'in_progress' &&
+      onboardingState.step
+    ) {
+      void navigate({
+        to: '/onboarding',
+        search: { step: onboardingState.step },
+      })
+    }
+  }, [isAuthLoading, isAuthenticated, isExempt, onboardingState, navigate])
+
+  return <>{children}</>
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {

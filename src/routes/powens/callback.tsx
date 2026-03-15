@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction } from 'convex/react'
+import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react'
 import { api } from '../../../convex/_generated/api'
 import { usePortfolio } from '~/contexts/portfolio-context'
@@ -17,7 +17,13 @@ function PowensCallback() {
   const { connection_id } = Route.useSearch()
   const navigate = useNavigate()
   const { singlePortfolioId } = usePortfolio()
+  const { isAuthenticated } = useConvexAuth()
   const handleCallback = useAction(api.powens.handleConnectionCallback)
+  const completeOnboarding = useMutation(api.onboarding.completeOnboarding)
+  const onboardingState = useQuery(
+    api.onboarding.getOnboardingState,
+    isAuthenticated ? {} : 'skip',
+  )
   const [status, setStatus] = React.useState<'loading' | 'success' | 'error'>(
     'loading',
   )
@@ -26,13 +32,25 @@ function PowensCallback() {
 
   React.useEffect(() => {
     if (processed.current || !connection_id || !singlePortfolioId) return
+    if (onboardingState === undefined) return // wait for onboarding state
     processed.current = true
 
     handleCallback({
       connectionId: Number(connection_id),
       portfolioId: singlePortfolioId,
     })
-      .then(() => {
+      .then(async () => {
+        // Complete onboarding if user is mid-onboarding
+        if (
+          onboardingState.status === 'in_progress' ||
+          onboardingState.status === 'none'
+        ) {
+          try {
+            await completeOnboarding()
+          } catch {
+            // ignore — may already be complete
+          }
+        }
         setStatus('success')
         setTimeout(() => navigate({ to: '/' }), 2000)
       })
@@ -40,7 +58,14 @@ function PowensCallback() {
         setStatus('error')
         setError(err instanceof Error ? err.message : 'Unknown error')
       })
-  }, [connection_id, singlePortfolioId, handleCallback, navigate])
+  }, [
+    connection_id,
+    singlePortfolioId,
+    handleCallback,
+    navigate,
+    onboardingState,
+    completeOnboarding,
+  ])
 
   return (
     <div className="flex min-h-screen items-center justify-center">

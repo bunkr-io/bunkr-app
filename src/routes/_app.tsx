@@ -4,7 +4,6 @@ import { useEffect } from 'react'
 import { api } from '../../convex/_generated/api'
 import { AppSidebar } from '~/components/app-sidebar'
 import { SidebarInset, SidebarProvider } from '~/components/ui/sidebar'
-import { EncryptionSetupDialog } from '~/components/encryption-setup-dialog'
 import { TrialBanner } from '~/components/trial-banner'
 import { ConnectionAlertBanner } from '~/components/connection-alert-banner'
 import { CommandPalette } from '~/components/command-palette'
@@ -42,7 +41,6 @@ function AppLayout() {
           <ConnectionAlertBanner />
           <Outlet />
         </SidebarInset>
-        <EncryptionSetupDialog />
         <CommandPalette />
       </SidebarProvider>
     </CommandProvider>

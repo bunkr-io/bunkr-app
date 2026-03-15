@@ -259,62 +259,6 @@ export const grantMemberAccess = mutation({
   },
 })
 
-// Owner disables workspace encryption — removes workspace encryption + all key slots + all personal keys
-export const disableWorkspaceEncryption = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await requireAuthUserId(ctx)
-
-    const membership = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_userId', (q) => q.eq('userId', userId))
-      .first()
-    if (!membership || membership.role !== 'owner') {
-      throw new Error('Only workspace owners can disable encryption')
-    }
-
-    // Delete workspace encryption record
-    const wsEnc = await ctx.db
-      .query('workspaceEncryption')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
-      .first()
-    if (wsEnc) await ctx.db.delete('workspaceEncryption', wsEnc._id)
-
-    // Delete all key slots
-    const slots = await ctx.db
-      .query('workspaceKeySlots')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
-      .collect()
-    for (const slot of slots) {
-      await ctx.db.delete('workspaceKeySlots', slot._id)
-    }
-
-    // Delete all personal keys for workspace members
-    const members = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
-      .collect()
-    for (const m of members) {
-      const key = await ctx.db
-        .query('encryptionKeys')
-        .withIndex('by_userId', (q) => q.eq('userId', m.userId))
-        .first()
-      if (key) await ctx.db.delete('encryptionKeys', key._id)
-    }
-
-    // Mark workspace as encryption-disabled
-    await ctx.db.patch('workspaces', membership.workspaceId, {
-      encryptionEnabled: false,
-    })
-  },
-})
-
 // Get workspace public key via portfolio → workspace → workspaceEncryption
 export const getPublicKeyForPortfolio = internalQuery({
   args: { portfolioId: v.id('portfolios') },
@@ -331,7 +275,8 @@ export const getPublicKeyForPortfolio = internalQuery({
   },
 })
 
-export const migrateConnection = mutation({
+// Re-encryption mutations used by key rotation
+export const reEncryptConnection = mutation({
   args: {
     connectionId: v.id('connections'),
     encryptedData: v.string(),
@@ -341,28 +286,11 @@ export const migrateConnection = mutation({
     await ctx.db.patch('connections', args.connectionId, {
       encryptedData: args.encryptedData,
       connectorName: 'Encrypted',
-      encrypted: true,
     })
   },
 })
 
-export const decryptConnection = mutation({
-  args: {
-    connectionId: v.id('connections'),
-    connectorName: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    await ctx.db.patch('connections', args.connectionId, {
-      connectorName: args.connectorName,
-      encryptedData: undefined,
-      encrypted: false,
-    })
-  },
-})
-
-// Migration mutations
-export const migrateBankAccount = mutation({
+export const reEncryptBankAccount = mutation({
   args: {
     bankAccountId: v.id('bankAccounts'),
     encryptedData: v.string(),
@@ -375,27 +303,11 @@ export const migrateBankAccount = mutation({
       balance: 0,
       number: undefined,
       iban: undefined,
-      encrypted: true,
     })
   },
 })
 
-export const migrateBalanceSnapshot = mutation({
-  args: {
-    snapshotId: v.id('balanceSnapshots'),
-    encryptedData: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    await ctx.db.patch('balanceSnapshots', args.snapshotId, {
-      encryptedData: args.encryptedData,
-      balance: 0,
-      encrypted: true,
-    })
-  },
-})
-
-export const migrateBalanceSnapshotBatch = mutation({
+export const reEncryptBalanceSnapshotBatch = mutation({
   args: {
     items: v.array(
       v.object({
@@ -410,37 +322,12 @@ export const migrateBalanceSnapshotBatch = mutation({
       await ctx.db.patch('balanceSnapshots', item.snapshotId, {
         encryptedData: item.encryptedData,
         balance: 0,
-        encrypted: true,
       })
     }
   },
 })
 
-export const migrateInvestment = mutation({
-  args: {
-    investmentId: v.id('investments'),
-    encryptedData: v.string(),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    await ctx.db.patch('investments', args.investmentId, {
-      encryptedData: args.encryptedData,
-      code: undefined,
-      label: 'Encrypted',
-      description: undefined,
-      quantity: 0,
-      unitprice: 0,
-      unitvalue: 0,
-      valuation: 0,
-      portfolioShare: undefined,
-      diff: undefined,
-      diffPercent: undefined,
-      encrypted: true,
-    })
-  },
-})
-
-export const migrateInvestmentBatch = mutation({
+export const reEncryptInvestmentBatch = mutation({
   args: {
     items: v.array(
       v.object({
@@ -464,183 +351,6 @@ export const migrateInvestmentBatch = mutation({
         portfolioShare: undefined,
         diff: undefined,
         diffPercent: undefined,
-        encrypted: true,
-      })
-    }
-  },
-})
-
-export const decryptBankAccount = mutation({
-  args: {
-    bankAccountId: v.id('bankAccounts'),
-    name: v.string(),
-    balance: v.number(),
-    number: v.optional(v.string()),
-    iban: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    await ctx.db.patch('bankAccounts', args.bankAccountId, {
-      name: args.name,
-      balance: args.balance,
-      number: args.number,
-      iban: args.iban,
-      encryptedData: undefined,
-      encrypted: false,
-    })
-  },
-})
-
-export const decryptBalanceSnapshot = mutation({
-  args: {
-    snapshotId: v.id('balanceSnapshots'),
-    balance: v.number(),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    await ctx.db.patch('balanceSnapshots', args.snapshotId, {
-      balance: args.balance,
-      encryptedData: undefined,
-      encrypted: false,
-    })
-  },
-})
-
-export const decryptBalanceSnapshotBatch = mutation({
-  args: {
-    items: v.array(
-      v.object({
-        snapshotId: v.id('balanceSnapshots'),
-        balance: v.number(),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    for (const item of args.items) {
-      await ctx.db.patch('balanceSnapshots', item.snapshotId, {
-        balance: item.balance,
-        encryptedData: undefined,
-        encrypted: false,
-      })
-    }
-  },
-})
-
-export const decryptInvestment = mutation({
-  args: {
-    investmentId: v.id('investments'),
-    code: v.optional(v.string()),
-    label: v.string(),
-    description: v.optional(v.string()),
-    quantity: v.number(),
-    unitprice: v.number(),
-    unitvalue: v.number(),
-    valuation: v.number(),
-    portfolioShare: v.optional(v.number()),
-    diff: v.optional(v.number()),
-    diffPercent: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    const { investmentId, ...fields } = args
-    await ctx.db.patch('investments', investmentId, {
-      ...fields,
-      encryptedData: undefined,
-      encrypted: false,
-    })
-  },
-})
-
-export const migrateTransactionBatch = mutation({
-  args: {
-    items: v.array(
-      v.object({
-        transactionId: v.id('transactions'),
-        encryptedData: v.string(),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    for (const item of args.items) {
-      await ctx.db.patch('transactions', item.transactionId, {
-        encryptedData: item.encryptedData,
-        wording: 'Encrypted',
-        originalWording: undefined,
-        simplifiedWording: undefined,
-        value: 0,
-        originalValue: undefined,
-        counterparty: undefined,
-        card: undefined,
-        comment: undefined,
-        category: undefined,
-        categoryParent: undefined,
-        userCategoryKey: undefined,
-        encrypted: true,
-      })
-    }
-  },
-})
-
-export const decryptTransactionBatch = mutation({
-  args: {
-    items: v.array(
-      v.object({
-        transactionId: v.id('transactions'),
-        wording: v.string(),
-        originalWording: v.optional(v.string()),
-        simplifiedWording: v.optional(v.string()),
-        value: v.number(),
-        originalValue: v.optional(v.number()),
-        counterparty: v.optional(v.string()),
-        card: v.optional(v.string()),
-        comment: v.optional(v.string()),
-        category: v.optional(v.string()),
-        categoryParent: v.optional(v.string()),
-        userCategoryKey: v.optional(v.string()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    for (const item of args.items) {
-      const { transactionId, ...fields } = item
-      await ctx.db.patch('transactions', transactionId, {
-        ...fields,
-        encryptedData: undefined,
-        encrypted: false,
-      })
-    }
-  },
-})
-
-export const decryptInvestmentBatch = mutation({
-  args: {
-    items: v.array(
-      v.object({
-        investmentId: v.id('investments'),
-        code: v.optional(v.string()),
-        label: v.string(),
-        description: v.optional(v.string()),
-        quantity: v.number(),
-        unitprice: v.number(),
-        unitvalue: v.number(),
-        valuation: v.number(),
-        portfolioShare: v.optional(v.number()),
-        diff: v.optional(v.number()),
-        diffPercent: v.optional(v.number()),
-      }),
-    ),
-  },
-  handler: async (ctx, args) => {
-    await requireAuthUserId(ctx)
-    for (const item of args.items) {
-      const { investmentId, ...fields } = item
-      await ctx.db.patch('investments', investmentId, {
-        ...fields,
-        encryptedData: undefined,
-        encrypted: false,
       })
     }
   },
@@ -746,7 +456,6 @@ export const patchConnectionEncryptedData = internalMutation({
     for (const item of args.items) {
       await ctx.db.patch('connections', item.id, {
         encryptedData: item.encryptedData,
-        encrypted: true,
       })
     }
   },
@@ -765,7 +474,6 @@ export const patchBankAccountEncryptedData = internalMutation({
     for (const item of args.items) {
       await ctx.db.patch('bankAccounts', item.id, {
         encryptedData: item.encryptedData,
-        encrypted: true,
       })
     }
   },
@@ -784,7 +492,6 @@ export const patchInvestmentEncryptedData = internalMutation({
     for (const item of args.items) {
       await ctx.db.patch('investments', item.id, {
         encryptedData: item.encryptedData,
-        encrypted: true,
       })
     }
   },
@@ -803,7 +510,6 @@ export const patchBalanceSnapshotEncryptedData = internalMutation({
     for (const item of args.items) {
       await ctx.db.patch('balanceSnapshots', item.id, {
         encryptedData: item.encryptedData,
-        encrypted: true,
       })
     }
   },

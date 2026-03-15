@@ -25,6 +25,7 @@ import type * as lib_billing from "../lib/billing.js";
 import type * as lib_serverCrypto from "../lib/serverCrypto.js";
 import type * as members from "../members.js";
 import type * as migrations from "../migrations.js";
+import type * as onboarding from "../onboarding.js";
 import type * as portfolios from "../portfolios.js";
 import type * as powens from "../powens.js";
 import type * as seed from "../seed.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   "lib/serverCrypto": typeof lib_serverCrypto;
   members: typeof members;
   migrations: typeof migrations;
+  onboarding: typeof onboarding;
   portfolios: typeof portfolios;
   powens: typeof powens;
   seed: typeof seed;

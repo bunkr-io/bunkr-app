@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useConvexAuth, useMutation, useQuery } from 'convex/react'
+import { useConvexAuth, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
 
@@ -27,23 +27,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     api.portfolios.listPortfolios,
     isAuthenticated ? {} : 'skip',
   )
-  const ensureWorkspace = useMutation(api.workspaces.ensureWorkspace)
   const [activePortfolioId, setActivePortfolioIdState] =
     React.useState<ActivePortfolioId>(null)
-  const bootstrapping = React.useRef(false)
-
-  // Bootstrap workspace once Convex auth is ready and we see no portfolios
-  React.useEffect(() => {
-    if (!isAuthenticated) return
-    if (portfolios === undefined) return
-    if (portfolios.length > 0) return
-    if (bootstrapping.current) return
-
-    bootstrapping.current = true
-    ensureWorkspace().catch(() => {
-      bootstrapping.current = false
-    })
-  }, [isAuthenticated, portfolios, ensureWorkspace])
 
   // Set initial active portfolio from localStorage or first portfolio
   React.useEffect(() => {
@@ -80,8 +65,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   )
 
   const isLoading =
-    isAuthLoading ||
-    (isAuthenticated && (!portfolios || portfolios.length === 0))
+    isAuthLoading || (isAuthenticated && portfolios === undefined)
 
   return (
     <PortfolioContext.Provider

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Eye, EyeOff, Lock, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { Button } from '~/components/ui/button'
 import {
@@ -33,7 +33,7 @@ export function SiteHeader({
   breadcrumbs?: Array<BreadcrumbItem>
 }) {
   const { isPrivate, togglePrivacy } = usePrivacy()
-  const { isEncryptionEnabled, isUnlocked, lock } = useEncryption()
+  const { isUnlocked, lock } = useEncryption()
 
   return (
     <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
@@ -69,11 +69,7 @@ export function SiteHeader({
           <h1 className="text-base font-medium">{title}</h1>
         )}
         <div className="ml-auto flex items-center gap-1">
-          {isEncryptionEnabled && isUnlocked ? (
-            <EncryptionStatusButton onLock={lock} />
-          ) : !isEncryptionEnabled ? (
-            <EnableEncryptionButton />
-          ) : null}
+          {isUnlocked && <EncryptionStatusButton onLock={lock} />}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -96,26 +92,6 @@ export function SiteHeader({
         </div>
       </div>
     </header>
-  )
-}
-
-function EnableEncryptionButton() {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Link
-          to="/settings/encryption"
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-        >
-          <ShieldAlert className="size-3.5" />
-          <span className="hidden sm:inline">Enable encryption</span>
-        </Link>
-      </TooltipTrigger>
-      <TooltipContent>
-        Your data is stored without encryption — enable it to protect your
-        financial information
-      </TooltipContent>
-    </Tooltip>
   )
 }
 

@@ -33,7 +33,6 @@ export const seedDemoData = internalMutation({
       connectorName: 'BNP Paribas',
       state: 'SyncDone',
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const boursoConnection = await ctx.db.insert('connections', {
@@ -42,7 +41,6 @@ export const seedDemoData = internalMutation({
       connectorName: 'Boursorama',
       state: 'SyncDone',
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const fortuneoConnection = await ctx.db.insert('connections', {
@@ -51,7 +49,6 @@ export const seedDemoData = internalMutation({
       connectorName: 'Fortuneo',
       state: 'SyncDone',
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     // --- Bank Accounts ---
@@ -67,7 +64,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const bnpLivretA = await ctx.db.insert('bankAccounts', {
@@ -81,7 +77,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const boursoChecking = await ctx.db.insert('bankAccounts', {
@@ -96,7 +91,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const boursoPEA = await ctx.db.insert('bankAccounts', {
@@ -110,7 +104,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const boursoAV = await ctx.db.insert('bankAccounts', {
@@ -124,7 +117,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const fortuneoCTO = await ctx.db.insert('bankAccounts', {
@@ -138,7 +130,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     const fortuneoLDDS = await ctx.db.insert('bankAccounts', {
@@ -152,7 +143,6 @@ export const seedDemoData = internalMutation({
       disabled: false,
       deleted: false,
       lastSync: new Date().toISOString(),
-      encrypted: false,
     })
 
     // --- Investments (PEA) ---
@@ -171,7 +161,6 @@ export const seedDemoData = internalMutation({
       diff: 3269.7,
       diffPercent: 18.52,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -189,7 +178,6 @@ export const seedDemoData = internalMutation({
       diff: 1211.25,
       diffPercent: 14.51,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -207,7 +195,6 @@ export const seedDemoData = internalMutation({
       diff: 1031.25,
       diffPercent: 14.96,
       deleted: false,
-      encrypted: false,
     })
 
     // --- Investments (CTO) ---
@@ -228,7 +215,6 @@ export const seedDemoData = internalMutation({
       originalCurrency: 'USD',
       originalValuation: 2330.0,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -248,7 +234,6 @@ export const seedDemoData = internalMutation({
       originalCurrency: 'USD',
       originalValuation: 3612.0,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -266,7 +251,6 @@ export const seedDemoData = internalMutation({
       diff: 1372.5,
       diffPercent: 19.23,
       deleted: false,
-      encrypted: false,
     })
 
     // --- Investments (Assurance Vie) ---
@@ -283,7 +267,6 @@ export const seedDemoData = internalMutation({
       diff: 2850.0,
       diffPercent: 8.14,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -301,7 +284,6 @@ export const seedDemoData = internalMutation({
       diff: 945.6,
       diffPercent: 8.29,
       deleted: false,
-      encrypted: false,
     })
 
     await ctx.db.insert('investments', {
@@ -319,7 +301,6 @@ export const seedDemoData = internalMutation({
       diff: 224.55,
       diffPercent: 11.69,
       deleted: false,
-      encrypted: false,
     })
 
     // --- Transactions (3 months for checking accounts) ---
@@ -440,7 +421,6 @@ export const seedDemoData = internalMutation({
             coming: false,
             active: true,
             deleted: false,
-            encrypted: false,
           })
         }
 
@@ -465,7 +445,6 @@ export const seedDemoData = internalMutation({
               coming: false,
               active: true,
               deleted: false,
-              encrypted: false,
             })
           }
         }
@@ -498,7 +477,6 @@ export const seedDemoData = internalMutation({
             coming: false,
             active: true,
             deleted: false,
-            encrypted: false,
           })
         }
 
@@ -633,7 +611,6 @@ export const seedDemoData = internalMutation({
           date: dateStr,
           timestamp,
           seed: true,
-          encrypted: false,
         })
 
         // Update dailyNetWorth and dailyCategoryBalance aggregates
