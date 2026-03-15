@@ -171,7 +171,9 @@ function MembersPage() {
                         </ItemCardItemContent>
                       </div>
                       <ItemCardItemAction>
-                        <Badge variant="outline">{member.role}</Badge>
+                        <Badge variant="outline" className="capitalize">
+                          {member.role}
+                        </Badge>
                       </ItemCardItemAction>
                     </ItemCardItem>
                   )
