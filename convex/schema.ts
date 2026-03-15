@@ -103,7 +103,8 @@ export default defineSchema({
     disabled: v.boolean(),
     deleted: v.boolean(),
     lastSync: v.optional(v.string()),
-    encryptedData: v.optional(v.string()),
+    encryptedIdentity: v.optional(v.string()),
+    encryptedBalance: v.optional(v.string()),
   })
     .index('by_connectionId', ['connectionId'])
     .index('by_portfolioId', ['portfolioId']),
@@ -127,7 +128,8 @@ export default defineSchema({
     originalValuation: v.optional(v.number()),
     vdate: v.optional(v.string()),
     deleted: v.boolean(),
-    encryptedData: v.optional(v.string()),
+    encryptedIdentity: v.optional(v.string()),
+    encryptedValuation: v.optional(v.string()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_portfolioId', ['portfolioId'])
@@ -183,7 +185,9 @@ export default defineSchema({
     comment: v.optional(v.string()),
     userCategoryKey: v.optional(v.string()),
     labelIds: v.optional(v.array(v.id('labels'))),
-    encryptedData: v.optional(v.string()),
+    encryptedDetails: v.optional(v.string()),
+    encryptedFinancials: v.optional(v.string()),
+    encryptedCategories: v.optional(v.string()),
   })
     .index('by_bankAccountId', ['bankAccountId'])
     .index('by_portfolioId', ['portfolioId'])

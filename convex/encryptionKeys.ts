@@ -189,7 +189,7 @@ export const enableWorkspaceEncryption = mutation({
   },
 })
 
-// Member sets up their personal RSA keypair
+// Member sets up their personal X25519 keypair
 export const setupMemberEncryption = mutation({
   args: {
     publicKey: v.string(),
@@ -279,7 +279,8 @@ export const getPublicKeyForPortfolio = internalQuery({
   },
 })
 
-// Re-encryption mutations used by key rotation
+// --- Re-encryption mutations for key rotation ---
+
 export const reEncryptConnection = mutation({
   args: {
     connectionId: v.id('connections'),
@@ -297,12 +298,14 @@ export const reEncryptConnection = mutation({
 export const reEncryptBankAccount = mutation({
   args: {
     bankAccountId: v.id('bankAccounts'),
-    encryptedData: v.string(),
+    encryptedIdentity: v.string(),
+    encryptedBalance: v.string(),
   },
   handler: async (ctx, args) => {
     await requireAuthUserId(ctx)
     await ctx.db.patch('bankAccounts', args.bankAccountId, {
-      encryptedData: args.encryptedData,
+      encryptedIdentity: args.encryptedIdentity,
+      encryptedBalance: args.encryptedBalance,
       name: 'Encrypted',
       balance: 0,
       number: undefined,
@@ -336,7 +339,8 @@ export const reEncryptInvestmentBatch = mutation({
     items: v.array(
       v.object({
         investmentId: v.id('investments'),
-        encryptedData: v.string(),
+        encryptedIdentity: v.string(),
+        encryptedValuation: v.string(),
       }),
     ),
   },
@@ -344,7 +348,8 @@ export const reEncryptInvestmentBatch = mutation({
     await requireAuthUserId(ctx)
     for (const item of args.items) {
       await ctx.db.patch('investments', item.investmentId, {
-        encryptedData: item.encryptedData,
+        encryptedIdentity: item.encryptedIdentity,
+        encryptedValuation: item.encryptedValuation,
         code: undefined,
         label: 'Encrypted',
         description: undefined,
@@ -355,6 +360,40 @@ export const reEncryptInvestmentBatch = mutation({
         portfolioShare: undefined,
         diff: undefined,
         diffPercent: undefined,
+      })
+    }
+  },
+})
+
+export const reEncryptTransactionBatch = mutation({
+  args: {
+    items: v.array(
+      v.object({
+        transactionId: v.id('transactions'),
+        encryptedDetails: v.string(),
+        encryptedFinancials: v.string(),
+        encryptedCategories: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    await requireAuthUserId(ctx)
+    for (const item of args.items) {
+      await ctx.db.patch('transactions', item.transactionId, {
+        encryptedDetails: item.encryptedDetails,
+        encryptedFinancials: item.encryptedFinancials,
+        encryptedCategories: item.encryptedCategories,
+        wording: 'Encrypted',
+        value: 0,
+        originalWording: undefined,
+        simplifiedWording: undefined,
+        originalValue: undefined,
+        counterparty: undefined,
+        card: undefined,
+        comment: undefined,
+        category: undefined,
+        categoryParent: undefined,
+        userCategoryKey: undefined,
       })
     }
   },
@@ -446,7 +485,8 @@ export const completeKeyRotation = mutation({
   },
 })
 
-// Patch encrypted data on records after server-side creates them (for AAD support)
+// --- Patch mutations for server-side encryption (called after record creation) ---
+
 export const patchConnectionEncryptedData = internalMutation({
   args: {
     items: v.array(
@@ -465,37 +505,63 @@ export const patchConnectionEncryptedData = internalMutation({
   },
 })
 
-export const patchBankAccountEncryptedData = internalMutation({
+export const patchBankAccountFieldGroups = internalMutation({
   args: {
     items: v.array(
       v.object({
         id: v.id('bankAccounts'),
-        encryptedData: v.string(),
+        encryptedIdentity: v.string(),
+        encryptedBalance: v.string(),
       }),
     ),
   },
   handler: async (ctx, args) => {
     for (const item of args.items) {
       await ctx.db.patch('bankAccounts', item.id, {
-        encryptedData: item.encryptedData,
+        encryptedIdentity: item.encryptedIdentity,
+        encryptedBalance: item.encryptedBalance,
       })
     }
   },
 })
 
-export const patchInvestmentEncryptedData = internalMutation({
+export const patchInvestmentFieldGroups = internalMutation({
   args: {
     items: v.array(
       v.object({
         id: v.id('investments'),
-        encryptedData: v.string(),
+        encryptedIdentity: v.string(),
+        encryptedValuation: v.string(),
       }),
     ),
   },
   handler: async (ctx, args) => {
     for (const item of args.items) {
       await ctx.db.patch('investments', item.id, {
-        encryptedData: item.encryptedData,
+        encryptedIdentity: item.encryptedIdentity,
+        encryptedValuation: item.encryptedValuation,
+      })
+    }
+  },
+})
+
+export const patchTransactionFieldGroups = internalMutation({
+  args: {
+    items: v.array(
+      v.object({
+        id: v.id('transactions'),
+        encryptedDetails: v.string(),
+        encryptedFinancials: v.string(),
+        encryptedCategories: v.string(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    for (const item of args.items) {
+      await ctx.db.patch('transactions', item.id, {
+        encryptedDetails: item.encryptedDetails,
+        encryptedFinancials: item.encryptedFinancials,
+        encryptedCategories: item.encryptedCategories,
       })
     }
   },
