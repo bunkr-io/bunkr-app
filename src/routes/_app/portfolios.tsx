@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import * as React from 'react'
+import { toast } from 'sonner'
 import { ConfirmDialog } from '~/components/confirm-dialog'
 import { CreatePortfolioDialog } from '~/components/create-portfolio-dialog'
 import {
@@ -34,10 +35,30 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
 import { Skeleton } from '~/components/ui/skeleton'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
+
+type SharingLevel = 'none' | 'percentages' | 'full'
+
+function toSharingLevel(portfolio: Doc<'portfolios'>): SharingLevel {
+  if (!portfolio.shared) return 'none'
+  return (portfolio.shareAmounts ?? true) ? 'full' : 'percentages'
+}
+
+const SHARING_LABELS: Record<SharingLevel, string> = {
+  none: 'Not shared',
+  percentages: 'Percentages only',
+  full: 'Full access',
+}
 
 export const Route = createFileRoute('/_app/portfolios')({
   component: PortfoliosPage,
@@ -47,6 +68,9 @@ function PortfoliosPage() {
   const { portfolios, isLoading, setActivePortfolioId } = usePortfolio()
   const updatePortfolio = useMutation(api.portfolios.updatePortfolio)
   const deletePortfolio = useMutation(api.portfolios.deletePortfolio)
+  const updateSharing = useMutation(api.portfolios.updatePortfolioSharing)
+  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const isFamilyPlan = subscription?.isActive && subscription?.plan === 'family'
 
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [editingPortfolio, setEditingPortfolio] =
@@ -93,6 +117,19 @@ function PortfoliosPage() {
     }
   }
 
+  async function handleSharingChange(portfolioId: string, level: SharingLevel) {
+    try {
+      await updateSharing({
+        portfolioId: portfolioId as never,
+        shared: level !== 'none',
+        shareAmounts: level === 'full',
+      })
+      toast.success(level === 'none' ? 'Portfolio unshared' : 'Sharing updated')
+    } catch {
+      toast.error('Failed to update sharing')
+    }
+  }
+
   const canDelete = (portfolios?.length ?? 0) > 1
 
   if (isLoading || !portfolios) {
@@ -129,46 +166,81 @@ function PortfoliosPage() {
               </Button>
             </ItemCardHeader>
             <ItemCardItems>
-              {portfolios.map((portfolio) => (
-                <ItemCardItem key={portfolio._id}>
-                  <div className="flex items-center gap-3">
-                    <PortfolioAvatar name={portfolio.name} className="size-8" />
-                    <ItemCardItemContent>
-                      <ItemCardItemTitle>{portfolio.name}</ItemCardItemTitle>
-                      <ItemCardItemDescription>
-                        Created{' '}
-                        {new Date(portfolio._creationTime).toLocaleDateString(
-                          'fr-FR',
+              {portfolios.map((portfolio) => {
+                const level = toSharingLevel(portfolio)
+                return (
+                  <ItemCardItem key={portfolio._id}>
+                    <div className="flex items-center gap-3">
+                      <PortfolioAvatar
+                        name={portfolio.name}
+                        className="size-8"
+                      />
+                      <ItemCardItemContent>
+                        <ItemCardItemTitle>{portfolio.name}</ItemCardItemTitle>
+                        <ItemCardItemDescription>
+                          {isFamilyPlan
+                            ? SHARING_LABELS[level]
+                            : `Created ${new Date(portfolio._creationTime).toLocaleDateString('fr-FR')}`}
+                        </ItemCardItemDescription>
+                      </ItemCardItemContent>
+                    </div>
+                    <ItemCardItemAction>
+                      <div className="flex items-center gap-2">
+                        {isFamilyPlan && (
+                          <Select
+                            value={level}
+                            onValueChange={(value) =>
+                              handleSharingChange(
+                                portfolio._id,
+                                value as SharingLevel,
+                              )
+                            }
+                          >
+                            <SelectTrigger size="sm">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Not shared</SelectItem>
+                              <SelectItem value="percentages">
+                                Percentages only
+                              </SelectItem>
+                              <SelectItem value="full">Full access</SelectItem>
+                            </SelectContent>
+                          </Select>
                         )}
-                      </ItemCardItemDescription>
-                    </ItemCardItemContent>
-                  </div>
-                  <ItemCardItemAction>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-8">
-                          <MoreVertical className="size-4" />
-                          <span className="sr-only">More</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openEdit(portfolio)}>
-                          <Pencil className="size-4" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => openDelete(portfolio)}
-                          disabled={!canDelete}
-                        >
-                          <Trash2 className="size-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </ItemCardItemAction>
-                </ItemCardItem>
-              ))}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-8"
+                            >
+                              <MoreVertical className="size-4" />
+                              <span className="sr-only">More</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => openEdit(portfolio)}
+                            >
+                              <Pencil className="size-4" />
+                              Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => openDelete(portfolio)}
+                              disabled={!canDelete}
+                            >
+                              <Trash2 className="size-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </ItemCardItemAction>
+                  </ItemCardItem>
+                )
+              })}
             </ItemCardItems>
           </ItemCard>
         </div>

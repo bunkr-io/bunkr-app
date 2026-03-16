@@ -134,12 +134,7 @@ function TransactionsContent() {
         }
       : 'skip',
   )
-  // Family view reuses the "all" volume query for simplicity
-  const volumeData = isFamilyView
-    ? volumeAll
-    : isAllPortfolios
-      ? volumeAll
-      : volumeSingle
+  const volumeData = isAllPortfolios ? volumeAll : volumeSingle
 
   const transactionsSingle = useQuery(
     api.transactions.listTransactionsByPortfolio,
