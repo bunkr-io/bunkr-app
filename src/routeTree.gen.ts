@@ -24,9 +24,9 @@ import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts
 import { Route as SettingsSettingsWorkspaceIndexRouteImport } from './routes/_settings/settings.workspace.index'
 import { Route as SettingsSettingsAccountIndexRouteImport } from './routes/_settings/settings.account.index'
 import { Route as SettingsSettingsWorkspaceMembersRouteImport } from './routes/_settings/settings.workspace.members'
+import { Route as SettingsSettingsWorkspaceFamilyRouteImport } from './routes/_settings/settings.workspace.family'
 import { Route as SettingsSettingsWorkspaceCategoriesRouteImport } from './routes/_settings/settings.workspace.categories'
 import { Route as SettingsSettingsWorkspaceBillingRouteImport } from './routes/_settings/settings.workspace.billing'
-import { Route as SettingsSettingsAccountSharingRouteImport } from './routes/_settings/settings.account.sharing'
 import { Route as SettingsSettingsAccountSecurityRouteImport } from './routes/_settings/settings.account.security'
 import { Route as SettingsSettingsAccountProfileRouteImport } from './routes/_settings/settings.account.profile'
 import { Route as SettingsSettingsAccountNotificationsRouteImport } from './routes/_settings/settings.account.notifications'
@@ -109,6 +109,12 @@ const SettingsSettingsWorkspaceMembersRoute =
     path: '/settings/workspace/members',
     getParentRoute: () => SettingsRoute,
   } as any)
+const SettingsSettingsWorkspaceFamilyRoute =
+  SettingsSettingsWorkspaceFamilyRouteImport.update({
+    id: '/settings/workspace/family',
+    path: '/settings/workspace/family',
+    getParentRoute: () => SettingsRoute,
+  } as any)
 const SettingsSettingsWorkspaceCategoriesRoute =
   SettingsSettingsWorkspaceCategoriesRouteImport.update({
     id: '/settings/workspace/categories',
@@ -119,12 +125,6 @@ const SettingsSettingsWorkspaceBillingRoute =
   SettingsSettingsWorkspaceBillingRouteImport.update({
     id: '/settings/workspace/billing',
     path: '/settings/workspace/billing',
-    getParentRoute: () => SettingsRoute,
-  } as any)
-const SettingsSettingsAccountSharingRoute =
-  SettingsSettingsAccountSharingRouteImport.update({
-    id: '/settings/account/sharing',
-    path: '/settings/account/sharing',
     getParentRoute: () => SettingsRoute,
   } as any)
 const SettingsSettingsAccountSecurityRoute =
@@ -174,9 +174,9 @@ export interface FileRoutesByFullPath {
   '/settings/account/notifications': typeof SettingsSettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/account/security': typeof SettingsSettingsAccountSecurityRoute
-  '/settings/account/sharing': typeof SettingsSettingsAccountSharingRoute
   '/settings/workspace/billing': typeof SettingsSettingsWorkspaceBillingRoute
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
+  '/settings/workspace/family': typeof SettingsSettingsWorkspaceFamilyRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
   '/settings/account/': typeof SettingsSettingsAccountIndexRoute
   '/settings/workspace/': typeof SettingsSettingsWorkspaceIndexRoute
@@ -197,9 +197,9 @@ export interface FileRoutesByTo {
   '/settings/account/notifications': typeof SettingsSettingsAccountNotificationsRoute
   '/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/settings/account/security': typeof SettingsSettingsAccountSecurityRoute
-  '/settings/account/sharing': typeof SettingsSettingsAccountSharingRoute
   '/settings/workspace/billing': typeof SettingsSettingsWorkspaceBillingRoute
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
+  '/settings/workspace/family': typeof SettingsSettingsWorkspaceFamilyRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
   '/settings/account': typeof SettingsSettingsAccountIndexRoute
   '/settings/workspace': typeof SettingsSettingsWorkspaceIndexRoute
@@ -223,9 +223,9 @@ export interface FileRoutesById {
   '/_settings/settings/account/notifications': typeof SettingsSettingsAccountNotificationsRoute
   '/_settings/settings/account/profile': typeof SettingsSettingsAccountProfileRoute
   '/_settings/settings/account/security': typeof SettingsSettingsAccountSecurityRoute
-  '/_settings/settings/account/sharing': typeof SettingsSettingsAccountSharingRoute
   '/_settings/settings/workspace/billing': typeof SettingsSettingsWorkspaceBillingRoute
   '/_settings/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
+  '/_settings/settings/workspace/family': typeof SettingsSettingsWorkspaceFamilyRoute
   '/_settings/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
   '/_settings/settings/account/': typeof SettingsSettingsAccountIndexRoute
   '/_settings/settings/workspace/': typeof SettingsSettingsWorkspaceIndexRoute
@@ -248,9 +248,9 @@ export interface FileRouteTypes {
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/security'
-    | '/settings/account/sharing'
     | '/settings/workspace/billing'
     | '/settings/workspace/categories'
+    | '/settings/workspace/family'
     | '/settings/workspace/members'
     | '/settings/account/'
     | '/settings/workspace/'
@@ -271,9 +271,9 @@ export interface FileRouteTypes {
     | '/settings/account/notifications'
     | '/settings/account/profile'
     | '/settings/account/security'
-    | '/settings/account/sharing'
     | '/settings/workspace/billing'
     | '/settings/workspace/categories'
+    | '/settings/workspace/family'
     | '/settings/workspace/members'
     | '/settings/account'
     | '/settings/workspace'
@@ -296,9 +296,9 @@ export interface FileRouteTypes {
     | '/_settings/settings/account/notifications'
     | '/_settings/settings/account/profile'
     | '/_settings/settings/account/security'
-    | '/_settings/settings/account/sharing'
     | '/_settings/settings/workspace/billing'
     | '/_settings/settings/workspace/categories'
+    | '/_settings/settings/workspace/family'
     | '/_settings/settings/workspace/members'
     | '/_settings/settings/account/'
     | '/_settings/settings/workspace/'
@@ -420,6 +420,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsWorkspaceMembersRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/_settings/settings/workspace/family': {
+      id: '/_settings/settings/workspace/family'
+      path: '/settings/workspace/family'
+      fullPath: '/settings/workspace/family'
+      preLoaderRoute: typeof SettingsSettingsWorkspaceFamilyRouteImport
+      parentRoute: typeof SettingsRoute
+    }
     '/_settings/settings/workspace/categories': {
       id: '/_settings/settings/workspace/categories'
       path: '/settings/workspace/categories'
@@ -432,13 +439,6 @@ declare module '@tanstack/react-router' {
       path: '/settings/workspace/billing'
       fullPath: '/settings/workspace/billing'
       preLoaderRoute: typeof SettingsSettingsWorkspaceBillingRouteImport
-      parentRoute: typeof SettingsRoute
-    }
-    '/_settings/settings/account/sharing': {
-      id: '/_settings/settings/account/sharing'
-      path: '/settings/account/sharing'
-      fullPath: '/settings/account/sharing'
-      preLoaderRoute: typeof SettingsSettingsAccountSharingRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/_settings/settings/account/security': {
@@ -504,9 +504,9 @@ interface SettingsRouteChildren {
   SettingsSettingsAccountNotificationsRoute: typeof SettingsSettingsAccountNotificationsRoute
   SettingsSettingsAccountProfileRoute: typeof SettingsSettingsAccountProfileRoute
   SettingsSettingsAccountSecurityRoute: typeof SettingsSettingsAccountSecurityRoute
-  SettingsSettingsAccountSharingRoute: typeof SettingsSettingsAccountSharingRoute
   SettingsSettingsWorkspaceBillingRoute: typeof SettingsSettingsWorkspaceBillingRoute
   SettingsSettingsWorkspaceCategoriesRoute: typeof SettingsSettingsWorkspaceCategoriesRoute
+  SettingsSettingsWorkspaceFamilyRoute: typeof SettingsSettingsWorkspaceFamilyRoute
   SettingsSettingsWorkspaceMembersRoute: typeof SettingsSettingsWorkspaceMembersRoute
   SettingsSettingsAccountIndexRoute: typeof SettingsSettingsAccountIndexRoute
   SettingsSettingsWorkspaceIndexRoute: typeof SettingsSettingsWorkspaceIndexRoute
@@ -522,10 +522,10 @@ const SettingsRouteChildren: SettingsRouteChildren = {
     SettingsSettingsAccountNotificationsRoute,
   SettingsSettingsAccountProfileRoute: SettingsSettingsAccountProfileRoute,
   SettingsSettingsAccountSecurityRoute: SettingsSettingsAccountSecurityRoute,
-  SettingsSettingsAccountSharingRoute: SettingsSettingsAccountSharingRoute,
   SettingsSettingsWorkspaceBillingRoute: SettingsSettingsWorkspaceBillingRoute,
   SettingsSettingsWorkspaceCategoriesRoute:
     SettingsSettingsWorkspaceCategoriesRoute,
+  SettingsSettingsWorkspaceFamilyRoute: SettingsSettingsWorkspaceFamilyRoute,
   SettingsSettingsWorkspaceMembersRoute: SettingsSettingsWorkspaceMembersRoute,
   SettingsSettingsAccountIndexRoute: SettingsSettingsAccountIndexRoute,
   SettingsSettingsWorkspaceIndexRoute: SettingsSettingsWorkspaceIndexRoute,

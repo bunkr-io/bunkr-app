@@ -78,7 +78,7 @@ export function PortfolioSwitcher() {
     ? 'Family'
     : activePortfolio
       ? activePortfolio.name
-      : 'All Portfolios'
+      : 'All my portfolios'
 
   return (
     <>
@@ -119,15 +119,6 @@ export function PortfolioSwitcher() {
               <DropdownMenuLabel className="text-xs text-muted-foreground">
                 Portfolios
               </DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => setActivePortfolioId('all')}
-                className="gap-2 p-2"
-              >
-                <div className="flex size-6 items-center justify-center rounded-sm border">
-                  <Users className="size-4 shrink-0" />
-                </div>
-                All Portfolios
-              </DropdownMenuItem>
               {showFamilyOption && (
                 <DropdownMenuItem
                   onClick={() => setActivePortfolioId('family')}
@@ -139,6 +130,15 @@ export function PortfolioSwitcher() {
                   Family
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => setActivePortfolioId('all')}
+                className="gap-2 p-2"
+              >
+                <div className="flex size-6 items-center justify-center rounded-sm border">
+                  <Users className="size-4 shrink-0" />
+                </div>
+                All my portfolios
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               {portfolios.map((portfolio) => (
                 <DropdownMenuItem

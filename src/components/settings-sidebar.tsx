@@ -3,11 +3,11 @@ import {
   ArrowLeft,
   Bell,
   CreditCard,
+  Home,
   Link2,
   Lock,
   Palette,
   Settings,
-  Share2,
   Shield,
   Tag,
   User,
@@ -96,14 +96,6 @@ export function SettingsSidebar({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <Link to="/settings/account/sharing">
-                    <Share2 />
-                    <span>Sharing</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
                   <Link to="/settings/account/connections">
                     <Link2 />
                     <span>Connections</span>
@@ -144,6 +136,14 @@ export function SettingsSidebar({
                     <Link to="/settings/workspace/members">
                       <Users />
                       <span>Members</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/settings/workspace/family">
+                      <Home />
+                      <span>Family</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -83,6 +83,23 @@ export async function getWorkspaceSubscription(
   )
 
   if (!subscription) {
+    // Dev override: set DEV_PLAN_OVERRIDE=family in Convex env to bypass Stripe
+    const devPlan = process.env.DEV_PLAN_OVERRIDE as PlanKey | undefined
+    if (devPlan && devPlan in PLANS) {
+      return {
+        isActive: true,
+        isTrial: false,
+        trialEndsAt: null,
+        renewsAt: null,
+        plan: devPlan,
+        seats: PLANS[devPlan].seats,
+        interval: 'monthly',
+        amount: null,
+        currency: null,
+        subscriptionId: null,
+        cancelAtPeriodEnd: false,
+      }
+    }
     return NO_SUBSCRIPTION
   }
 
