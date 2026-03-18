@@ -14,18 +14,17 @@ import {
 import { Input } from '~/components/ui/input'
 import { cn } from '~/lib/utils'
 
+type Step = 'email' | 'code'
 type Mode = 'sign-in' | 'sign-up'
-type VerifyState = 'idle' | 'verifying'
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<'div'>) {
+  const [step, setStep] = useState<Step>('email')
   const [mode, setMode] = useState<Mode>('sign-in')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [verificationCode, setVerificationCode] = useState('')
-  const [verifyState, setVerifyState] = useState<VerifyState>('idle')
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -35,64 +34,81 @@ export function LoginForm({
 
   const isLoaded = signInLoaded && signUpLoaded
 
-  async function handleSignIn(e: React.FormEvent) {
+  async function handleSendCode(e: React.FormEvent) {
     e.preventDefault()
-    if (!signIn) return
+    if (!signIn || !signUp) return
     setError(null)
     setLoading(true)
     try {
-      const result = await signIn.create({
-        identifier: email,
-        password,
-      })
-      if (result.status === 'complete') {
-        await navigate({ to: '/onboarding', search: { step: 'legal' } })
+      // Try sign-in first (existing user)
+      const result = await signIn.create({ identifier: email })
+      const emailCodeFactor = result.supportedFirstFactors?.find(
+        (f) => f.strategy === 'email_code',
+      )
+      if (emailCodeFactor && 'emailAddressId' in emailCodeFactor) {
+        await signIn.prepareFirstFactor({
+          strategy: 'email_code',
+          emailAddressId: emailCodeFactor.emailAddressId,
+        })
+        setMode('sign-in')
+        setStep('code')
       }
     } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ longMessage?: string }> }
-      setError(
-        clerkErr.errors?.[0]?.longMessage ??
-          'Sign in failed. Please try again.',
+      const clerkErr = err as {
+        errors?: Array<{ code?: string; longMessage?: string }>
+      }
+      const isNotFound = clerkErr.errors?.some(
+        (e) => e.code === 'form_identifier_not_found',
       )
+      if (isNotFound) {
+        // User doesn't exist — create account
+        try {
+          await signUp.create({ emailAddress: email })
+          await signUp.prepareEmailAddressVerification({
+            strategy: 'email_code',
+          })
+          setMode('sign-up')
+          setStep('code')
+        } catch (signUpErr: unknown) {
+          const signUpClerkErr = signUpErr as {
+            errors?: Array<{ longMessage?: string }>
+          }
+          setError(
+            signUpClerkErr.errors?.[0]?.longMessage ??
+              'Could not send code. Please try again.',
+          )
+        }
+      } else {
+        setError(
+          clerkErr.errors?.[0]?.longMessage ??
+            'Could not send code. Please try again.',
+        )
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  async function handleSignUp(e: React.FormEvent) {
+  async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault()
-    if (!signUp) return
     setError(null)
     setLoading(true)
     try {
-      await signUp.create({
-        emailAddress: email,
-        password,
-      })
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
-      setVerifyState('verifying')
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ longMessage?: string }> }
-      setError(
-        clerkErr.errors?.[0]?.longMessage ??
-          'Sign up failed. Please try again.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault()
-    if (!signUp) return
-    setError(null)
-    setLoading(true)
-    try {
-      const result = await signUp.attemptEmailAddressVerification({
-        code: verificationCode,
-      })
-      if (result.status === 'complete') {
-        await navigate({ to: '/onboarding', search: { step: 'legal' } })
+      if (mode === 'sign-in') {
+        if (!signIn) return
+        const result = await signIn.attemptFirstFactor({
+          strategy: 'email_code',
+          code,
+        })
+        if (result.status === 'complete') {
+          await navigate({ to: '/onboarding', search: { step: 'legal' } })
+        }
+      } else {
+        if (!signUp) return
+        const result = await signUp.attemptEmailAddressVerification({ code })
+        if (result.status === 'complete') {
+          await navigate({ to: '/onboarding', search: { step: 'legal' } })
+        }
       }
     } catch (err: unknown) {
       const clerkErr = err as { errors?: Array<{ longMessage?: string }> }
@@ -106,18 +122,10 @@ export function LoginForm({
   }
 
   function handleSocialLogin(provider: string) {
-    if (mode === 'sign-in' && signIn) {
+    if (signIn) {
       void signIn.authenticateWithRedirect({
         strategy: `oauth_${provider}` as Parameters<
           typeof signIn.authenticateWithRedirect
-        >[0]['strategy'],
-        redirectUrl: '/sign-in/sso-callback',
-        redirectUrlComplete: '/onboarding',
-      })
-    } else if (mode === 'sign-up' && signUp) {
-      void signUp.authenticateWithRedirect({
-        strategy: `oauth_${provider}` as Parameters<
-          typeof signUp.authenticateWithRedirect
         >[0]['strategy'],
         redirectUrl: '/sign-in/sso-callback',
         redirectUrlComplete: '/onboarding',
@@ -136,10 +144,10 @@ export function LoginForm({
     )
   }
 
-  if (verifyState === 'verifying') {
+  if (step === 'code') {
     return (
       <div className={cn('flex flex-col gap-6', className)} {...props}>
-        <form onSubmit={handleVerify}>
+        <form onSubmit={handleVerifyCode}>
           <FieldGroup>
             <div className="flex flex-col items-center gap-1 text-center">
               <h1 className="text-2xl font-bold">Check your email</h1>
@@ -152,9 +160,10 @@ export function LoginForm({
               <Input
                 id="code"
                 type="text"
+                inputMode="numeric"
                 placeholder="Enter code"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
                 autoFocus
               />
             </Field>
@@ -173,11 +182,12 @@ export function LoginForm({
                 type="button"
                 className="underline underline-offset-4"
                 onClick={() => {
-                  setVerifyState('idle')
+                  setStep('email')
+                  setCode('')
                   setError(null)
                 }}
               >
-                Back
+                Use a different email
               </button>
             </FieldDescription>
           </FieldGroup>
@@ -188,16 +198,12 @@ export function LoginForm({
 
   return (
     <div className={cn('flex flex-col gap-6', className)} {...props}>
-      <form onSubmit={mode === 'sign-in' ? handleSignIn : handleSignUp}>
+      <form onSubmit={handleSendCode}>
         <FieldGroup>
           <div className="flex flex-col items-center gap-1 text-center">
-            <h1 className="text-2xl font-bold">
-              {mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
-            </h1>
+            <h1 className="text-2xl font-bold">Welcome to Bunkr</h1>
             <p className="text-balance text-sm text-muted-foreground">
-              {mode === 'sign-in'
-                ? 'Sign in to your Bunkr account'
-                : 'Get started with Bunkr'}
+              Sign in or create an account to get started
             </p>
           </div>
           <Field>
@@ -225,16 +231,7 @@ export function LoginForm({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              autoFocus
             />
           </Field>
           {error && <FieldError>{error}</FieldError>}
@@ -242,43 +239,10 @@ export function LoginForm({
             <Button type="submit" disabled={loading}>
               {loading ? (
                 <Loader2 className="size-4 animate-spin" />
-              ) : mode === 'sign-in' ? (
-                'Sign in'
               ) : (
-                'Sign up'
+                'Continue with email'
               )}
             </Button>
-            <FieldDescription className="text-center">
-              {mode === 'sign-in' ? (
-                <>
-                  Don&apos;t have an account?{' '}
-                  <button
-                    type="button"
-                    className="underline underline-offset-4"
-                    onClick={() => {
-                      setMode('sign-up')
-                      setError(null)
-                    }}
-                  >
-                    Sign up
-                  </button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    className="underline underline-offset-4"
-                    onClick={() => {
-                      setMode('sign-in')
-                      setError(null)
-                    }}
-                  >
-                    Sign in
-                  </button>
-                </>
-              )}
-            </FieldDescription>
           </Field>
         </FieldGroup>
       </form>
