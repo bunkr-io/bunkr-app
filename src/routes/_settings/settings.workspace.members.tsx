@@ -37,7 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
@@ -400,10 +400,10 @@ function GrantAccessButton({
       <Button
         variant="outline"
         size="sm"
-        disabled={granting}
+        loading={granting}
         onClick={handleClick}
       >
-        {granting ? 'Granting...' : 'Grant access'}
+        Grant access
       </Button>
       <PassphraseDialog
         open={passphraseOpen}
@@ -451,7 +451,7 @@ function PassphraseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Enter your passphrase</DialogTitle>
           <DialogDescription>
@@ -474,21 +474,40 @@ function PassphraseDialog({
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
           </div>
-          <DialogFooter className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!passphrase || unlocking}>
-              {unlocking ? 'Unlocking...' : 'Unlock & grant access'}
-            </Button>
-          </DialogFooter>
+          <PassphraseFooter
+            onCancel={() => onOpenChange(false)}
+            disabled={!passphrase}
+            unlocking={unlocking}
+          />
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function PassphraseFooter({
+  onCancel,
+  disabled,
+  unlocking,
+}: {
+  onCancel: () => void
+  disabled: boolean
+  unlocking: boolean
+}) {
+  useHotkeys('escape', onCancel, {
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  return (
+    <DialogFooter className="mt-4">
+      <Button type="button" variant="outline" onClick={onCancel}>
+        Cancel <Kbd>Esc</Kbd>
+      </Button>
+      <Button type="submit" disabled={disabled} loading={unlocking}>
+        Unlock & grant access <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+      </Button>
+    </DialogFooter>
   )
 }
 
@@ -602,7 +621,7 @@ function InviteDialog({
           {atSeatLimit ? 'Seat limit reached' : 'Invite'}
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Invite members</DialogTitle>
           <DialogDescription>
@@ -687,11 +706,9 @@ function InviteFooter({
       <Button variant="outline" onClick={onCancel}>
         Cancel <Kbd>Esc</Kbd>
       </Button>
-      <Button onClick={handleConfirm} disabled={disabled}>
-        {sending
-          ? 'Sending...'
-          : `Send ${count === 0 ? '' : count} invitation${count !== 1 ? 's' : ''}`}{' '}
-        <Kbd>↵</Kbd>
+      <Button onClick={handleConfirm} disabled={disabled} loading={sending}>
+        Send {count > 0 && count} invitation{count !== 1 ? 's' : ''}{' '}
+        <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
       </Button>
     </DialogFooter>
   )

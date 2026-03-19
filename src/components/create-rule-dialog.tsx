@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import {
   Select,
@@ -89,7 +89,7 @@ export function CreateRuleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Auto-categorize Transactions</DialogTitle>
           <DialogDescription>
@@ -175,7 +175,7 @@ function CreateRuleFooter({
     preventDefault: true,
   })
 
-  useHotkeys('enter', handleConfirm, {
+  useHotkeys('mod+enter', handleConfirm, {
     enabled: !disabled,
     enableOnFormTags: true,
     preventDefault: true,
@@ -186,8 +186,8 @@ function CreateRuleFooter({
       <Button variant="outline" onClick={onCancel}>
         Cancel <Kbd>Esc</Kbd>
       </Button>
-      <Button onClick={handleConfirm} disabled={disabled}>
-        {saving ? 'Creating...' : 'Create rule'} <Kbd>↵</Kbd>
+      <Button onClick={handleConfirm} disabled={disabled} loading={saving}>
+        Create rule <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
       </Button>
     </DialogFooter>
   )

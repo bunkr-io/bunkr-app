@@ -35,7 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
 import { api } from '../../../convex/_generated/api'
@@ -171,7 +171,7 @@ function CategoriesList() {
       </ItemCardItems>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Add Category</DialogTitle>
             <DialogDescription>
@@ -330,7 +330,7 @@ function CreateCategoryFooter({
     preventDefault: true,
   })
 
-  useHotkeys('enter', handleConfirm, {
+  useHotkeys('mod+enter', handleConfirm, {
     enabled: !disabled,
     enableOnFormTags: true,
     preventDefault: true,
@@ -341,8 +341,8 @@ function CreateCategoryFooter({
       <Button variant="outline" onClick={onCancel}>
         Cancel <Kbd>Esc</Kbd>
       </Button>
-      <Button onClick={handleConfirm} disabled={disabled}>
-        {saving ? 'Creating...' : 'Create'} <Kbd>↵</Kbd>
+      <Button onClick={handleConfirm} disabled={disabled} loading={saving}>
+        Create <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
       </Button>
     </DialogFooter>
   )

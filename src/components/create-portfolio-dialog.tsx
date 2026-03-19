@@ -1,5 +1,6 @@
 import { useMutation } from 'convex/react'
 import * as React from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 import { Button } from '~/components/ui/button'
 import {
   Dialog,
@@ -9,6 +10,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { api } from '../../convex/_generated/api'
@@ -34,7 +36,7 @@ export function CreatePortfolioDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Create Portfolio</DialogTitle>
         </DialogHeader>
@@ -46,21 +48,51 @@ export function CreatePortfolioDialog({
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="e.g. SASU Pro, Joint Account"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate()
-              }}
             />
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleCreate} disabled={!newName.trim()}>
-            Create
-          </Button>
-        </DialogFooter>
+        <CreatePortfolioFooter
+          onCancel={() => onOpenChange(false)}
+          onConfirm={handleCreate}
+          disabled={!newName.trim()}
+        />
       </DialogContent>
     </Dialog>
+  )
+}
+
+function CreatePortfolioFooter({
+  onCancel,
+  onConfirm,
+  disabled,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  disabled: boolean
+}) {
+  const handleConfirm = React.useCallback(() => {
+    if (!disabled) onConfirm()
+  }, [disabled, onConfirm])
+
+  useHotkeys('escape', onCancel, {
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  useHotkeys('mod+enter', handleConfirm, {
+    enabled: !disabled,
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  return (
+    <DialogFooter>
+      <Button variant="outline" onClick={onCancel}>
+        Cancel <Kbd>Esc</Kbd>
+      </Button>
+      <Button onClick={handleConfirm} disabled={disabled}>
+        Create <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+      </Button>
+    </DialogFooter>
   )
 }

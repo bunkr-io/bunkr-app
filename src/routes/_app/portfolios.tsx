@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { MoreVertical } from 'lucide-react'
 import * as React from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '~/components/confirm-dialog'
 import { CreatePortfolioDialog } from '~/components/create-portfolio-dialog'
@@ -34,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import {
   Select,
@@ -246,7 +248,6 @@ function PortfoliosPage() {
                             <DropdownMenuItem
                               onClick={() => openEdit(portfolio)}
                             >
-                              <Pencil className="size-4" />
                               Rename
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -254,7 +255,6 @@ function PortfoliosPage() {
                               onClick={() => openDelete(portfolio)}
                               disabled={!canDelete}
                             >
-                              <Trash2 className="size-4" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -275,7 +275,7 @@ function PortfoliosPage() {
           if (!open) setEditingPortfolio(null)
         }}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Edit Portfolio</DialogTitle>
           </DialogHeader>
@@ -286,20 +286,14 @@ function PortfoliosPage() {
                 id="edit-portfolio-name"
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSaveEdit()
-                }}
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingPortfolio(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveEdit} disabled={!editName.trim()}>
-              Save
-            </Button>
-          </DialogFooter>
+          <EditPortfolioFooter
+            onCancel={() => setEditingPortfolio(null)}
+            onConfirm={handleSaveEdit}
+            disabled={!editName.trim()}
+          />
         </DialogContent>
       </Dialog>
 
@@ -321,5 +315,41 @@ function PortfoliosPage() {
         onOpenChange={setCreateDialogOpen}
       />
     </>
+  )
+}
+
+function EditPortfolioFooter({
+  onCancel,
+  onConfirm,
+  disabled,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  disabled: boolean
+}) {
+  const handleConfirm = React.useCallback(() => {
+    if (!disabled) onConfirm()
+  }, [disabled, onConfirm])
+
+  useHotkeys('escape', onCancel, {
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  useHotkeys('mod+enter', handleConfirm, {
+    enabled: !disabled,
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  return (
+    <DialogFooter>
+      <Button variant="outline" onClick={onCancel}>
+        Cancel <Kbd>Esc</Kbd>
+      </Button>
+      <Button onClick={handleConfirm} disabled={disabled}>
+        Save <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+      </Button>
+    </DialogFooter>
   )
 }

@@ -25,7 +25,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
@@ -472,7 +472,7 @@ function KeyRotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>Rotate encryption keys</DialogTitle>
           <DialogDescription>
@@ -563,7 +563,7 @@ function RotationFooter({
     preventDefault: true,
   })
 
-  useHotkeys('enter', handleConfirm, {
+  useHotkeys('mod+enter', handleConfirm, {
     enabled: !disabled,
     enableOnFormTags: true,
     preventDefault: true,
@@ -575,7 +575,7 @@ function RotationFooter({
         Cancel <Kbd>Esc</Kbd>
       </Button>
       <Button onClick={handleConfirm} disabled={disabled}>
-        Rotate keys <Kbd>↵</Kbd>
+        Rotate keys <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
       </Button>
     </>
   )

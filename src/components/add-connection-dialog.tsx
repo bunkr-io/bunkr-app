@@ -1,5 +1,5 @@
 import { useAction } from 'convex/react'
-import { Landmark, Loader2 } from 'lucide-react'
+import { Landmark } from 'lucide-react'
 import * as React from 'react'
 import { Button } from '~/components/ui/button'
 import {
@@ -59,10 +59,10 @@ export function AddConnectionDialog({
           <Button
             size="lg"
             onClick={handleConnect}
-            disabled={loading || !singlePortfolioId}
+            disabled={!singlePortfolioId}
+            loading={loading}
           >
-            {loading && <Loader2 className="mr-2 size-4 animate-spin" />}
-            {loading ? 'Connecting...' : 'Add Connection'}
+            Add Connection
           </Button>
         </div>
       </DialogContent>

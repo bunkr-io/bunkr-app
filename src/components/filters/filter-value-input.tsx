@@ -10,6 +10,7 @@ import {
 } from 'date-fns'
 import { Check } from 'lucide-react'
 import * as React from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 import type { DateSelectorValue } from '~/components/reui/date-selector'
 import { DateSelector } from '~/components/reui/date-selector'
 import { Button } from '~/components/ui/button'
@@ -29,6 +30,7 @@ import {
   DialogTitle,
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { RANGE_OPERATORS } from '~/lib/filters/operators'
 import type {
   EnumOption,
@@ -451,7 +453,7 @@ function CustomDateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-fit">
+      <DialogContent className="sm:max-w-fit" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>
             {isRange ? 'Select date range' : 'Select date'}
@@ -467,16 +469,47 @@ function CustomDateDialog({
           maxYear={new Date().getFullYear()}
           minYear={2015}
         />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleApply} disabled={!resolved}>
-            Apply
-          </Button>
-        </DialogFooter>
+        <FilterDateFooter
+          onCancel={() => onOpenChange(false)}
+          onConfirm={handleApply}
+          disabled={!resolved}
+        />
       </DialogContent>
     </Dialog>
+  )
+}
+
+function FilterDateFooter({
+  onCancel,
+  onConfirm,
+  disabled,
+}: {
+  onCancel: () => void
+  onConfirm: () => void
+  disabled: boolean
+}) {
+  const handleConfirm = React.useCallback(() => {
+    if (!disabled) onConfirm()
+  }, [disabled, onConfirm])
+
+  useHotkeys('escape', onCancel, {
+    preventDefault: true,
+  })
+
+  useHotkeys('mod+enter', handleConfirm, {
+    enabled: !disabled,
+    preventDefault: true,
+  })
+
+  return (
+    <DialogFooter>
+      <Button variant="outline" onClick={onCancel}>
+        Cancel <Kbd>Esc</Kbd>
+      </Button>
+      <Button onClick={handleConfirm} disabled={disabled}>
+        Apply <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+      </Button>
+    </DialogFooter>
   )
 }
 

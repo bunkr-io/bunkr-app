@@ -13,7 +13,7 @@ import {
 } from '~/components/ui/alert-dialog'
 import { Badge } from '~/components/ui/badge'
 import { Input } from '~/components/ui/input'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 
 interface ConfirmDialogProps {
@@ -77,7 +77,7 @@ export function ConfirmDialog({
     preventDefault: true,
   })
 
-  useHotkeys('enter', handleConfirm, {
+  useHotkeys('mod+enter', handleConfirm, {
     enabled: open && isConfirmed,
     enableOnFormTags: true,
     preventDefault: true,
@@ -127,7 +127,8 @@ export function ConfirmDialog({
               onConfirm()
             }}
           >
-            {loading ? `${confirmLabel}...` : confirmLabel} <Kbd>↵</Kbd>
+            {loading ? `${confirmLabel}...` : confirmLabel}{' '}
+            <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

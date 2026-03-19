@@ -79,8 +79,8 @@ export function PassphrasePrompt() {
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
-          <Button type="submit" className="w-full" disabled={unlocking}>
-            {unlocking ? 'Unlocking...' : 'Unlock'}
+          <Button type="submit" className="w-full" loading={unlocking}>
+            Unlock
           </Button>
         </form>
       </div>
