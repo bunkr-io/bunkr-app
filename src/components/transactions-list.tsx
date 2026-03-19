@@ -182,7 +182,6 @@ export function TransactionsList({
       categoryKey: string,
       excludeFromBudget: boolean = false,
     ) => {
-      setSelectedTransactionId(null)
       setRuleDialog({
         open: true,
         pattern: wording,
@@ -510,31 +509,17 @@ export function TransactionsList({
   )
 
   const handleExclusionToggle = React.useCallback(
-    async (transactionId: string, excluded: boolean, wording?: string) => {
+    async (transactionId: string, excluded: boolean) => {
       try {
         await updateTransactionExclusion({
           transactionId: transactionId as Id<'transactions'>,
           excludedFromBudget: excluded,
         })
-        if (excluded && wording) {
-          // Close the sheet so the toast action button is not blocked by the overlay
-          setSelectedTransactionId(null)
-          toast('Excluded from budget', {
-            action: {
-              label: 'Create rule',
-              onClick: () => {
-                handleCreateRule(wording, '', true)
-              },
-            },
-          })
-        } else if (!excluded) {
-          toast.success('Included in budget')
-        }
       } catch {
         toast.error('Failed to update transaction')
       }
     },
-    [updateTransactionExclusion, handleCreateRule],
+    [updateTransactionExclusion],
   )
 
   const handleBulkExclusionChange = React.useCallback(
@@ -754,7 +739,6 @@ export function TransactionsList({
         onOpenChange={(open) => {
           if (!open) setSelectedTransactionId(null)
         }}
-        onClose={() => setSelectedTransactionId(null)}
         currency={currency}
         formatCurrency={formatCurrency}
         onCreateRule={handleCreateRule}
@@ -1029,7 +1013,6 @@ function BulkCategoryView({
 function TransactionDetailSheet({
   transaction,
   onOpenChange,
-  onClose,
   currency,
   formatCurrency,
   onCreateRule,
@@ -1040,7 +1023,6 @@ function TransactionDetailSheet({
 }: {
   transaction: TransactionRow | null
   onOpenChange: (open: boolean) => void
-  onClose: () => void
   currency: string
   formatCurrency: (value: number, currency: string) => string
   onCreateRule: (
@@ -1051,11 +1033,7 @@ function TransactionDetailSheet({
   labels: Array<LabelData>
   workspaceId?: string
   onLabelToggle: (transactionId: string, labelIds: Array<string>) => void
-  onExclusionToggle: (
-    transactionId: string,
-    excluded: boolean,
-    wording?: string,
-  ) => void
+  onExclusionToggle: (transactionId: string, excluded: boolean) => void
 }) {
   if (!transaction) return null
 
@@ -1138,7 +1116,6 @@ function TransactionDetailSheet({
               currentCategoryKey={categoryKey}
               wording={transaction.wording}
               onCreateRule={onCreateRule}
-              onAfterChange={onClose}
             />
           </div>
 
@@ -1166,11 +1143,18 @@ function TransactionDetailSheet({
             <Switch
               checked={transaction.excludedFromBudget ?? false}
               onCheckedChange={(checked) => {
-                onExclusionToggle(
-                  transaction._id,
-                  checked,
-                  checked ? transaction.wording : undefined,
-                )
+                onExclusionToggle(transaction._id, checked)
+                if (checked) {
+                  toast.success('Excluded from budget', {
+                    action: {
+                      label: 'Create rule',
+                      onClick: () =>
+                        onCreateRule(transaction.wording, '', true),
+                    },
+                  })
+                } else {
+                  toast.success('Included in budget')
+                }
               }}
             />
           </div>
