@@ -1,12 +1,5 @@
 import { v } from 'convex/values'
-import { internal } from './_generated/api'
-import {
-  internalAction,
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from './_generated/server'
+import { internalQuery, mutation, query } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const listRules = query({
@@ -35,7 +28,6 @@ export const createRule = mutation({
     pattern: v.string(),
     matchType: v.union(v.literal('contains'), v.literal('regex')),
     categoryKey: v.string(),
-    applyRetroactively: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -47,7 +39,7 @@ export const createRule = mutation({
       throw new Error('Only workspace owners can create rules')
     }
 
-    const ruleId = await ctx.db.insert('categoryRules', {
+    return await ctx.db.insert('categoryRules', {
       workspaceId: member.workspaceId,
       pattern: args.pattern,
       matchType: args.matchType,
@@ -55,18 +47,6 @@ export const createRule = mutation({
       createdBy: userId,
       createdAt: Date.now(),
     })
-
-    if (args.applyRetroactively) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.categoryRules.applyRuleToExisting,
-        {
-          ruleId,
-        },
-      )
-    }
-
-    return ruleId
   },
 })
 
@@ -122,16 +102,6 @@ export const deleteRule = mutation({
   },
 })
 
-export const applyRuleToExisting = internalAction({
-  args: { ruleId: v.id('categoryRules') },
-  handler: async (_ctx, _args) => {
-    // Category rule matching cannot work server-side because transaction text fields
-    // (wording, originalWording, simplifiedWording) are now encrypted and the server
-    // cannot decrypt them. This needs to move to client-side matching.
-    // No-op for now.
-  },
-})
-
 // Internal helpers
 
 export const getRuleInternal = internalQuery({
@@ -148,34 +118,6 @@ export const getWorkspacePortfolios = internalQuery({
       .query('portfolios')
       .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
       .collect()
-  },
-})
-
-export const getUncategorizedTransactions = internalQuery({
-  args: { portfolioId: v.id('portfolios') },
-  handler: async (ctx, args) => {
-    const all = await ctx.db
-      .query('transactions')
-      .withIndex('by_portfolioId', (q) => q.eq('portfolioId', args.portfolioId))
-      .collect()
-    // userCategoryKey is now inside encryptedCategories — server cannot filter by it
-    return all.filter((t) => !t.deleted)
-  },
-})
-
-export const batchSetUserCategoryKey = internalMutation({
-  args: {
-    items: v.array(
-      v.object({
-        transactionId: v.id('transactions'),
-        categoryKey: v.string(),
-      }),
-    ),
-  },
-  handler: async (_ctx, _args) => {
-    // userCategoryKey is now inside encryptedCategories — server cannot set it.
-    // Category assignment needs to move to client-side.
-    // No-op for now.
   },
 })
 

@@ -21,6 +21,7 @@ import * as React from 'react'
 import { PassphrasePrompt } from '~/components/passphrase-prompt'
 import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
+import { BulkOperationProvider } from '~/contexts/bulk-operation-context'
 import { EncryptionProvider } from '~/contexts/encryption-context'
 import { PortfolioProvider } from '~/contexts/portfolio-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
@@ -176,13 +177,15 @@ function RootComponent() {
           >
             <PortfolioProvider>
               <EncryptionProvider>
-                <PrivacyProvider>
-                  <RootDocument>
-                    <OnboardingGuard>
-                      <Outlet />
-                    </OnboardingGuard>
-                  </RootDocument>
-                </PrivacyProvider>
+                <BulkOperationProvider>
+                  <PrivacyProvider>
+                    <RootDocument>
+                      <OnboardingGuard>
+                        <Outlet />
+                      </OnboardingGuard>
+                    </RootDocument>
+                  </PrivacyProvider>
+                </BulkOperationProvider>
               </EncryptionProvider>
             </PortfolioProvider>
           </ThemeProvider>

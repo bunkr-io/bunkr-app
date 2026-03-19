@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
+import { useRetroactiveRuleApplication } from '~/hooks/use-retroactive-rule-application'
 import { useCategories } from '~/lib/categories'
 import { cn } from '~/lib/utils'
 import { api } from '../../convex/_generated/api'
@@ -44,6 +45,7 @@ export function CreateRuleDialog({
 
   const { categories } = useCategories()
   const createRule = useMutation(api.categoryRules.createRule)
+  const { apply } = useRetroactiveRuleApplication()
 
   React.useEffect(() => {
     if (open) {
@@ -61,7 +63,6 @@ export function CreateRuleDialog({
         pattern: pattern.trim(),
         matchType: 'contains',
         categoryKey,
-        applyRetroactively,
       })
       toast.success('Rule created', {
         description: applyRetroactively
@@ -69,6 +70,14 @@ export function CreateRuleDialog({
           : 'New transactions will be auto-categorized.',
       })
       onOpenChange(false)
+
+      if (applyRetroactively) {
+        apply({
+          pattern: pattern.trim(),
+          matchType: 'contains',
+          categoryKey,
+        })
+      }
     } catch {
       toast.error('Failed to create rule')
     } finally {
