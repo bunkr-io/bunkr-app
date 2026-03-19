@@ -141,38 +141,47 @@ export function LoginForm({
     }
   }
 
+  const handleVerifyCodeWithValue = useCallback(
+    async (codeValue: string) => {
+      setError(null)
+      setLoading(true)
+      try {
+        if (mode === 'sign-in') {
+          if (!signIn) return
+          const result = await signIn.attemptFirstFactor({
+            strategy: 'email_code',
+            code: codeValue,
+          })
+          if (result.status === 'complete' && result.createdSessionId) {
+            await setSignInActive({ session: result.createdSessionId })
+            await navigate({ to: '/onboarding' })
+          }
+        } else {
+          if (!signUp) return
+          const result = await signUp.attemptEmailAddressVerification({
+            code: codeValue,
+          })
+          if (result.status === 'complete' && result.createdSessionId) {
+            await setSignUpActive({ session: result.createdSessionId })
+            await navigate({ to: '/onboarding' })
+          }
+        }
+      } catch (err: unknown) {
+        const clerkErr = err as { errors?: Array<{ longMessage?: string }> }
+        setError(
+          clerkErr.errors?.[0]?.longMessage ??
+            'Verification failed. Please try again.',
+        )
+      } finally {
+        setLoading(false)
+      }
+    },
+    [mode, signIn, signUp, setSignInActive, setSignUpActive, navigate],
+  )
+
   async function handleVerifyCode(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      if (mode === 'sign-in') {
-        if (!signIn) return
-        const result = await signIn.attemptFirstFactor({
-          strategy: 'email_code',
-          code,
-        })
-        if (result.status === 'complete' && result.createdSessionId) {
-          await setSignInActive({ session: result.createdSessionId })
-          await navigate({ to: '/onboarding' })
-        }
-      } else {
-        if (!signUp) return
-        const result = await signUp.attemptEmailAddressVerification({ code })
-        if (result.status === 'complete' && result.createdSessionId) {
-          await setSignUpActive({ session: result.createdSessionId })
-          await navigate({ to: '/onboarding' })
-        }
-      }
-    } catch (err: unknown) {
-      const clerkErr = err as { errors?: Array<{ longMessage?: string }> }
-      setError(
-        clerkErr.errors?.[0]?.longMessage ??
-          'Verification failed. Please try again.',
-      )
-    } finally {
-      setLoading(false)
-    }
+    await handleVerifyCodeWithValue(code)
   }
 
   async function handleResendCode() {
@@ -248,6 +257,7 @@ export function LoginForm({
                 maxLength={6}
                 value={code}
                 onChange={setCode}
+                onComplete={handleVerifyCodeWithValue}
                 autoFocus
                 data-1p-ignore
                 containerClassName="justify-center"
