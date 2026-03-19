@@ -1,5 +1,7 @@
 import { useSession, useUser } from '@clerk/tanstack-react-start'
+import { clerkClient } from '@clerk/tanstack-react-start/server'
 import { createFileRoute } from '@tanstack/react-router'
+import { createServerFn } from '@tanstack/react-start'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -17,6 +19,13 @@ import { Skeleton } from '~/components/ui/skeleton'
 type SessionWithActivitiesResource = Awaited<
   ReturnType<NonNullable<ReturnType<typeof useUser>['user']>['getSessions']>
 >[number]
+
+const revokeSessionsFn = createServerFn({ method: 'POST' })
+  .inputValidator((data: Array<string>) => data)
+  .handler(async ({ data: sessionIds }) => {
+    const client = clerkClient()
+    await Promise.all(sessionIds.map((id) => client.sessions.revokeSession(id)))
+  })
 
 export const Route = createFileRoute('/_settings/settings/account/security')({
   component: SecurityPage,
@@ -62,9 +71,9 @@ function SecurityPage() {
 
   async function revokeAll() {
     try {
-      await Promise.all(others.map((s) => s.revoke()))
+      await revokeSessionsFn({ data: others.map((s) => s.id) as Array<string> })
+      setSessions((prev) => prev.filter((s) => s.id === currentSession?.id))
       toast.success('All other sessions revoked')
-      fetchSessions()
     } catch {
       toast.error('Failed to revoke sessions')
     }
