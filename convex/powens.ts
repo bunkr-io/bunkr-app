@@ -109,7 +109,7 @@ async function recordBalanceSnapshot(
   params: {
     bankAccountId: Id<'bankAccounts'>
     portfolioId: Id<'portfolios'>
-    balance: number // plaintext balance for daily aggregate delta computation only — NOT stored
+    balance: number // plaintext balance for daily aggregate computation
     currency: string
   },
 ): Promise<Id<'balanceSnapshots'>> {
@@ -123,20 +123,6 @@ async function recordBalanceSnapshot(
       q.eq('bankAccountId', params.bankAccountId).eq('date', date),
     )
     .first()
-
-  let oldBalance: number
-  if (existing) {
-    oldBalance = existing.balance
-  } else {
-    const previous = await ctx.db
-      .query('balanceSnapshots')
-      .withIndex('by_bankAccountId_timestamp', (q) =>
-        q.eq('bankAccountId', params.bankAccountId),
-      )
-      .order('desc')
-      .first()
-    oldBalance = previous?.balance ?? 0
-  }
 
   let snapshotId: Id<'balanceSnapshots'>
   if (existing) {
@@ -156,13 +142,8 @@ async function recordBalanceSnapshot(
     })
   }
 
-  const [portfolio, bankAccount] = await Promise.all([
-    ctx.db.get('portfolios', params.portfolioId),
-    ctx.db.get('bankAccounts', params.bankAccountId),
-  ])
+  const portfolio = await ctx.db.get('portfolios', params.portfolioId)
   if (!portfolio) throw new Error('Portfolio not found')
-
-  const balanceDelta = params.balance - oldBalance
 
   await Promise.all([
     updateDailyNetWorth(ctx, {
@@ -170,21 +151,53 @@ async function recordBalanceSnapshot(
       workspaceId: portfolio.workspaceId,
       date,
       timestamp,
-      balanceDelta,
       currency: params.currency,
     }),
     updateDailyCategoryBalance(ctx, {
       portfolioId: params.portfolioId,
       workspaceId: portfolio.workspaceId,
-      category: getCategoryKey(bankAccount?.type),
       date,
       timestamp,
-      balanceDelta,
       currency: params.currency,
     }),
   ])
 
   return snapshotId
+}
+
+async function computePortfolioBalance(
+  ctx: MutationCtx,
+  portfolioId: Id<'portfolios'>,
+  date: string,
+): Promise<number> {
+  const bankAccounts = await ctx.db
+    .query('bankAccounts')
+    .withIndex('by_portfolioId', (q) => q.eq('portfolioId', portfolioId))
+    .collect()
+
+  let total = 0
+  for (const acct of bankAccounts) {
+    if (acct.disabled || acct.deleted) continue
+    const todaySnapshot = await ctx.db
+      .query('balanceSnapshots')
+      .withIndex('by_bankAccountId_date', (q) =>
+        q.eq('bankAccountId', acct._id).eq('date', date),
+      )
+      .first()
+    if (todaySnapshot) {
+      total += todaySnapshot.balance
+    } else {
+      const prevSnapshot = await ctx.db
+        .query('balanceSnapshots')
+        .withIndex('by_bankAccountId_timestamp', (q) =>
+          q.eq('bankAccountId', acct._id),
+        )
+        .order('desc')
+        .first()
+      total += prevSnapshot?.balance ?? 0
+    }
+  }
+  return Math.round(total * 100) / 100
 }
 
 async function updateDailyNetWorth(
@@ -194,10 +207,15 @@ async function updateDailyNetWorth(
     workspaceId: Id<'workspaces'>
     date: string
     timestamp: number
-    balanceDelta: number
     currency: string
   },
 ) {
+  const balance = await computePortfolioBalance(
+    ctx,
+    params.portfolioId,
+    params.date,
+  )
+
   const existing = await ctx.db
     .query('dailyNetWorth')
     .withIndex('by_portfolioId_date', (q) =>
@@ -206,27 +224,14 @@ async function updateDailyNetWorth(
     .first()
 
   if (existing) {
-    await ctx.db.patch('dailyNetWorth', existing._id, {
-      balance: Math.round((existing.balance + params.balanceDelta) * 100) / 100,
-    })
+    await ctx.db.patch('dailyNetWorth', existing._id, { balance })
   } else {
-    // Carry forward the previous day's net worth so accounts that haven't
-    // synced yet today are still reflected in the total.
-    const previous = await ctx.db
-      .query('dailyNetWorth')
-      .withIndex('by_portfolioId_date', (q) =>
-        q.eq('portfolioId', params.portfolioId),
-      )
-      .order('desc')
-      .first()
-    const carryForward = previous?.balance ?? 0
-
     await ctx.db.insert('dailyNetWorth', {
       portfolioId: params.portfolioId,
       workspaceId: params.workspaceId,
       date: params.date,
       timestamp: params.timestamp,
-      balance: Math.round((carryForward + params.balanceDelta) * 100) / 100,
+      balance,
       currency: params.currency,
     })
   }
@@ -237,48 +242,69 @@ async function updateDailyCategoryBalance(
   params: {
     portfolioId: Id<'portfolios'>
     workspaceId: Id<'workspaces'>
-    category: string
     date: string
     timestamp: number
-    balanceDelta: number
     currency: string
   },
 ) {
-  const existing = await ctx.db
-    .query('dailyCategoryBalance')
-    .withIndex('by_portfolioId_category_date', (q) =>
-      q
-        .eq('portfolioId', params.portfolioId)
-        .eq('category', params.category)
-        .eq('date', params.date),
-    )
-    .first()
+  const bankAccounts = await ctx.db
+    .query('bankAccounts')
+    .withIndex('by_portfolioId', (q) => q.eq('portfolioId', params.portfolioId))
+    .collect()
 
-  if (existing) {
-    await ctx.db.patch('dailyCategoryBalance', existing._id, {
-      balance: Math.round((existing.balance + params.balanceDelta) * 100) / 100,
-    })
-  } else {
-    // Carry forward the previous day's category balance so accounts that
-    // haven't synced yet today are still reflected in the total.
-    const previous = await ctx.db
+  // Group accounts by category and compute balance per category
+  const categoryTotals = new Map<string, number>()
+  for (const acct of bankAccounts) {
+    if (acct.disabled || acct.deleted) continue
+    const category = getCategoryKey(acct.type)
+    const todaySnapshot = await ctx.db
+      .query('balanceSnapshots')
+      .withIndex('by_bankAccountId_date', (q) =>
+        q.eq('bankAccountId', acct._id).eq('date', params.date),
+      )
+      .first()
+    let balance: number
+    if (todaySnapshot) {
+      balance = todaySnapshot.balance
+    } else {
+      const prevSnapshot = await ctx.db
+        .query('balanceSnapshots')
+        .withIndex('by_bankAccountId_timestamp', (q) =>
+          q.eq('bankAccountId', acct._id),
+        )
+        .order('desc')
+        .first()
+      balance = prevSnapshot?.balance ?? 0
+    }
+    categoryTotals.set(category, (categoryTotals.get(category) ?? 0) + balance)
+  }
+
+  // Upsert each category's daily balance
+  for (const [category, total] of categoryTotals) {
+    const balance = Math.round(total * 100) / 100
+    const existing = await ctx.db
       .query('dailyCategoryBalance')
       .withIndex('by_portfolioId_category_date', (q) =>
-        q.eq('portfolioId', params.portfolioId).eq('category', params.category),
+        q
+          .eq('portfolioId', params.portfolioId)
+          .eq('category', category)
+          .eq('date', params.date),
       )
-      .order('desc')
       .first()
-    const carryForward = previous?.balance ?? 0
 
-    await ctx.db.insert('dailyCategoryBalance', {
-      portfolioId: params.portfolioId,
-      workspaceId: params.workspaceId,
-      category: params.category,
-      date: params.date,
-      timestamp: params.timestamp,
-      balance: Math.round((carryForward + params.balanceDelta) * 100) / 100,
-      currency: params.currency,
-    })
+    if (existing) {
+      await ctx.db.patch('dailyCategoryBalance', existing._id, { balance })
+    } else {
+      await ctx.db.insert('dailyCategoryBalance', {
+        portfolioId: params.portfolioId,
+        workspaceId: params.workspaceId,
+        category,
+        date: params.date,
+        timestamp: params.timestamp,
+        balance,
+        currency: params.currency,
+      })
+    }
   }
 }
 
@@ -513,7 +539,7 @@ export const upsertBankAccount = internalMutation({
     portfolioId: v.id('portfolios'),
     powensBankAccountId: v.number(),
     type: v.optional(v.string()),
-    balance: v.number(), // plaintext balance for daily aggregate delta computation only
+    balance: v.number(), // plaintext balance for daily aggregate computation
     currency: v.string(),
     disabled: v.boolean(),
     deleted: v.boolean(),

@@ -131,7 +131,7 @@ export default defineSchema({
   balanceSnapshots: defineTable({
     bankAccountId: v.id('bankAccounts'),
     portfolioId: v.id('portfolios'),
-    balance: v.number(), // plaintext for daily aggregate delta computation (dailyNetWorth, dailyCategoryBalance)
+    balance: v.number(), // plaintext for daily aggregate computation (dailyNetWorth, dailyCategoryBalance)
     currency: v.string(),
     date: v.string(),
     timestamp: v.number(),
