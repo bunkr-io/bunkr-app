@@ -1,4 +1,5 @@
 import { useQuery } from 'convex/react'
+import * as React from 'react'
 import { api } from '../../convex/_generated/api'
 import {
   getTransactionCategoryKey,
@@ -34,34 +35,41 @@ export function useCategories(): {
   const dbCategories = useQuery(api.categories.listCategories)
   const isLoading = dbCategories === undefined
 
-  const categories: Array<CategoryInfo> =
-    dbCategories && dbCategories.length > 0
-      ? dbCategories.map((c) => ({
-          key: c.key,
-          label: c.label,
-          color: c.color,
-          icon: c.icon,
-          parentKey: c.parentKey,
-          builtIn: c.builtIn,
-        }))
-      : Object.entries(TRANSACTION_CATEGORIES).map(([key, cat]) => ({
-          key,
-          label: cat.label,
-          color: cat.color,
-          builtIn: true,
-        }))
+  const categories = React.useMemo<Array<CategoryInfo>>(
+    () =>
+      dbCategories && dbCategories.length > 0
+        ? dbCategories.map((c) => ({
+            key: c.key,
+            label: c.label,
+            color: c.color,
+            icon: c.icon,
+            parentKey: c.parentKey,
+            builtIn: c.builtIn,
+          }))
+        : Object.entries(TRANSACTION_CATEGORIES).map(([key, cat]) => ({
+            key,
+            label: cat.label,
+            color: cat.color,
+            builtIn: true,
+          })),
+    [dbCategories],
+  )
 
-  const categoryMap = new Map(categories.map((c) => [c.key, c]))
+  const categoryMap = React.useMemo(
+    () => new Map(categories.map((c) => [c.key, c])),
+    [categories],
+  )
 
-  const fallback: CategoryInfo = categoryMap.get('others') ?? {
-    key: 'others',
-    label: 'Others',
-    color: 'hsl(0 0% 55%)',
-    builtIn: true,
-  }
-
-  const getCategory = (key: string): CategoryInfo =>
-    categoryMap.get(key) ?? fallback
+  const getCategory = React.useCallback(
+    (key: string): CategoryInfo =>
+      categoryMap.get(key) ?? {
+        key: 'others',
+        label: 'Others',
+        color: 'hsl(0 0% 55%)',
+        builtIn: true,
+      },
+    [categoryMap],
+  )
 
   return { categories, categoryMap, getCategory, isLoading }
 }
