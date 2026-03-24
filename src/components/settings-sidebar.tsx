@@ -3,6 +3,7 @@ import { useQuery } from 'convex/react'
 import {
   ArrowLeft,
   Bell,
+  ChevronRight,
   CreditCard,
   Home,
   Link2,
@@ -108,7 +109,7 @@ export function SettingsSidebar({
                   </Link>
                 </SidebarMenuButton>
                 {connectionIssueCount > 0 && (
-                  <SidebarMenuBadge className="bg-amber-500 text-white">
+                  <SidebarMenuBadge className="bg-destructive text-destructive-foreground">
                     {connectionIssueCount}
                   </SidebarMenuBadge>
                 )}
@@ -197,7 +198,8 @@ export function SettingsSidebar({
                           name={portfolio.name}
                           className="size-5"
                         />
-                        <span>{portfolio.name}</span>
+                        <span className="flex-1">{portfolio.name}</span>
+                        <ChevronRight className="size-4 text-muted-foreground" />
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
