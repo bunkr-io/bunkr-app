@@ -25,14 +25,12 @@ import {
 } from '~/components/ui/dropdown-menu'
 import {
   Empty,
-  EmptyContent,
   EmptyDescription,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
 } from '~/components/ui/empty'
 import { Skeleton } from '~/components/ui/skeleton'
-import { useCommandRegistry } from '~/contexts/command-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { api } from '../../../convex/_generated/api'
@@ -121,34 +119,24 @@ function ConnectionsList() {
       : 'skip',
   )
   const bankAccounts = isAllPortfolios ? bankAccountsAll : bankAccountsSingle
-  const { commands } = useCommandRegistry()
-  const addConnectionCommand = commands.find((c) => c.id === 'connection.add')
-
   if (portfolioLoading || connections === undefined) {
     return <Skeleton className="h-48 w-full rounded-lg" />
   }
 
   if (connections.length === 0) {
     return (
-      <>
-        <Empty className="border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Link2 />
-            </EmptyMedia>
-            <EmptyTitle>No Connections Yet</EmptyTitle>
-            <EmptyDescription>
-              You haven&apos;t added any connections yet. Get started by
-              connecting your first financial institution.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button onClick={() => addConnectionCommand?.handler()}>
-              Add Connection
-            </Button>
-          </EmptyContent>
-        </Empty>
-      </>
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <Link2 />
+          </EmptyMedia>
+          <EmptyTitle>No connections yet</EmptyTitle>
+          <EmptyDescription>
+            Connections are managed per portfolio. Open a portfolio&apos;s
+            settings to add a connection.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
     )
   }
 
@@ -171,9 +159,6 @@ function ConnectionsList() {
               {connections.length === 1 ? 'connection' : 'connections'}
             </ItemCardHeaderTitle>
           </ItemCardHeaderContent>
-          <Button onClick={() => addConnectionCommand?.handler()} size="sm">
-            Add Connection
-          </Button>
         </ItemCardHeader>
         <ItemCardItems>
           {connections.map((connection) => {
