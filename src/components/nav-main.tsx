@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '~/components/ui/collapsible'
-import { Kbd } from '~/components/ui/kbd'
+import { HotkeyDisplay } from '~/components/ui/kbd'
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -104,7 +104,10 @@ export function NavMain({
               >
                 <CirclePlus />
                 <span>Add Connection</span>
-                <Kbd className="ml-auto">C</Kbd>
+                <HotkeyDisplay
+                  className="ml-auto"
+                  hotkey={{ keys: 'shift+c' }}
+                />
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

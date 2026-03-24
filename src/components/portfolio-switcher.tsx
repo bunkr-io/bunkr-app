@@ -63,7 +63,7 @@ export function PortfolioSwitcher() {
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold text-muted-foreground">
-                Add portfolio
+                Add a portfolio
               </span>
             </div>
           </SidebarMenuButton>
@@ -158,7 +158,7 @@ export function PortfolioSwitcher() {
                   <Plus className="size-4" />
                 </div>
                 <span className="font-medium text-muted-foreground">
-                  Add portfolio
+                  Add a portfolio
                 </span>
               </DropdownMenuItem>
               <DropdownMenuItem className="gap-2 p-2" asChild>
@@ -167,7 +167,7 @@ export function PortfolioSwitcher() {
                     <Settings className="size-4" />
                   </div>
                   <span className="font-medium text-muted-foreground">
-                    Manage portfolios
+                    Manage your portfolios
                   </span>
                 </Link>
               </DropdownMenuItem>

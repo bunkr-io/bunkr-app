@@ -175,7 +175,7 @@ function PortfoliosPage() {
       <SiteHeader title="Manage Portfolios" />
       <div className="mx-auto w-full max-w-3xl flex-1 px-10 py-16">
         <header>
-          <h1 className="text-3xl font-semibold">Portfolios</h1>
+          <h1 className="text-3xl font-semibold">Your portfolios</h1>
         </header>
         <div className="mt-8 space-y-6">
           <ItemCard>
