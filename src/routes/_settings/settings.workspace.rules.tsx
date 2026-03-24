@@ -1,23 +1,27 @@
+import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { createFileRoute } from '@tanstack/react-router'
-import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
-import { MoreHorizontal, Plus } from 'lucide-react'
+import { Plus, Zap } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
-import { DataTable } from '~/components/data-table'
+import { ConfirmDialog } from '~/components/confirm-dialog'
 import { RequireOwner } from '~/components/require-owner'
+import { RuleCard } from '~/components/rule-card'
 import { RuleDialog } from '~/components/rule-dialog'
-import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '~/components/ui/dropdown-menu'
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '~/components/ui/empty'
+import { Input } from '~/components/ui/input'
+import { ScrollArea } from '~/components/ui/scroll-area'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Sortable, SortableItem } from '~/components/ui/sortable'
 import { api } from '../../../convex/_generated/api'
-import type { Doc, Id } from '../../../convex/_generated/dataModel'
+import type { Doc } from '../../../convex/_generated/dataModel'
 
 export const Route = createFileRoute('/_settings/settings/workspace/rules')({
   component: RulesPage,
@@ -29,6 +33,11 @@ function RulesPage() {
       <div className="flex h-full flex-col overflow-hidden px-10 pt-16">
         <header className="shrink-0">
           <h1 className="text-3xl font-semibold">Automation Rules</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Rules are processed top-to-bottom. The first matching rule assigns
+            the category. Labels and budget exclusions are applied from all
+            matching rules.
+          </p>
         </header>
         <div className="mt-8 flex min-h-0 flex-1 flex-col">
           <RulesList />
@@ -47,158 +56,137 @@ function RulesList() {
     workspace ? { workspaceId: workspace._id } : 'skip',
   )
   const deleteRule = useMutation(api.transactionRules.deleteRule)
-  const batchDeleteRules = useMutation(api.transactionRules.batchDeleteRules)
+  const reorderRules = useMutation(api.transactionRules.reorderRules)
+
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editingRule, setEditingRule] = React.useState<
     Doc<'transactionRules'> | undefined
   >(undefined)
+  const [deletingRule, setDeletingRule] = React.useState<
+    Doc<'transactionRules'> | undefined
+  >(undefined)
+  const [deleting, setDeleting] = React.useState(false)
+  const [filter, setFilter] = React.useState('')
+  const [localRules, setLocalRules] = React.useState<
+    Doc<'transactionRules'>[] | null
+  >(null)
+  const pendingReorder = React.useRef(false)
+
+  // Sync server rules to local state when no reorder is pending
+  React.useEffect(() => {
+    if (rules && !pendingReorder.current) {
+      setLocalRules(rules)
+    }
+  }, [rules])
 
   if (rules === undefined || categories === undefined) {
     return <Skeleton className="h-48 w-full rounded-lg" />
   }
 
+  const displayRules = localRules ?? rules
   const categoryMap = new Map(categories.map((c) => [c.key, c]))
   const labelMap = new Map((labels ?? []).map((l) => [l._id, l]))
+  const isFiltering = filter.trim().length > 0
+  const filteredRules = isFiltering
+    ? displayRules.filter((r) =>
+        r.pattern.toLowerCase().includes(filter.toLowerCase()),
+      )
+    : displayRules
 
-  const handleDelete = async (ruleId: Id<'transactionRules'>) => {
+  const handleDelete = async () => {
+    if (!deletingRule) return
+    setDeleting(true)
     try {
-      await deleteRule({ ruleId })
+      await deleteRule({ ruleId: deletingRule._id })
       toast.success('Rule deleted')
+      setDeletingRule(undefined)
     } catch {
       toast.error('Failed to delete rule')
+    } finally {
+      setDeleting(false)
     }
   }
 
-  const handleBatchDelete = async (ids: string[]) => {
-    try {
-      await batchDeleteRules({
-        ruleIds: ids as Id<'transactionRules'>[],
+  const handleReorder = (reordered: Doc<'transactionRules'>[]) => {
+    pendingReorder.current = true
+    setLocalRules(reordered)
+    const orderedIds = reordered.map((r) => r._id)
+    reorderRules({ orderedRuleIds: orderedIds })
+      .catch(() => {
+        toast.error('Failed to reorder rules')
+        setLocalRules(rules ?? null)
       })
-      toast.success(`${ids.length} rule${ids.length > 1 ? 's' : ''} deleted`)
-    } catch {
-      toast.error('Failed to delete rules')
-    }
+      .finally(() => {
+        pendingReorder.current = false
+      })
   }
-
-  const tableColumns: ColumnDef<Doc<'transactionRules'>, unknown>[] = [
-    {
-      accessorKey: 'pattern',
-      header: 'Pattern',
-      cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.original.pattern}</span>
-      ),
-    },
-    {
-      id: 'matchType',
-      header: 'Match',
-      size: 100,
-      cell: ({ row }) => (
-        <Badge variant="secondary" className="text-[10px]">
-          {row.original.matchType}
-        </Badge>
-      ),
-    },
-    {
-      id: 'category',
-      header: 'Category',
-      cell: ({ row }) => {
-        const cat = row.original.categoryKey
-          ? categoryMap.get(row.original.categoryKey)
-          : undefined
-        if (!cat) return null
-        return (
-          <div className="flex items-center gap-1.5">
-            <span
-              className="size-2 rounded-full"
-              style={{ backgroundColor: cat.color }}
-            />
-            <span className="text-sm">{cat.label}</span>
-          </div>
-        )
-      },
-    },
-    {
-      id: 'labels',
-      header: 'Labels',
-      cell: ({ row }) => {
-        const ruleLabelIds = row.original.labelIds
-        if (!ruleLabelIds || ruleLabelIds.length === 0) return null
-        return (
-          <div className="flex flex-wrap gap-1">
-            {ruleLabelIds.map((id) => {
-              const label = labelMap.get(id)
-              if (!label) return null
-              return (
-                <Badge key={id} variant="outline" className="text-[10px]">
-                  <span
-                    className="mr-1 inline-block size-2 rounded-full"
-                    style={{ backgroundColor: label.color }}
-                  />
-                  {label.name}
-                </Badge>
-              )
-            })}
-          </div>
-        )
-      },
-    },
-    {
-      id: 'flags',
-      header: '',
-      size: 140,
-      cell: ({ row }) => {
-        if (!row.original.excludeFromBudget) return null
-        return (
-          <Badge variant="outline" className="text-[10px]">
-            Excluded from budget
-          </Badge>
-        )
-      },
-    },
-    {
-      id: 'actions',
-      size: 50,
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="size-8">
-                <MoreHorizontal className="size-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditingRule(row.original)}>
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => handleDelete(row.original._id)}
-              >
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
-    },
-  ]
 
   return (
     <>
-      <DataTable
-        columns={tableColumns}
-        data={rules}
-        filterColumn="pattern"
-        filterPlaceholder="Filter by pattern..."
-        getRowId={(row) => row._id}
-        onBatchDelete={handleBatchDelete}
-        actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            Add rule
-          </Button>
-        }
-      />
+      <div className="mb-4 flex items-center gap-2">
+        <Input
+          placeholder="Filter by pattern..."
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="max-w-xs"
+        />
+        <div className="flex-1" />
+        <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Plus className="size-4" />
+          Add rule
+        </Button>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        {filteredRules.length === 0 && !isFiltering ? (
+          <Empty className="mt-8">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <Zap />
+              </EmptyMedia>
+              <EmptyTitle>No automation rules yet</EmptyTitle>
+              <EmptyDescription>
+                Rules automatically categorize, label, and exclude transactions
+                based on their description.
+              </EmptyDescription>
+            </EmptyHeader>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" />
+              Add rule
+            </Button>
+          </Empty>
+        ) : filteredRules.length === 0 && isFiltering ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No rules match "{filter}"
+          </p>
+        ) : (
+          <Sortable
+            value={filteredRules}
+            onValueChange={handleReorder}
+            getItemValue={(item) => item._id}
+            modifiers={[restrictToVerticalAxis]}
+            className="space-y-2 pb-8"
+          >
+            {filteredRules.map((rule, index) => (
+              <SortableItem
+                key={rule._id}
+                value={rule._id}
+                disabled={isFiltering}
+              >
+                <RuleCard
+                  rule={rule}
+                  index={index}
+                  categoryMap={categoryMap}
+                  labelMap={labelMap}
+                  dragDisabled={isFiltering}
+                  onEdit={() => setEditingRule(rule)}
+                  onDelete={() => setDeletingRule(rule)}
+                />
+              </SortableItem>
+            ))}
+          </Sortable>
+        )}
+      </ScrollArea>
 
       <RuleDialog open={createOpen} onOpenChange={setCreateOpen} />
 
@@ -208,6 +196,18 @@ function RulesList() {
           if (!open) setEditingRule(undefined)
         }}
         rule={editingRule}
+      />
+
+      <ConfirmDialog
+        open={!!deletingRule}
+        onOpenChange={(open) => {
+          if (!open) setDeletingRule(undefined)
+        }}
+        title="Delete rule?"
+        description="This automation rule will be permanently deleted. Transactions already processed by this rule will not be affected."
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={handleDelete}
       />
     </>
   )

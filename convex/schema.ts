@@ -201,6 +201,7 @@ export default defineSchema({
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
     labelIds: v.optional(v.array(v.id('transactionLabels'))),
+    sortOrder: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
   }).index('by_workspaceId', ['workspaceId']),

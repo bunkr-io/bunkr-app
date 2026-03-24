@@ -14,12 +14,13 @@ export const listRules = query({
       .first()
     if (!member) return []
 
-    return await ctx.db
+    const rules = await ctx.db
       .query('transactionRules')
       .withIndex('by_workspaceId', (q) =>
         q.eq('workspaceId', member.workspaceId),
       )
       .collect()
+    return rules.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
   },
 })
 
@@ -49,6 +50,17 @@ export const createRule = mutation({
       throw new Error('At least one action is required')
     }
 
+    const existingRules = await ctx.db
+      .query('transactionRules')
+      .withIndex('by_workspaceId', (q) =>
+        q.eq('workspaceId', member.workspaceId),
+      )
+      .collect()
+    const maxOrder = existingRules.reduce(
+      (max, r) => Math.max(max, r.sortOrder ?? 0),
+      0,
+    )
+
     return await ctx.db.insert('transactionRules', {
       workspaceId: member.workspaceId,
       pattern: args.pattern,
@@ -56,6 +68,7 @@ export const createRule = mutation({
       categoryKey: args.categoryKey,
       excludeFromBudget: args.excludeFromBudget,
       labelIds: args.labelIds,
+      sortOrder: existingRules.length === 0 ? 0 : maxOrder + 1,
       createdBy: userId,
       createdAt: Date.now(),
     })
@@ -141,14 +154,37 @@ export const batchDeleteRules = mutation({
   },
 })
 
+export const reorderRules = mutation({
+  args: { orderedRuleIds: v.array(v.id('transactionRules')) },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member || member.role !== 'owner') {
+      throw new Error('Only workspace owners can reorder rules')
+    }
+
+    for (let i = 0; i < args.orderedRuleIds.length; i++) {
+      const rule = await ctx.db.get(args.orderedRuleIds[i])
+      if (!rule || rule.workspaceId !== member.workspaceId) {
+        throw new Error('Rule not found')
+      }
+      await ctx.db.patch(args.orderedRuleIds[i], { sortOrder: i })
+    }
+  },
+})
+
 // Internal helpers
 
 export const listRulesForWorkspace = internalQuery({
   args: { workspaceId: v.id('workspaces') },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const rules = await ctx.db
       .query('transactionRules')
       .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
       .collect()
+    return rules.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
   },
 })
