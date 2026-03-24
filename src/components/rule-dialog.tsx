@@ -98,12 +98,9 @@ export function RuleDialog({
           ruleId: rule._id,
           pattern: pattern.trim(),
           matchType,
-          categoryKey: categoryKey || undefined,
-          excludeFromBudget: excludeFromBudget || undefined,
-          labelIds:
-            selectedLabelIds.length > 0
-              ? (selectedLabelIds as Array<Id<'transactionLabels'>>)
-              : undefined,
+          categoryKey: categoryKey || '',
+          excludeFromBudget,
+          labelIds: selectedLabelIds as Array<Id<'transactionLabels'>>,
         })
         toast.success('Rule updated')
       } else {

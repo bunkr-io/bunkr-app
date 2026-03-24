@@ -99,16 +99,19 @@ export const updateRule = mutation({
       throw new Error('Rule not found')
     }
 
-    const patch: Record<string, string | boolean | Array<string> | undefined> =
-      {}
-    if (args.pattern !== undefined) patch.pattern = args.pattern
-    if (args.matchType !== undefined) patch.matchType = args.matchType
-    if (args.categoryKey !== undefined) patch.categoryKey = args.categoryKey
-    if (args.excludeFromBudget !== undefined)
-      patch.excludeFromBudget = args.excludeFromBudget
-    if (args.labelIds !== undefined) patch.labelIds = args.labelIds
-
-    await ctx.db.patch(args.ruleId, patch)
+    await ctx.db.patch(args.ruleId, {
+      ...(args.pattern !== undefined && { pattern: args.pattern }),
+      ...(args.matchType !== undefined && { matchType: args.matchType }),
+      ...(args.categoryKey !== undefined && {
+        categoryKey: args.categoryKey || undefined,
+      }),
+      ...(args.excludeFromBudget !== undefined && {
+        excludeFromBudget: args.excludeFromBudget || undefined,
+      }),
+      ...(args.labelIds !== undefined && {
+        labelIds: args.labelIds.length > 0 ? args.labelIds : undefined,
+      }),
+    })
   },
 })
 
