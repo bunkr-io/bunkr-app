@@ -33,6 +33,47 @@ Bunkr is a self-hosted personal finance app (Finary clone). It aggregates bankin
 - `convex/schema.ts` — Database schema
 - `convex/*.ts` — Backend functions (queries, mutations, actions)
 
+## Design Philosophies
+
+These principles guide all development decisions. When in doubt, refer back to these.
+
+### 1. Performance Above All Else
+
+Always do the thing that makes the app feel the fastest to use.
+
+- Use **optimistic updates** for mutations — the UI should reflect changes immediately, not after a server round-trip.
+- Use custom data loader patterns and custom link components with **prewarm on hover** to eliminate perceived latency.
+- Avoid **waterfalls** in everything — JS bundles, data fetching, file loading. Parallelize aggressively.
+- Minimize blocking states — let users get into the app as fast as possible.
+
+### 2. Good Defaults
+
+Users should expect things to behave well out of the box. Less config is best. Don't add settings or options when a sensible default will do.
+
+### 3. Convenience
+
+Simplicity and good UX are non-negotiable. The app should be pleasant to use with minimal friction.
+
+- All links are "share" links by default.
+- Getting from homepage to the target content should always be fewer than 4 clicks.
+- Minimize blocking states and loading spinners — use skeletons, optimistic UI, and progressive loading instead.
+
+### 4. Security
+
+Convenience must not come at the cost of security. Be thoughtful about implementation.
+
+- Always check team status and user status before committing changes.
+- Be **very** careful about endpoints exposed publicly — default to authenticated.
+- Use auth and authorization checks where they make sense.
+
+### 5. UI/UX Excellence
+
+Take inspiration from best-in-class web apps like **Linear** as a general rule. Aim for their level of polish, responsiveness, and attention to detail in interactions, animations, and layout.
+
+## Agent Behavior
+
+- Browse the codebase to understand existing patterns before making changes. Don't assume — read the code first.
+
 ## Conventions
 
 - Use TypeScript strictly — no `any` types
