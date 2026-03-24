@@ -168,11 +168,7 @@ function RulesList() {
             className="space-y-2 pb-8"
           >
             {filteredRules.map((rule, index) => (
-              <SortableItem
-                key={rule._id}
-                value={rule._id}
-                disabled={isFiltering}
-              >
+              <SortableItem key={rule._id} value={rule._id}>
                 <RuleCard
                   rule={rule}
                   index={index}
