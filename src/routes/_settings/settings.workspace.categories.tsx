@@ -1,25 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
 import { Lock, MoreHorizontal, Plus } from 'lucide-react'
 import * as React from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
-import { CreateRuleDialog } from '~/components/create-rule-dialog'
-import {
-  ItemCard,
-  ItemCardHeader,
-  ItemCardHeaderContent,
-  ItemCardHeaderTitle,
-  ItemCardItem,
-  ItemCardItemAction,
-  ItemCardItemContent,
-  ItemCardItemDescription,
-  ItemCardItems,
-  ItemCardItemTitle,
-} from '~/components/item-card'
+import { ConfirmDialog } from '~/components/confirm-dialog'
+import { DataTable } from '~/components/data-table'
 import { RequireOwner } from '~/components/require-owner'
-import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import { ColorPicker } from '~/components/ui/color-picker'
 import {
   Dialog,
   DialogContent,
@@ -38,6 +28,7 @@ import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Textarea } from '~/components/ui/textarea'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -47,16 +38,32 @@ export const Route = createFileRoute(
   component: CategoriesPage,
 })
 
+type CategoryRow = {
+  _id: string
+  label: string
+  description?: string
+  color: string
+  builtIn: boolean
+  parentKey?: string
+  createdAt?: number
+}
+
+function formatShortDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 function CategoriesPage() {
   return (
     <RequireOwner>
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
+      <div className="flex w-full flex-1 flex-col px-10 py-16">
         <header>
           <h1 className="text-3xl font-semibold">Categories</h1>
         </header>
-        <div className="mt-8 space-y-6">
+        <div className="mt-8">
           <CategoriesList />
-          <RulesList />
         </div>
       </div>
     </RequireOwner>
@@ -67,26 +74,34 @@ function CategoriesList() {
   const categories = useQuery(api.categories.listCategories, {})
   const createCategory = useMutation(api.categories.createCategory)
   const deleteCategory = useMutation(api.categories.deleteCategory)
+  const batchDeleteCategories = useMutation(
+    api.categories.batchDeleteCategories,
+  )
   const [createOpen, setCreateOpen] = React.useState(false)
   const [newLabel, setNewLabel] = React.useState('')
+  const [newDescription, setNewDescription] = React.useState('')
   const [newColor, setNewColor] = React.useState('hsl(200 70% 50%)')
   const [saving, setSaving] = React.useState(false)
+  const [deletingCategoryId, setDeletingCategoryId] =
+    React.useState<Id<'transactionCategories'> | null>(null)
 
   if (categories === undefined) {
     return <Skeleton className="h-48 w-full rounded-lg" />
   }
 
-  const builtIn = categories.filter((c) => c.builtIn)
-  const custom = categories.filter((c) => !c.builtIn)
-
   const handleCreate = async () => {
     if (!newLabel.trim()) return
     setSaving(true)
     try {
-      await createCategory({ label: newLabel.trim(), color: newColor })
+      await createCategory({
+        label: newLabel.trim(),
+        description: newDescription.trim() || undefined,
+        color: newColor,
+      })
       toast.success('Category created')
       setCreateOpen(false)
       setNewLabel('')
+      setNewDescription('')
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to create category',
@@ -96,10 +111,12 @@ function CategoriesList() {
     }
   }
 
-  const handleDelete = async (categoryId: Id<'transactionCategories'>) => {
+  const handleDelete = async () => {
+    if (!deletingCategoryId) return
     try {
-      await deleteCategory({ categoryId })
+      await deleteCategory({ categoryId: deletingCategoryId })
       toast.success('Category deleted')
+      setDeletingCategoryId(null)
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delete category',
@@ -107,68 +124,108 @@ function CategoriesList() {
     }
   }
 
+  const handleBatchDelete = async (ids: string[]) => {
+    try {
+      await batchDeleteCategories({
+        categoryIds: ids as Id<'transactionCategories'>[],
+      })
+      toast.success(
+        `${ids.length} categor${ids.length > 1 ? 'ies' : 'y'} deleted`,
+      )
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete categories',
+      )
+    }
+  }
+
+  const tableColumns: ColumnDef<CategoryRow, unknown>[] = [
+    {
+      accessorKey: 'label',
+      header: 'Name',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <span
+            className="size-3 shrink-0 rounded-full"
+            style={{ backgroundColor: row.original.color }}
+          />
+          <span className="font-medium">{row.original.label}</span>
+          {row.original.builtIn && (
+            <Lock className="size-3 text-muted-foreground" />
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.description}
+        </span>
+      ),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      size: 100,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.createdAt
+            ? formatShortDate(row.original.createdAt)
+            : null}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      size: 50,
+      cell: ({ row }) => {
+        if (row.original.builtIn) return null
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() =>
+                    setDeletingCategoryId(
+                      row.original._id as Id<'transactionCategories'>,
+                    )
+                  }
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )
+      },
+    },
+  ]
+
   return (
-    <ItemCard>
-      <ItemCardHeader>
-        <ItemCardHeaderContent>
-          <ItemCardHeaderTitle>Categories</ItemCardHeaderTitle>
-        </ItemCardHeaderContent>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          Add category
-        </Button>
-      </ItemCardHeader>
-      <ItemCardItems>
-        {builtIn.map((cat) => (
-          <ItemCardItem key={cat._id}>
-            <ItemCardItemContent>
-              <div className="flex items-center gap-3">
-                <span
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: cat.color }}
-                />
-                <ItemCardItemTitle>{cat.label}</ItemCardItemTitle>
-                <Lock className="size-3 text-muted-foreground" />
-              </div>
-            </ItemCardItemContent>
-          </ItemCardItem>
-        ))}
-        {custom.map((cat) => (
-          <ItemCardItem key={cat._id}>
-            <ItemCardItemContent>
-              <div className="flex items-center gap-3">
-                <span
-                  className="size-3 shrink-0 rounded-full"
-                  style={{ backgroundColor: cat.color }}
-                />
-                <ItemCardItemTitle>{cat.label}</ItemCardItemTitle>
-                {cat.parentKey && (
-                  <ItemCardItemDescription>
-                    under {cat.parentKey}
-                  </ItemCardItemDescription>
-                )}
-              </div>
-            </ItemCardItemContent>
-            <ItemCardItemAction>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="size-8">
-                    <MoreHorizontal className="size-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    className="text-destructive"
-                    onClick={() => handleDelete(cat._id)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </ItemCardItemAction>
-          </ItemCardItem>
-        ))}
-      </ItemCardItems>
+    <>
+      <DataTable
+        columns={tableColumns}
+        data={categories as CategoryRow[]}
+        filterColumn="label"
+        filterPlaceholder="Filter by name..."
+        getRowId={(row) => row._id}
+        onBatchDelete={handleBatchDelete}
+        enableRowSelection={(row) => !row.builtIn}
+        actions={
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Add category
+          </Button>
+        }
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
@@ -180,31 +237,33 @@ function CategoriesList() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cat-label">Name</Label>
+              <Label htmlFor="cat-label" className="flex items-center">
+                Name
+                <span className="ml-auto font-normal text-muted-foreground">
+                  Required
+                </span>
+              </Label>
               <Input
                 id="cat-label"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
                 placeholder="e.g. Coffee Shops"
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-color">Color</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  id="cat-color"
-                  value={newColor.startsWith('hsl') ? '#3B82F6' : newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="size-8 cursor-pointer rounded border"
-                />
-                <Input
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  placeholder="hsl(200 70% 50%)"
-                  className="flex-1"
-                />
-              </div>
+              <Label htmlFor="cat-description">Description</Label>
+              <Textarea
+                id="cat-description"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="e.g. Daily coffee expenses"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <ColorPicker color={newColor} onChange={setNewColor} />
             </div>
           </div>
           <CreateCategoryFooter
@@ -215,106 +274,18 @@ function CategoriesList() {
           />
         </DialogContent>
       </Dialog>
-    </ItemCard>
-  )
-}
 
-function RulesList() {
-  const rules = useQuery(api.transactionRules.listRules)
-  const categories = useQuery(api.categories.listCategories, {})
-  const deleteRule = useMutation(api.transactionRules.deleteRule)
-  const [createOpen, setCreateOpen] = React.useState(false)
-
-  if (rules === undefined) {
-    return <Skeleton className="h-48 w-full rounded-lg" />
-  }
-
-  const categoryMap = new Map((categories ?? []).map((c) => [c.key, c]))
-
-  const handleDelete = async (ruleId: Id<'transactionRules'>) => {
-    try {
-      await deleteRule({ ruleId })
-      toast.success('Rule deleted')
-    } catch {
-      toast.error('Failed to delete rule')
-    }
-  }
-
-  return (
-    <ItemCard>
-      <ItemCardHeader>
-        <ItemCardHeaderContent>
-          <ItemCardHeaderTitle>Automation Rules</ItemCardHeaderTitle>
-        </ItemCardHeaderContent>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          Add rule
-        </Button>
-      </ItemCardHeader>
-      <ItemCardItems>
-        {rules.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No rules yet. Create a rule to auto-categorize or exclude
-            transactions.
-          </div>
-        ) : (
-          rules.map((rule) => {
-            const cat = rule.categoryKey
-              ? categoryMap.get(rule.categoryKey)
-              : undefined
-            return (
-              <ItemCardItem key={rule._id}>
-                <ItemCardItemContent>
-                  <div className="flex items-center gap-3">
-                    <ItemCardItemTitle className="font-mono text-sm">
-                      {rule.pattern}
-                    </ItemCardItemTitle>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {rule.matchType}
-                    </Badge>
-                    {cat && (
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="size-2 rounded-full"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        <span className="text-sm text-muted-foreground">
-                          {cat.label}
-                        </span>
-                      </div>
-                    )}
-                    {rule.excludeFromBudget && (
-                      <Badge variant="outline" className="text-[10px]">
-                        Excluded from budget
-                      </Badge>
-                    )}
-                  </div>
-                </ItemCardItemContent>
-                <ItemCardItemAction>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="size-8">
-                        <MoreHorizontal className="size-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        className="text-destructive"
-                        onClick={() => handleDelete(rule._id)}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </ItemCardItemAction>
-              </ItemCardItem>
-            )
-          })
-        )}
-      </ItemCardItems>
-
-      <CreateRuleDialog open={createOpen} onOpenChange={setCreateOpen} />
-    </ItemCard>
+      <ConfirmDialog
+        open={deletingCategoryId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCategoryId(null)
+        }}
+        title="Delete category?"
+        description="This action cannot be undone. This category will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
+    </>
   )
 }
 

@@ -29,6 +29,7 @@ export const createRule = mutation({
     matchType: v.union(v.literal('contains'), v.literal('regex')),
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
+    labelIds: v.optional(v.array(v.id('transactionLabels'))),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -40,7 +41,11 @@ export const createRule = mutation({
       throw new Error('Only workspace owners can create rules')
     }
 
-    if (!args.categoryKey && !args.excludeFromBudget) {
+    if (
+      !args.categoryKey &&
+      !args.excludeFromBudget &&
+      (!args.labelIds || args.labelIds.length === 0)
+    ) {
       throw new Error('At least one action is required')
     }
 
@@ -50,6 +55,7 @@ export const createRule = mutation({
       matchType: args.matchType,
       categoryKey: args.categoryKey,
       excludeFromBudget: args.excludeFromBudget,
+      labelIds: args.labelIds,
       createdBy: userId,
       createdAt: Date.now(),
     })
@@ -63,6 +69,7 @@ export const updateRule = mutation({
     matchType: v.optional(v.union(v.literal('contains'), v.literal('regex'))),
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
+    labelIds: v.optional(v.array(v.id('transactionLabels'))),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -79,12 +86,14 @@ export const updateRule = mutation({
       throw new Error('Rule not found')
     }
 
-    const patch: Record<string, string | boolean | undefined> = {}
+    const patch: Record<string, string | boolean | Array<string> | undefined> =
+      {}
     if (args.pattern !== undefined) patch.pattern = args.pattern
     if (args.matchType !== undefined) patch.matchType = args.matchType
     if (args.categoryKey !== undefined) patch.categoryKey = args.categoryKey
     if (args.excludeFromBudget !== undefined)
       patch.excludeFromBudget = args.excludeFromBudget
+    if (args.labelIds !== undefined) patch.labelIds = args.labelIds
 
     await ctx.db.patch(args.ruleId, patch)
   },
@@ -108,6 +117,27 @@ export const deleteRule = mutation({
     }
 
     await ctx.db.delete(args.ruleId)
+  },
+})
+
+export const batchDeleteRules = mutation({
+  args: { ruleIds: v.array(v.id('transactionRules')) },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member || member.role !== 'owner') {
+      throw new Error('Only workspace owners can delete rules')
+    }
+
+    for (const ruleId of args.ruleIds) {
+      const rule = await ctx.db.get(ruleId)
+      if (rule && rule.workspaceId === member.workspaceId) {
+        await ctx.db.delete(ruleId)
+      }
+    }
   },
 })
 

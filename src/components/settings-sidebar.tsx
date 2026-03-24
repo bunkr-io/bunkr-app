@@ -14,6 +14,7 @@ import {
   Tag,
   User,
   Users,
+  Workflow,
 } from 'lucide-react'
 import { PortfolioAvatar } from '~/components/portfolio-avatar'
 import {
@@ -141,6 +142,14 @@ export function SettingsSidebar({
                     <Link to="/settings/workspace/labels">
                       <Sticker />
                       <span>Labels</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/settings/workspace/rules">
+                      <Workflow />
+                      <span>Rules</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

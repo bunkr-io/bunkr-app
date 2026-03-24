@@ -179,6 +179,7 @@ export const createCategory = mutation({
   args: {
     portfolioId: v.optional(v.id('portfolios')),
     label: v.string(),
+    description: v.optional(v.string()),
     color: v.string(),
     icon: v.optional(v.string()),
     parentKey: v.optional(v.string()),
@@ -225,10 +226,12 @@ export const createCategory = mutation({
       portfolioId: args.portfolioId,
       key,
       label: args.label,
+      description: args.description,
       color: args.color,
       icon: args.icon,
       parentKey: args.parentKey,
       builtIn: false,
+      createdAt: Date.now(),
     })
   },
 })
@@ -237,6 +240,7 @@ export const updateCategory = mutation({
   args: {
     categoryId: v.id('transactionCategories'),
     label: v.optional(v.string()),
+    description: v.optional(v.string()),
     color: v.optional(v.string()),
     icon: v.optional(v.string()),
     parentKey: v.optional(v.string()),
@@ -267,6 +271,7 @@ export const updateCategory = mutation({
 
     const patch: Record<string, string | undefined> = {}
     if (args.label !== undefined) patch.label = args.label
+    if (args.description !== undefined) patch.description = args.description
     if (args.color !== undefined) patch.color = args.color
     if (args.icon !== undefined) patch.icon = args.icon
     if (args.parentKey !== undefined) patch.parentKey = args.parentKey
@@ -306,5 +311,26 @@ export const deleteCategory = mutation({
     }
 
     await ctx.db.delete('transactionCategories', args.categoryId)
+  },
+})
+
+export const batchDeleteCategories = mutation({
+  args: { categoryIds: v.array(v.id('transactionCategories')) },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member) throw new Error('Not authorized')
+
+    for (const categoryId of args.categoryIds) {
+      const category = await ctx.db.get('transactionCategories', categoryId)
+      if (!category || category.workspaceId !== member.workspaceId) continue
+      if (category.builtIn) continue
+      if (!category.portfolioId && member.role !== 'owner') continue
+
+      await ctx.db.delete('transactionCategories', categoryId)
+    }
   },
 })

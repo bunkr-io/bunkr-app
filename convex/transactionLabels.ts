@@ -50,6 +50,7 @@ export const createLabel = mutation({
     workspaceId: v.id('workspaces'),
     portfolioId: v.optional(v.id('portfolios')),
     name: v.string(),
+    description: v.optional(v.string()),
     color: v.string(),
   },
   handler: async (ctx, args) => {
@@ -84,6 +85,7 @@ export const createLabel = mutation({
       workspaceId: args.workspaceId,
       portfolioId: args.portfolioId,
       name: args.name,
+      description: args.description,
       color: args.color,
       createdAt: Date.now(),
     })
@@ -94,6 +96,7 @@ export const updateLabel = mutation({
   args: {
     labelId: v.id('transactionLabels'),
     name: v.optional(v.string()),
+    description: v.optional(v.string()),
     color: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -121,8 +124,9 @@ export const updateLabel = mutation({
       }
     }
 
-    const patch: Record<string, string> = {}
+    const patch: Record<string, string | undefined> = {}
     if (args.name !== undefined) patch.name = args.name
+    if (args.description !== undefined) patch.description = args.description
     if (args.color !== undefined) patch.color = args.color
 
     await ctx.db.patch('transactionLabels', args.labelId, patch)
@@ -182,5 +186,53 @@ export const deleteLabel = mutation({
     }
 
     await ctx.db.delete('transactionLabels', args.labelId)
+  },
+})
+
+export const batchDeleteLabels = mutation({
+  args: {
+    labelIds: v.array(v.id('transactionLabels')),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member) throw new Error('Not authorized')
+
+    for (const labelId of args.labelIds) {
+      const label = await ctx.db.get('transactionLabels', labelId)
+      if (!label || label.workspaceId !== member.workspaceId) continue
+
+      if (!label.portfolioId && member.role !== 'owner') continue
+
+      const portfolios = await ctx.db
+        .query('portfolios')
+        .withIndex('by_workspaceId', (q) =>
+          q.eq('workspaceId', label.workspaceId),
+        )
+        .collect()
+
+      for (const portfolio of portfolios) {
+        const transactions = await ctx.db
+          .query('transactions')
+          .withIndex('by_portfolioId', (q) =>
+            q.eq('portfolioId', portfolio._id),
+          )
+          .collect()
+
+        for (const txn of transactions) {
+          if (txn.labelIds?.includes(labelId)) {
+            await ctx.db.patch('transactions', txn._id, {
+              labelIds: txn.labelIds.filter((id) => id !== labelId),
+            })
+          }
+        }
+      }
+
+      await ctx.db.delete('transactionLabels', labelId)
+    }
   },
 })

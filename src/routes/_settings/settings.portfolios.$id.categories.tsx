@@ -1,22 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
 import { Lock, MoreHorizontal, Plus } from 'lucide-react'
 import * as React from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
-import {
-  ItemCard,
-  ItemCardHeader,
-  ItemCardHeaderContent,
-  ItemCardHeaderDescription,
-  ItemCardHeaderTitle,
-  ItemCardItem,
-  ItemCardItemAction,
-  ItemCardItemContent,
-  ItemCardItems,
-  ItemCardItemTitle,
-} from '~/components/item-card'
+import { ConfirmDialog } from '~/components/confirm-dialog'
+import { DataTable } from '~/components/data-table'
 import { Button } from '~/components/ui/button'
+import { ColorPicker } from '~/components/ui/color-picker'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +27,7 @@ import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Textarea } from '~/components/ui/textarea'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -44,22 +37,34 @@ export const Route = createFileRoute(
   component: PortfolioCategoriesPage,
 })
 
+type CategoryRow = {
+  _id: string
+  label: string
+  description?: string
+  color: string
+  builtIn: boolean
+  portfolioId?: string
+  createdAt?: number
+}
+
+function formatShortDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 function PortfolioCategoriesPage() {
   const { id } = Route.useParams()
   const portfolioId = id as Id<'portfolios'>
   const portfolio = useQuery(api.portfolios.getPortfolio, { portfolioId })
-  const workspaceCategories = useQuery(api.categories.listWorkspaceCategories)
   const allCategories = useQuery(api.categories.listCategories, { portfolioId })
 
-  if (
-    portfolio === undefined ||
-    workspaceCategories === undefined ||
-    allCategories === undefined
-  ) {
+  if (portfolio === undefined || allCategories === undefined) {
     return (
-      <div className="mx-auto w-full max-w-3xl flex-1 px-10 py-16">
+      <div className="w-full flex-1 px-10 py-16">
         <Skeleton className="h-9 w-32" />
-        <div className="mt-8 space-y-6">
+        <div className="mt-8">
           <Skeleton className="h-48 w-full rounded-lg" />
         </div>
       </div>
@@ -68,19 +73,14 @@ function PortfolioCategoriesPage() {
 
   if (!portfolio) return null
 
-  const portfolioCategories = allCategories.filter(
-    (c) => c.portfolioId === portfolioId,
-  )
-
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
+    <div className="flex w-full flex-1 flex-col px-10 py-16">
       <header>
         <h1 className="text-3xl font-semibold">Categories</h1>
       </header>
-      <div className="mt-8 space-y-6">
-        <InheritedCategoriesCard categories={workspaceCategories} />
-        <PortfolioCategoriesCard
-          categories={portfolioCategories}
+      <div className="mt-8">
+        <CategoriesTable
+          categories={allCategories as CategoryRow[]}
           portfolioId={portfolioId}
         />
       </div>
@@ -88,71 +88,29 @@ function PortfolioCategoriesPage() {
   )
 }
 
-function InheritedCategoriesCard({
-  categories,
-}: {
-  categories: Array<{
-    _id: string
-    label: string
-    color: string
-    builtIn: boolean
-  }>
-}) {
-  return (
-    <ItemCard>
-      <ItemCardHeader>
-        <ItemCardHeaderContent>
-          <ItemCardHeaderTitle>Workspace categories</ItemCardHeaderTitle>
-          <ItemCardHeaderDescription>
-            Inherited from workspace settings
-          </ItemCardHeaderDescription>
-        </ItemCardHeaderContent>
-      </ItemCardHeader>
-      <ItemCardItems>
-        {categories.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No workspace categories defined.
-          </div>
-        ) : (
-          categories.map((cat) => (
-            <ItemCardItem key={cat._id}>
-              <ItemCardItemContent>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <ItemCardItemTitle>{cat.label}</ItemCardItemTitle>
-                  <Lock className="size-3 text-muted-foreground" />
-                </div>
-              </ItemCardItemContent>
-            </ItemCardItem>
-          ))
-        )}
-      </ItemCardItems>
-    </ItemCard>
-  )
-}
-
-function PortfolioCategoriesCard({
+function CategoriesTable({
   categories,
   portfolioId,
 }: {
-  categories: Array<{
-    _id: string
-    label: string
-    color: string
-    builtIn: boolean
-    portfolioId?: string
-  }>
+  categories: CategoryRow[]
   portfolioId: Id<'portfolios'>
 }) {
   const createCategory = useMutation(api.categories.createCategory)
   const deleteCategory = useMutation(api.categories.deleteCategory)
+  const batchDeleteCategories = useMutation(
+    api.categories.batchDeleteCategories,
+  )
   const [createOpen, setCreateOpen] = React.useState(false)
   const [newLabel, setNewLabel] = React.useState('')
+  const [newDescription, setNewDescription] = React.useState('')
   const [newColor, setNewColor] = React.useState('#3B82F6')
   const [saving, setSaving] = React.useState(false)
+  const [deletingCategoryId, setDeletingCategoryId] =
+    React.useState<Id<'transactionCategories'> | null>(null)
+
+  const isPortfolioLevel = (row: CategoryRow) => row.portfolioId === portfolioId
+
+  const canSelect = (row: CategoryRow) => isPortfolioLevel(row) && !row.builtIn
 
   const handleCreate = async () => {
     if (!newLabel.trim()) return
@@ -161,11 +119,13 @@ function PortfolioCategoriesCard({
       await createCategory({
         portfolioId,
         label: newLabel.trim(),
+        description: newDescription.trim() || undefined,
         color: newColor,
       })
       toast.success('Category created')
       setCreateOpen(false)
       setNewLabel('')
+      setNewDescription('')
       setNewColor('#3B82F6')
     } catch (err) {
       toast.error(
@@ -176,10 +136,12 @@ function PortfolioCategoriesCard({
     }
   }
 
-  const handleDelete = async (categoryId: Id<'transactionCategories'>) => {
+  const handleDelete = async () => {
+    if (!deletingCategoryId) return
     try {
-      await deleteCategory({ categoryId })
+      await deleteCategory({ categoryId: deletingCategoryId })
       toast.success('Category deleted')
+      setDeletingCategoryId(null)
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delete category',
@@ -187,57 +149,108 @@ function PortfolioCategoriesCard({
     }
   }
 
-  return (
-    <ItemCard>
-      <ItemCardHeader>
-        <ItemCardHeaderContent>
-          <ItemCardHeaderTitle>Portfolio categories</ItemCardHeaderTitle>
-        </ItemCardHeaderContent>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          Add category
-        </Button>
-      </ItemCardHeader>
-      <ItemCardItems>
-        {categories.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No portfolio-specific categories yet.
+  const handleBatchDelete = async (ids: string[]) => {
+    try {
+      await batchDeleteCategories({
+        categoryIds: ids as Id<'transactionCategories'>[],
+      })
+      toast.success(
+        `${ids.length} categor${ids.length > 1 ? 'ies' : 'y'} deleted`,
+      )
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete categories',
+      )
+    }
+  }
+
+  const tableColumns: ColumnDef<CategoryRow, unknown>[] = [
+    {
+      accessorKey: 'label',
+      header: 'Name',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <span
+            className="size-3 shrink-0 rounded-full"
+            style={{ backgroundColor: row.original.color }}
+          />
+          <span className="font-medium">{row.original.label}</span>
+          {(row.original.builtIn || !isPortfolioLevel(row.original)) && (
+            <Lock className="size-3 text-muted-foreground" />
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.description}
+        </span>
+      ),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      size: 100,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.createdAt
+            ? formatShortDate(row.original.createdAt)
+            : null}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      size: 50,
+      cell: ({ row }) => {
+        if (!canSelect(row.original)) return null
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="size-8">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() =>
+                    setDeletingCategoryId(
+                      row.original._id as Id<'transactionCategories'>,
+                    )
+                  }
+                >
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        ) : (
-          categories.map((cat) => (
-            <ItemCardItem key={cat._id}>
-              <ItemCardItemContent>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <ItemCardItemTitle>{cat.label}</ItemCardItemTitle>
-                </div>
-              </ItemCardItemContent>
-              <ItemCardItemAction>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-8">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() =>
-                        handleDelete(cat._id as Id<'transactionCategories'>)
-                      }
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ItemCardItemAction>
-            </ItemCardItem>
-          ))
-        )}
-      </ItemCardItems>
+        )
+      },
+    },
+  ]
+
+  return (
+    <>
+      <DataTable
+        columns={tableColumns}
+        data={categories}
+        filterColumn="label"
+        filterPlaceholder="Filter by name..."
+        getRowId={(row) => row._id}
+        onBatchDelete={handleBatchDelete}
+        enableRowSelection={(row) => canSelect(row)}
+        actions={
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Add category
+          </Button>
+        }
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
@@ -249,31 +262,33 @@ function PortfolioCategoriesCard({
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="cat-label">Name</Label>
+              <Label htmlFor="cat-label" className="flex items-center">
+                Name
+                <span className="ml-auto font-normal text-muted-foreground">
+                  Required
+                </span>
+              </Label>
               <Input
                 id="cat-label"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
                 placeholder="e.g. Coffee Shops"
+                required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cat-color">Color</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  id="cat-color"
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  className="size-8 cursor-pointer rounded border"
-                />
-                <Input
-                  value={newColor}
-                  onChange={(e) => setNewColor(e.target.value)}
-                  placeholder="#3B82F6"
-                  className="flex-1"
-                />
-              </div>
+              <Label htmlFor="cat-description">Description</Label>
+              <Textarea
+                id="cat-description"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="e.g. Daily coffee expenses"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <ColorPicker color={newColor} onChange={setNewColor} />
             </div>
           </div>
           <CreateCategoryFooter
@@ -284,7 +299,18 @@ function PortfolioCategoriesCard({
           />
         </DialogContent>
       </Dialog>
-    </ItemCard>
+
+      <ConfirmDialog
+        open={deletingCategoryId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingCategoryId(null)
+        }}
+        title="Delete category?"
+        description="This action cannot be undone. This category will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
+    </>
   )
 }
 

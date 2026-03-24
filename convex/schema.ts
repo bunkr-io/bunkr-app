@@ -182,11 +182,13 @@ export default defineSchema({
     portfolioId: v.optional(v.id('portfolios')),
     key: v.string(),
     label: v.string(),
+    description: v.optional(v.string()),
     color: v.string(),
     icon: v.optional(v.string()),
     parentKey: v.optional(v.string()),
     builtIn: v.boolean(),
     sortOrder: v.optional(v.number()),
+    createdAt: v.optional(v.number()),
   })
     .index('by_workspaceId', ['workspaceId'])
     .index('by_workspaceId_key', ['workspaceId', 'key'])
@@ -198,6 +200,7 @@ export default defineSchema({
     matchType: v.union(v.literal('contains'), v.literal('regex')),
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
+    labelIds: v.optional(v.array(v.id('transactionLabels'))),
     createdBy: v.string(),
     createdAt: v.number(),
   }).index('by_workspaceId', ['workspaceId']),
@@ -215,6 +218,7 @@ export default defineSchema({
     workspaceId: v.id('workspaces'),
     portfolioId: v.optional(v.id('portfolios')),
     name: v.string(),
+    description: v.optional(v.string()),
     color: v.string(),
     createdAt: v.number(),
   })

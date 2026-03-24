@@ -24,6 +24,7 @@ import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts
 import { Route as SettingsSettingsWorkspaceIndexRouteImport } from './routes/_settings/settings.workspace.index'
 import { Route as SettingsSettingsAccountIndexRouteImport } from './routes/_settings/settings.account.index'
 import { Route as SettingsSettingsWorkspaceTeamRouteImport } from './routes/_settings/settings.workspace.team'
+import { Route as SettingsSettingsWorkspaceRulesRouteImport } from './routes/_settings/settings.workspace.rules'
 import { Route as SettingsSettingsWorkspaceMembersRouteImport } from './routes/_settings/settings.workspace.members'
 import { Route as SettingsSettingsWorkspaceLabelsRouteImport } from './routes/_settings/settings.workspace.labels'
 import { Route as SettingsSettingsWorkspaceCategoriesRouteImport } from './routes/_settings/settings.workspace.categories'
@@ -114,6 +115,12 @@ const SettingsSettingsWorkspaceTeamRoute =
   SettingsSettingsWorkspaceTeamRouteImport.update({
     id: '/settings/workspace/team',
     path: '/settings/workspace/team',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsSettingsWorkspaceRulesRoute =
+  SettingsSettingsWorkspaceRulesRouteImport.update({
+    id: '/settings/workspace/rules',
+    path: '/settings/workspace/rules',
     getParentRoute: () => SettingsRoute,
   } as any)
 const SettingsSettingsWorkspaceMembersRoute =
@@ -228,6 +235,7 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account/': typeof SettingsSettingsAccountIndexRoute
   '/settings/workspace/': typeof SettingsSettingsWorkspaceIndexRoute
@@ -257,6 +265,7 @@ export interface FileRoutesByTo {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account': typeof SettingsSettingsAccountIndexRoute
   '/settings/workspace': typeof SettingsSettingsWorkspaceIndexRoute
@@ -290,6 +299,7 @@ export interface FileRoutesById {
   '/_settings/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/_settings/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/_settings/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/_settings/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/_settings/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/_settings/settings/account/': typeof SettingsSettingsAccountIndexRoute
   '/_settings/settings/workspace/': typeof SettingsSettingsWorkspaceIndexRoute
@@ -322,6 +332,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account/'
     | '/settings/workspace/'
@@ -351,6 +362,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account'
     | '/settings/workspace'
@@ -383,6 +395,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/workspace/categories'
     | '/_settings/settings/workspace/labels'
     | '/_settings/settings/workspace/members'
+    | '/_settings/settings/workspace/rules'
     | '/_settings/settings/workspace/team'
     | '/_settings/settings/account/'
     | '/_settings/settings/workspace/'
@@ -507,6 +520,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/workspace/team'
       fullPath: '/settings/workspace/team'
       preLoaderRoute: typeof SettingsSettingsWorkspaceTeamRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/_settings/settings/workspace/rules': {
+      id: '/_settings/settings/workspace/rules'
+      path: '/settings/workspace/rules'
+      fullPath: '/settings/workspace/rules'
+      preLoaderRoute: typeof SettingsSettingsWorkspaceRulesRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/_settings/settings/workspace/members': {
@@ -674,6 +694,7 @@ interface SettingsRouteChildren {
   SettingsSettingsWorkspaceCategoriesRoute: typeof SettingsSettingsWorkspaceCategoriesRoute
   SettingsSettingsWorkspaceLabelsRoute: typeof SettingsSettingsWorkspaceLabelsRoute
   SettingsSettingsWorkspaceMembersRoute: typeof SettingsSettingsWorkspaceMembersRoute
+  SettingsSettingsWorkspaceRulesRoute: typeof SettingsSettingsWorkspaceRulesRoute
   SettingsSettingsWorkspaceTeamRoute: typeof SettingsSettingsWorkspaceTeamRoute
   SettingsSettingsAccountIndexRoute: typeof SettingsSettingsAccountIndexRoute
   SettingsSettingsWorkspaceIndexRoute: typeof SettingsSettingsWorkspaceIndexRoute
@@ -696,6 +717,7 @@ const SettingsRouteChildren: SettingsRouteChildren = {
     SettingsSettingsWorkspaceCategoriesRoute,
   SettingsSettingsWorkspaceLabelsRoute: SettingsSettingsWorkspaceLabelsRoute,
   SettingsSettingsWorkspaceMembersRoute: SettingsSettingsWorkspaceMembersRoute,
+  SettingsSettingsWorkspaceRulesRoute: SettingsSettingsWorkspaceRulesRoute,
   SettingsSettingsWorkspaceTeamRoute: SettingsSettingsWorkspaceTeamRoute,
   SettingsSettingsAccountIndexRoute: SettingsSettingsAccountIndexRoute,
   SettingsSettingsWorkspaceIndexRoute: SettingsSettingsWorkspaceIndexRoute,

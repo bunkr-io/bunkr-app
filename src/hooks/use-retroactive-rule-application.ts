@@ -5,6 +5,7 @@ import { useEncryption } from '~/contexts/encryption-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { decryptFieldGroups, encryptData, importPublicKey } from '~/lib/crypto'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 
 const BATCH_SIZE = 50
 
@@ -20,6 +21,9 @@ export function useRetroactiveRuleApplication() {
   const batchUpdateCategories = useMutation(
     api.transactions.batchUpdateTransactionCategories,
   )
+  const batchUpdateLabels = useMutation(
+    api.transactions.batchUpdateTransactionLabels,
+  )
   const batchUpdateExclusion = useMutation(
     api.transactions.batchUpdateTransactionExclusion,
   )
@@ -30,6 +34,7 @@ export function useRetroactiveRuleApplication() {
       matchType: 'contains' | 'regex'
       categoryKey?: string
       excludeFromBudget?: boolean
+      labelIds?: string[]
     }) => {
       if (!privateKey || !workspacePublicKey) {
         bulkOp?.setError('Encryption not unlocked')
@@ -76,6 +81,7 @@ export function useRetroactiveRuleApplication() {
           encryptedCategories: string
         }> = []
         const exclusionIds: Array<(typeof transactions)[number]['_id']> = []
+        const labelIds: Array<(typeof transactions)[number]['_id']> = []
 
         for (const txn of chunk) {
           try {
@@ -126,6 +132,11 @@ export function useRetroactiveRuleApplication() {
             if (params.excludeFromBudget && !txn.excludedFromBudget) {
               exclusionIds.push(txn._id)
             }
+
+            // Apply label action
+            if (params.labelIds && params.labelIds.length > 0) {
+              labelIds.push(txn._id)
+            }
           } catch {
             // Skip transactions that fail to decrypt
           }
@@ -154,6 +165,23 @@ export function useRetroactiveRuleApplication() {
           }
         }
 
+        if (
+          params.labelIds &&
+          params.labelIds.length > 0 &&
+          labelIds.length > 0
+        ) {
+          try {
+            await batchUpdateLabels({
+              transactionIds: labelIds,
+              addLabelIds: params.labelIds as Array<Id<'transactionLabels'>>,
+            })
+            updated += labelIds.length
+          } catch {
+            bulkOp?.setError('Failed to save batch')
+            return
+          }
+        }
+
         processed += chunk.length
         bulkOp?.updateProgress(processed)
       }
@@ -169,6 +197,7 @@ export function useRetroactiveRuleApplication() {
       convex,
       batchUpdateCategories,
       batchUpdateExclusion,
+      batchUpdateLabels,
     ],
   )
 

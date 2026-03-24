@@ -1,22 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
 import { MoreHorizontal, Plus } from 'lucide-react'
 import * as React from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
-import {
-  ItemCard,
-  ItemCardHeader,
-  ItemCardHeaderContent,
-  ItemCardHeaderTitle,
-  ItemCardItem,
-  ItemCardItemAction,
-  ItemCardItemContent,
-  ItemCardItems,
-  ItemCardItemTitle,
-} from '~/components/item-card'
+import { ConfirmDialog } from '~/components/confirm-dialog'
+import { DataTable } from '~/components/data-table'
 import { RequireOwner } from '~/components/require-owner'
 import { Button } from '~/components/ui/button'
+import { ColorPicker } from '~/components/ui/color-picker'
 import {
   Dialog,
   DialogContent,
@@ -35,6 +28,7 @@ import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
 import { Skeleton } from '~/components/ui/skeleton'
+import { Textarea } from '~/components/ui/textarea'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 
@@ -42,14 +36,29 @@ export const Route = createFileRoute('/_settings/settings/workspace/labels')({
   component: LabelsPage,
 })
 
+type LabelRow = {
+  _id: string
+  name: string
+  description?: string
+  color: string
+  createdAt: number
+}
+
+function formatShortDate(timestamp: number) {
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 function LabelsPage() {
   return (
     <RequireOwner>
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
+      <div className="flex w-full flex-1 flex-col px-10 py-16">
         <header>
           <h1 className="text-3xl font-semibold">Labels</h1>
         </header>
-        <div className="mt-8 space-y-6">
+        <div className="mt-8">
           <LabelsList />
         </div>
       </div>
@@ -66,15 +75,15 @@ function LabelsList() {
   const createLabel = useMutation(api.transactionLabels.createLabel)
   const updateLabel = useMutation(api.transactionLabels.updateLabel)
   const deleteLabel = useMutation(api.transactionLabels.deleteLabel)
+  const batchDeleteLabels = useMutation(api.transactionLabels.batchDeleteLabels)
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [editingLabel, setEditingLabel] = React.useState<{
-    _id: Id<'transactionLabels'>
-    name: string
-    color: string
-  } | null>(null)
+  const [editingLabel, setEditingLabel] = React.useState<LabelRow | null>(null)
   const [newName, setNewName] = React.useState('')
+  const [newDescription, setNewDescription] = React.useState('')
   const [newColor, setNewColor] = React.useState('#3B82F6')
   const [saving, setSaving] = React.useState(false)
+  const [deletingLabelId, setDeletingLabelId] =
+    React.useState<Id<'transactionLabels'> | null>(null)
 
   if (labels === undefined || workspace === undefined) {
     return <Skeleton className="h-48 w-full rounded-lg" />
@@ -89,11 +98,13 @@ function LabelsList() {
       await createLabel({
         workspaceId: workspace._id,
         name: newName.trim(),
+        description: newDescription.trim() || undefined,
         color: newColor,
       })
       toast.success('Label created')
       setCreateOpen(false)
       setNewName('')
+      setNewDescription('')
       setNewColor('#3B82F6')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create label')
@@ -107,13 +118,15 @@ function LabelsList() {
     setSaving(true)
     try {
       await updateLabel({
-        labelId: editingLabel._id,
+        labelId: editingLabel._id as Id<'transactionLabels'>,
         name: newName.trim(),
+        description: newDescription.trim() || undefined,
         color: newColor,
       })
       toast.success('Label updated')
       setEditingLabel(null)
       setNewName('')
+      setNewDescription('')
       setNewColor('#3B82F6')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update label')
@@ -122,77 +135,118 @@ function LabelsList() {
     }
   }
 
-  const handleDelete = async (labelId: Id<'transactionLabels'>) => {
+  const handleDelete = async () => {
+    if (!deletingLabelId) return
     try {
-      await deleteLabel({ labelId })
+      await deleteLabel({ labelId: deletingLabelId })
       toast.success('Label deleted')
+      setDeletingLabelId(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete label')
     }
   }
 
-  const openEdit = (label: {
-    _id: Id<'transactionLabels'>
-    name: string
-    color: string
-  }) => {
+  const handleBatchDelete = async (ids: string[]) => {
+    try {
+      await batchDeleteLabels({
+        labelIds: ids as Id<'transactionLabels'>[],
+      })
+      toast.success(`${ids.length} label${ids.length > 1 ? 's' : ''} deleted`)
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to delete labels',
+      )
+    }
+  }
+
+  const openEdit = (label: LabelRow) => {
     setEditingLabel(label)
     setNewName(label.name)
+    setNewDescription(label.description ?? '')
     setNewColor(label.color)
   }
 
+  const tableColumns: ColumnDef<LabelRow, unknown>[] = [
+    {
+      accessorKey: 'name',
+      header: 'Name',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <span
+            className="size-3 shrink-0 rounded-full"
+            style={{ backgroundColor: row.original.color }}
+          />
+          <span className="font-medium">{row.original.name}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {row.original.description}
+        </span>
+      ),
+    },
+    {
+      id: 'created',
+      header: 'Created',
+      size: 100,
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">
+          {formatShortDate(row.original.createdAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      size: 50,
+      cell: ({ row }) => (
+        <div className="flex justify-end">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="size-8">
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openEdit(row.original)}>
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive"
+                onClick={() =>
+                  setDeletingLabelId(
+                    row.original._id as Id<'transactionLabels'>,
+                  )
+                }
+              >
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ]
+
   return (
-    <ItemCard>
-      <ItemCardHeader>
-        <ItemCardHeaderContent>
-          <ItemCardHeaderTitle>Labels</ItemCardHeaderTitle>
-        </ItemCardHeaderContent>
-        <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="size-4" />
-          Add label
-        </Button>
-      </ItemCardHeader>
-      <ItemCardItems>
-        {labels.length === 0 ? (
-          <div className="p-6 text-center text-sm text-muted-foreground">
-            No labels yet. Create a label to tag transactions.
-          </div>
-        ) : (
-          labels.map((label) => (
-            <ItemCardItem key={label._id}>
-              <ItemCardItemContent>
-                <div className="flex items-center gap-3">
-                  <span
-                    className="size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: label.color }}
-                  />
-                  <ItemCardItemTitle>{label.name}</ItemCardItemTitle>
-                </div>
-              </ItemCardItemContent>
-              <ItemCardItemAction>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="size-8">
-                      <MoreHorizontal className="size-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openEdit(label)}>
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() => handleDelete(label._id)}
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </ItemCardItemAction>
-            </ItemCardItem>
-          ))
-        )}
-      </ItemCardItems>
+    <>
+      <DataTable
+        columns={tableColumns}
+        data={labels as LabelRow[]}
+        filterColumn="name"
+        filterPlaceholder="Filter by name..."
+        getRowId={(row) => row._id}
+        onBatchDelete={handleBatchDelete}
+        actions={
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus className="size-4" />
+            Add label
+          </Button>
+        }
+      />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
@@ -204,8 +258,10 @@ function LabelsList() {
           </DialogHeader>
           <LabelFormFields
             name={newName}
+            description={newDescription}
             color={newColor}
             onNameChange={setNewName}
+            onDescriptionChange={setNewDescription}
             onColorChange={setNewColor}
           />
           <LabelFormFooter
@@ -227,12 +283,16 @@ function LabelsList() {
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle>Edit Label</DialogTitle>
-            <DialogDescription>Update label name or color.</DialogDescription>
+            <DialogDescription>
+              Update label name, description or color.
+            </DialogDescription>
           </DialogHeader>
           <LabelFormFields
             name={newName}
+            description={newDescription}
             color={newColor}
             onNameChange={setNewName}
+            onDescriptionChange={setNewDescription}
             onColorChange={setNewColor}
           />
           <LabelFormFooter
@@ -244,49 +304,66 @@ function LabelsList() {
           />
         </DialogContent>
       </Dialog>
-    </ItemCard>
+
+      <ConfirmDialog
+        open={deletingLabelId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingLabelId(null)
+        }}
+        title="Delete label?"
+        description="This action cannot be undone. This label will be removed from all transactions that use it."
+        confirmLabel="Delete"
+        onConfirm={handleDelete}
+      />
+    </>
   )
 }
 
 function LabelFormFields({
   name,
+  description,
   color,
   onNameChange,
+  onDescriptionChange,
   onColorChange,
 }: {
   name: string
+  description: string
   color: string
   onNameChange: (value: string) => void
+  onDescriptionChange: (value: string) => void
   onColorChange: (value: string) => void
 }) {
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="label-name">Name</Label>
+        <Label htmlFor="label-name" className="flex items-center">
+          Name
+          <span className="ml-auto font-normal text-muted-foreground">
+            Required
+          </span>
+        </Label>
         <Input
           id="label-name"
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder="e.g. Urgent"
+          required
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="label-color">Color</Label>
-        <div className="flex items-center gap-2">
-          <input
-            type="color"
-            id="label-color"
-            value={color}
-            onChange={(e) => onColorChange(e.target.value)}
-            className="size-8 cursor-pointer rounded border"
-          />
-          <Input
-            value={color}
-            onChange={(e) => onColorChange(e.target.value)}
-            placeholder="#3B82F6"
-            className="flex-1"
-          />
-        </div>
+        <Label htmlFor="label-description">Description</Label>
+        <Textarea
+          id="label-description"
+          value={description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          placeholder="e.g. Mark transactions that need attention"
+          rows={2}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Color</Label>
+        <ColorPicker color={color} onChange={onColorChange} />
       </div>
     </div>
   )
