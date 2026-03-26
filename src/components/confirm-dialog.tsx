@@ -122,13 +122,13 @@ export function ConfirmDialog({
           <AlertDialogAction
             variant="destructive"
             disabled={loading || !isConfirmed}
+            loading={loading}
             onClick={(e) => {
               e.preventDefault()
               onConfirm()
             }}
           >
-            {loading ? `${confirmLabel}...` : confirmLabel}{' '}
-            <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+            {confirmLabel} <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
