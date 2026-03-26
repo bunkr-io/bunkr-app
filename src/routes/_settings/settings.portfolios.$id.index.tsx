@@ -73,18 +73,18 @@ function PortfolioSettingsPage() {
               subtitle="Manage portfolio connections"
             />
             <NavItem
-              to="/settings/portfolios/$id/labels"
-              params={{ id: portfolio._id }}
-              icon={Sticker}
-              title="Labels"
-              subtitle="Labels available to this portfolio"
-            />
-            <NavItem
               to="/settings/portfolios/$id/categories"
               params={{ id: portfolio._id }}
               icon={Tag}
               title="Categories"
               subtitle="Categories available to this portfolio"
+            />
+            <NavItem
+              to="/settings/portfolios/$id/labels"
+              params={{ id: portfolio._id }}
+              icon={Sticker}
+              title="Labels"
+              subtitle="Labels available to this portfolio"
             />
           </ItemCardItems>
         </ItemCard>

@@ -208,6 +208,10 @@ function CategoriesList() {
         getRowId={(row) => row._id}
         onBatchDelete={handleBatchDelete}
         enableRowSelection={(row) => !row.builtIn}
+        groups={[
+          { label: 'Custom', filter: (row) => !row.builtIn },
+          { label: 'Default', filter: (row) => row.builtIn },
+        ]}
         actions={
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus className="size-4" />

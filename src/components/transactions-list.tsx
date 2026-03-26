@@ -27,6 +27,10 @@ import {
 import * as React from 'react'
 import { toast } from 'sonner'
 import { CategoryPicker } from '~/components/category-picker'
+import {
+  CreateCategoryDialog,
+  useCreateCategoryDialog,
+} from '~/components/create-category-dialog'
 import { CreateRuleDialog } from '~/components/create-rule-dialog'
 import type { LabelData } from '~/components/label-picker'
 import { LabelPicker } from '~/components/label-picker'
@@ -60,6 +64,7 @@ import {
   TableRow,
 } from '~/components/ui/table'
 import { useEncryption } from '~/contexts/encryption-context'
+import { usePortfolio } from '~/contexts/portfolio-context'
 import { useFormatCurrency } from '~/contexts/privacy-context'
 import { useCommand } from '~/hooks/use-command'
 import type { CategoryInfo } from '~/lib/categories'
@@ -907,6 +912,7 @@ function BulkCategoryView({
   onBack: () => void
 }) {
   const [search, setSearch] = React.useState('')
+  const { singlePortfolioId } = usePortfolio()
 
   // Determine current category state across selected rows
   const currentCategoryKey = React.useMemo(() => {
@@ -927,15 +933,34 @@ function BulkCategoryView({
   const filteredBuiltIn = filterCats(builtInCategories)
   const filteredCustom = filterCats(customCategories)
 
+  const exactMatch = categories.some((c) => c.label.toLowerCase() === query)
+
+  const createDialog = useCreateCategoryDialog(
+    customCategories.length,
+    singlePortfolioId,
+  )
+
   const handleSelect = (categoryKey: string) => {
     onSelect(categoryKey)
     onBack()
+  }
+
+  const handleCreateClick = () => {
+    const name = search.trim()
+    if (!name) return
+    setSearch('')
+    createDialog.openDialog(name)
+  }
+
+  const handleCreated = (categoryKey: string) => {
+    handleSelect(categoryKey)
   }
 
   return (
     <>
       <div className="flex h-12 items-center gap-2 border-b px-3">
         <button
+          type="button"
           onClick={onBack}
           className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
         >
@@ -944,20 +969,34 @@ function BulkCategoryView({
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search categories..."
+          placeholder="Search or create category..."
           className="flex h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
       <div className="min-h-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden scroll-py-1 px-2 py-1">
-        {filteredBuiltIn.length === 0 && filteredCustom.length === 0 && (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            No categories found.
-          </p>
-        )}
+        {filteredBuiltIn.length === 0 &&
+          filteredCustom.length === 0 &&
+          (search.trim() ? (
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={handleCreateClick}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent"
+              >
+                <Plus className="size-3" />
+                Create &ldquo;{search.trim()}&rdquo;
+              </button>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No categories found.
+            </p>
+          ))}
         {filteredBuiltIn.length > 0 && (
           <div className="py-1">
             {filteredBuiltIn.map((cat) => (
               <button
+                type="button"
                 key={cat.key}
                 onClick={() => handleSelect(cat.key)}
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent"
@@ -984,6 +1023,7 @@ function BulkCategoryView({
             <div className="py-1">
               {filteredCustom.map((cat) => (
                 <button
+                  type="button"
                   key={cat.key}
                   onClick={() => handleSelect(cat.key)}
                   className={cn(
@@ -1006,7 +1046,29 @@ function BulkCategoryView({
             </div>
           </>
         )}
+        {search.trim() &&
+          !exactMatch &&
+          (filteredBuiltIn.length > 0 || filteredCustom.length > 0) && (
+            <div className="border-t py-1">
+              <button
+                type="button"
+                onClick={handleCreateClick}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent"
+              >
+                <Plus className="size-3" />
+                Create &ldquo;{search.trim()}&rdquo;
+              </button>
+            </div>
+          )}
       </div>
+      <CreateCategoryDialog
+        open={createDialog.dialogOpen}
+        onOpenChange={createDialog.setDialogOpen}
+        initialName={createDialog.initialName}
+        initialColor={createDialog.initialColor}
+        defaultPortfolioId={createDialog.defaultPortfolioId}
+        onCreated={handleCreated}
+      />
     </>
   )
 }

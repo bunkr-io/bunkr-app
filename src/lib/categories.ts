@@ -6,6 +6,24 @@ import {
   TRANSACTION_CATEGORIES,
 } from './transaction-categories'
 
+export const CATEGORY_PALETTE = [
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#06b6d4',
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+]
+
+export function deriveCategoryKey(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
 export interface CategoryInfo {
   key: string
   label: string
