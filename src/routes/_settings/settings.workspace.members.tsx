@@ -62,7 +62,7 @@ function MembersPage() {
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})
   const [usersLoading, setUsersLoading] = useState(true)
 
-  const { isEncryptionEnabled, isUnlocked, role } = useEncryption()
+  const { isEncryptionEnabled, role } = useEncryption()
   const membersStatus = useQuery(
     api.encryptionKeys.listMembersEncryptionStatus,
     isEncryptionEnabled ? {} : 'skip',
@@ -210,7 +210,6 @@ function MembersPage() {
                             <MemberActionBadge
                               encStatus={encStatus}
                               isOwner={isOwner}
-                              isUnlocked={isUnlocked}
                               isEncryptionEnabled={isEncryptionEnabled}
                             />
                             {isOwner &&
@@ -297,7 +296,6 @@ function RemoveMemberMenu({
 function MemberActionBadge({
   encStatus,
   isOwner,
-  isUnlocked,
   isEncryptionEnabled,
 }: {
   encStatus:
@@ -309,7 +307,6 @@ function MemberActionBadge({
       }
     | undefined
   isOwner: boolean
-  isUnlocked: boolean
   isEncryptionEnabled: boolean
 }) {
   if (!isEncryptionEnabled || !encStatus) {
@@ -323,11 +320,10 @@ function MemberActionBadge({
 
   return (
     <div className="flex items-center gap-2">
-      {status === 'pending' && isOwner && (
+      {status === 'pending' && isOwner && encStatus.publicKey && (
         <GrantAccessButton
           targetUserId={encStatus.userId}
-          targetPublicKey={encStatus.publicKey!}
-          isUnlocked={isUnlocked}
+          targetPublicKey={encStatus.publicKey}
         />
       )}
       {status === 'pending' && !isOwner && (
@@ -349,7 +345,6 @@ function GrantAccessButton({
 }: {
   targetUserId: string
   targetPublicKey: string
-  isUnlocked: boolean
 }) {
   const { workspacePrivateKeyJwk, unlock } = useEncryption()
   const grantAccess = useMutation(api.encryptionKeys.grantMemberAccess)

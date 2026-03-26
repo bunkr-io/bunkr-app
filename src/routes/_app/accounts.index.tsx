@@ -222,12 +222,15 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
   }, [filteredCategoryBalances, activeCategoryKeys])
 
   // Category series config for the stacked chart
-  const categoryColors: Record<string, string> = {
-    checking: 'var(--color-chart-1)',
-    savings: 'var(--color-chart-2)',
-    investments: 'var(--color-chart-3)',
-    insurance: 'var(--color-chart-4)',
-  }
+  const categoryColors = React.useMemo<Record<string, string>>(
+    () => ({
+      checking: 'var(--color-chart-1)',
+      savings: 'var(--color-chart-2)',
+      investments: 'var(--color-chart-3)',
+      insurance: 'var(--color-chart-4)',
+    }),
+    [],
+  )
 
   const activeCategorySeries = React.useMemo(() => {
     return Object.entries(ACCOUNT_CATEGORIES)

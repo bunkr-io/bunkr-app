@@ -955,7 +955,7 @@ export const deleteConnectionData = internalMutation({
     await Promise.all(
       [...dateDeltas.entries()].map(([, delta], i) => {
         const dnw = dnwEntries[i]
-        if (!dnw) return
+        if (!dnw) return undefined
         const newBalance = Math.round((dnw.balance - delta) * 100) / 100
         if (newBalance === 0) {
           return ctx.db.delete('dailyNetWorth', dnw._id)
@@ -986,7 +986,7 @@ export const deleteConnectionData = internalMutation({
     await Promise.all(
       dcbKeys.map((key, i) => {
         const dcb = dcbEntries[i]
-        if (!dcb) return
+        if (!dcb) return undefined
         const delta = categoryDateDeltas.get(key) ?? 0
         const newBalance = Math.round((dcb.balance - delta) * 100) / 100
         if (newBalance === 0) {

@@ -283,7 +283,7 @@ function KeyRotationDialog({
       for (const conn of encryptedConnections) {
         if (isCancelled()) break
         const data = await decryptData(
-          conn.encryptedData!,
+          conn.encryptedData as string,
           privateKey,
           conn._id,
         )
@@ -333,7 +333,7 @@ function KeyRotationDialog({
         const items = await Promise.all(
           chunk.map(async (snap) => {
             const data = await decryptData(
-              snap.encryptedData!,
+              snap.encryptedData as string,
               privateKey,
               snap._id,
             )
@@ -492,10 +492,14 @@ function KeyRotationDialog({
                 </AlertDescription>
               </Alert>
               <div className="space-y-2">
-                <label className="text-sm font-medium">
+                <label
+                  htmlFor="rotation-passphrase"
+                  className="text-sm font-medium"
+                >
                   Enter your passphrase
                 </label>
                 <Input
+                  id="rotation-passphrase"
                   type="password"
                   placeholder="Your encryption passphrase"
                   value={passphrase}

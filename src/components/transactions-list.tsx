@@ -241,7 +241,12 @@ export function TransactionsList({
       {
         id: 'select',
         header: ({ table }) => (
-          <div onClick={(e) => e.stopPropagation()}>
+          // biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops click propagation to parent row
+          <div
+            role="presentation"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <Checkbox
               checked={
                 table.getIsAllPageRowsSelected() ||
@@ -256,7 +261,12 @@ export function TransactionsList({
           </div>
         ),
         cell: ({ row }) => (
-          <div onClick={(e) => e.stopPropagation()}>
+          // biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops click propagation to parent row
+          <div
+            role="presentation"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
             <Checkbox
               checked={row.getIsSelected()}
               onCheckedChange={(value) => row.toggleSelected(!!value)}
@@ -370,7 +380,12 @@ export function TransactionsList({
         cell: ({ row }) => {
           const categoryKey = resolveTransactionCategoryKey(row.original)
           return (
-            <div onClick={(e) => e.stopPropagation()}>
+            // biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops click propagation to parent row
+            <div
+              role="presentation"
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
               <CategoryPicker
                 transactionId={row.original._id}
                 currentCategoryKey={categoryKey}
@@ -1310,10 +1325,12 @@ function TransactionDetailSheet({
           {hasOriginalCurrency && (
             <p className="text-sm text-muted-foreground">
               Original:{' '}
-              {formatCurrency(
-                transaction.originalValue!,
-                transaction.originalCurrency!,
-              )}
+              {transaction.originalValue != null &&
+                transaction.originalCurrency &&
+                formatCurrency(
+                  transaction.originalValue,
+                  transaction.originalCurrency,
+                )}
             </p>
           )}
 

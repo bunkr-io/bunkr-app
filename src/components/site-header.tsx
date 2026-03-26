@@ -49,7 +49,7 @@ export function SiteHeader({
               {breadcrumbs.map((item, index) => {
                 const isLast = index === breadcrumbs.length - 1
                 return (
-                  <React.Fragment key={index}>
+                  <React.Fragment key={item.href ?? item.label}>
                     {index > 0 && <BreadcrumbSeparator />}
                     <BreadcrumbItemUI>
                       {isLast ? (
