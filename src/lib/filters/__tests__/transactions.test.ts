@@ -77,7 +77,7 @@ function cond(
 
 describe('createTransactionFilterConfig', () => {
   it('produces correct number of fields', () => {
-    expect(config.fields).toHaveLength(10)
+    expect(config.fields).toHaveLength(11)
   })
 
   it('has all fields in fieldMap', () => {
