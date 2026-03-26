@@ -2,14 +2,14 @@ import {
   ArrowLeftRight,
   Command,
   EyeOff,
-  FolderOpen,
   Keyboard,
   Landmark,
   LayoutDashboard,
   PanelLeft,
   Settings,
   Sparkles,
-  Tags,
+  Sticker,
+  Tag,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type { Hotkey } from '~/lib/hotkeys'
@@ -71,19 +71,19 @@ export const COMMAND_DEFINITIONS: Record<string, CommandDefinition> = {
   },
   'selection.change-labels': {
     id: 'selection.change-labels',
-    label: 'Change or add labels',
+    label: 'Change or add labels...',
     group: 'Selection',
-    icon: Tags,
+    icon: Sticker,
   },
   'selection.change-category': {
     id: 'selection.change-category',
-    label: 'Change category',
+    label: 'Change category...',
     group: 'Selection',
-    icon: FolderOpen,
+    icon: Tag,
   },
   'selection.toggle-exclusion': {
     id: 'selection.toggle-exclusion',
-    label: 'Exclude or include in budget',
+    label: 'Change budget visibility...',
     group: 'Selection',
     icon: EyeOff,
   },

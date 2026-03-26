@@ -20,6 +20,7 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
   EyeOff,
   Plus,
   Search,
@@ -849,6 +850,7 @@ function BulkLabelView({
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search or create label..."
           className="flex h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          autoFocus
         />
       </div>
       <div className="min-h-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden scroll-py-1 px-2 py-1">
@@ -971,6 +973,7 @@ function BulkCategoryView({
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search or create category..."
           className="flex h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          autoFocus
         />
       </div>
       <div className="min-h-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden scroll-py-1 px-2 py-1">
@@ -1249,8 +1252,8 @@ function BulkExclusionView({
   onBack: () => void
 }) {
   const options = [
-    { label: 'Exclude from budget', value: true },
-    { label: 'Include in budget', value: false },
+    { label: 'Exclude from budget', value: true, icon: EyeOff },
+    { label: 'Include in budget', value: false, icon: Eye },
   ]
 
   return (
@@ -1262,7 +1265,7 @@ function BulkExclusionView({
         >
           <ChevronLeft className="size-4" />
         </button>
-        <span className="text-sm font-medium">Budget exclusion</span>
+        <span className="text-sm font-medium">Budget visibility</span>
       </div>
       <div className="min-h-[300px] max-h-[300px] overflow-y-auto overflow-x-hidden scroll-py-1 px-2 py-1">
         {options.map((option) => (
@@ -1274,7 +1277,7 @@ function BulkExclusionView({
             }}
             className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-sm hover:bg-accent"
           >
-            <EyeOff className="size-4" />
+            <option.icon className="size-4" />
             <span>{option.label}</span>
           </button>
         ))}
