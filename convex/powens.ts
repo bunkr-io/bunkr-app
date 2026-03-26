@@ -1516,12 +1516,13 @@ export const syncTransactionsFromWebhook = internalAction({
         if (rawTransactions.length === 0) break
 
         // Apply transaction rules to incoming transactions
+        const activeRules = transactionRules.filter((r) => r.enabled !== false)
         const excludedIds: Array<number> = []
         for (const txn of rawTransactions) {
           const text = [txn.wording, txn.originalWording, txn.simplifiedWording]
             .filter(Boolean)
             .join(' ')
-          for (const rule of transactionRules) {
+          for (const rule of activeRules) {
             let matched = false
             if (rule.matchType === 'contains') {
               matched = text.toLowerCase().includes(rule.pattern.toLowerCase())
@@ -1719,12 +1720,13 @@ export const backfillTransactions = internalAction({
 
         if (rawTransactions.length === 0) break
 
+        const activeRules = transactionRules.filter((r) => r.enabled !== false)
         const backfillExcludedIds: Array<number> = []
         for (const txn of rawTransactions) {
           const text = [txn.wording, txn.originalWording, txn.simplifiedWording]
             .filter(Boolean)
             .join(' ')
-          for (const rule of transactionRules) {
+          for (const rule of activeRules) {
             let matched = false
             if (rule.matchType === 'contains') {
               matched = text.toLowerCase().includes(rule.pattern.toLowerCase())

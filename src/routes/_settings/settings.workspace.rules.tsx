@@ -57,6 +57,7 @@ function RulesList() {
   )
   const deleteRule = useMutation(api.transactionRules.deleteRule)
   const reorderRules = useMutation(api.transactionRules.reorderRules)
+  const toggleRule = useMutation(api.transactionRules.toggleRule)
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editingRule, setEditingRule] = React.useState<
@@ -105,6 +106,22 @@ function RulesList() {
     } finally {
       setDeleting(false)
     }
+  }
+
+  const handleToggle = (rule: Doc<'transactionRules'>, enabled: boolean) => {
+    setLocalRules((prev) =>
+      (prev ?? rules ?? []).map((r) =>
+        r._id === rule._id ? { ...r, enabled } : r,
+      ),
+    )
+    toggleRule({ ruleId: rule._id, enabled }).catch(() => {
+      toast.error('Failed to toggle rule')
+      setLocalRules((prev) =>
+        (prev ?? rules ?? []).map((r) =>
+          r._id === rule._id ? { ...r, enabled: !enabled } : r,
+        ),
+      )
+    })
   }
 
   const handleReorder = (reordered: Doc<'transactionRules'>[]) => {
@@ -177,6 +194,7 @@ function RulesList() {
                   dragDisabled={isFiltering}
                   onEdit={() => setEditingRule(rule)}
                   onDelete={() => setDeletingRule(rule)}
+                  onToggle={(enabled) => handleToggle(rule, enabled)}
                 />
               </SortableItem>
             ))}
