@@ -9,7 +9,6 @@ import {
   internalQuery,
   query,
 } from './_generated/server'
-import { getCategoryKey } from './lib/accountCategories'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 import { encryptFieldGroups, encryptForProfile } from './lib/serverCrypto'
 
@@ -109,7 +108,6 @@ async function recordBalanceSnapshot(
   params: {
     bankAccountId: Id<'bankAccounts'>
     portfolioId: Id<'portfolios'>
-    balance: number // plaintext balance for daily aggregate computation
     currency: string
   },
 ): Promise<Id<'balanceSnapshots'>> {
@@ -124,188 +122,18 @@ async function recordBalanceSnapshot(
     )
     .first()
 
-  let snapshotId: Id<'balanceSnapshots'>
   if (existing) {
-    await ctx.db.patch('balanceSnapshots', existing._id, {
-      balance: params.balance,
-    })
-    snapshotId = existing._id
-  } else {
-    snapshotId = await ctx.db.insert('balanceSnapshots', {
-      bankAccountId: params.bankAccountId,
-      portfolioId: params.portfolioId,
-      balance: params.balance,
-      currency: params.currency,
-      date,
-      timestamp,
-      encryptedData: '', // placeholder — patched with encrypted data by the calling action
-    })
+    return existing._id
   }
 
-  const portfolio = await ctx.db.get('portfolios', params.portfolioId)
-  if (!portfolio) throw new Error('Portfolio not found')
-
-  await Promise.all([
-    updateDailyNetWorth(ctx, {
-      portfolioId: params.portfolioId,
-      workspaceId: portfolio.workspaceId,
-      date,
-      timestamp,
-      currency: params.currency,
-    }),
-    updateDailyCategoryBalance(ctx, {
-      portfolioId: params.portfolioId,
-      workspaceId: portfolio.workspaceId,
-      date,
-      timestamp,
-      currency: params.currency,
-    }),
-  ])
-
-  return snapshotId
-}
-
-async function computePortfolioBalance(
-  ctx: MutationCtx,
-  portfolioId: Id<'portfolios'>,
-  date: string,
-): Promise<number> {
-  const bankAccounts = await ctx.db
-    .query('bankAccounts')
-    .withIndex('by_portfolioId', (q) => q.eq('portfolioId', portfolioId))
-    .collect()
-
-  let total = 0
-  for (const acct of bankAccounts) {
-    if (acct.disabled || acct.deleted) continue
-    const todaySnapshot = await ctx.db
-      .query('balanceSnapshots')
-      .withIndex('by_bankAccountId_date', (q) =>
-        q.eq('bankAccountId', acct._id).eq('date', date),
-      )
-      .first()
-    if (todaySnapshot) {
-      total += todaySnapshot.balance
-    } else {
-      const prevSnapshot = await ctx.db
-        .query('balanceSnapshots')
-        .withIndex('by_bankAccountId_timestamp', (q) =>
-          q.eq('bankAccountId', acct._id),
-        )
-        .order('desc')
-        .first()
-      total += prevSnapshot?.balance ?? 0
-    }
-  }
-  return Math.round(total * 100) / 100
-}
-
-async function updateDailyNetWorth(
-  ctx: MutationCtx,
-  params: {
-    portfolioId: Id<'portfolios'>
-    workspaceId: Id<'workspaces'>
-    date: string
-    timestamp: number
-    currency: string
-  },
-) {
-  const balance = await computePortfolioBalance(
-    ctx,
-    params.portfolioId,
-    params.date,
-  )
-
-  const existing = await ctx.db
-    .query('dailyNetWorth')
-    .withIndex('by_portfolioId_date', (q) =>
-      q.eq('portfolioId', params.portfolioId).eq('date', params.date),
-    )
-    .first()
-
-  if (existing) {
-    await ctx.db.patch('dailyNetWorth', existing._id, { balance })
-  } else {
-    await ctx.db.insert('dailyNetWorth', {
-      portfolioId: params.portfolioId,
-      workspaceId: params.workspaceId,
-      date: params.date,
-      timestamp: params.timestamp,
-      balance,
-      currency: params.currency,
-    })
-  }
-}
-
-async function updateDailyCategoryBalance(
-  ctx: MutationCtx,
-  params: {
-    portfolioId: Id<'portfolios'>
-    workspaceId: Id<'workspaces'>
-    date: string
-    timestamp: number
-    currency: string
-  },
-) {
-  const bankAccounts = await ctx.db
-    .query('bankAccounts')
-    .withIndex('by_portfolioId', (q) => q.eq('portfolioId', params.portfolioId))
-    .collect()
-
-  // Group accounts by category and compute balance per category
-  const categoryTotals = new Map<string, number>()
-  for (const acct of bankAccounts) {
-    if (acct.disabled || acct.deleted) continue
-    const category = getCategoryKey(acct.type)
-    const todaySnapshot = await ctx.db
-      .query('balanceSnapshots')
-      .withIndex('by_bankAccountId_date', (q) =>
-        q.eq('bankAccountId', acct._id).eq('date', params.date),
-      )
-      .first()
-    let balance: number
-    if (todaySnapshot) {
-      balance = todaySnapshot.balance
-    } else {
-      const prevSnapshot = await ctx.db
-        .query('balanceSnapshots')
-        .withIndex('by_bankAccountId_timestamp', (q) =>
-          q.eq('bankAccountId', acct._id),
-        )
-        .order('desc')
-        .first()
-      balance = prevSnapshot?.balance ?? 0
-    }
-    categoryTotals.set(category, (categoryTotals.get(category) ?? 0) + balance)
-  }
-
-  // Upsert each category's daily balance
-  for (const [category, total] of categoryTotals) {
-    const balance = Math.round(total * 100) / 100
-    const existing = await ctx.db
-      .query('dailyCategoryBalance')
-      .withIndex('by_portfolioId_category_date', (q) =>
-        q
-          .eq('portfolioId', params.portfolioId)
-          .eq('category', category)
-          .eq('date', params.date),
-      )
-      .first()
-
-    if (existing) {
-      await ctx.db.patch('dailyCategoryBalance', existing._id, { balance })
-    } else {
-      await ctx.db.insert('dailyCategoryBalance', {
-        portfolioId: params.portfolioId,
-        workspaceId: params.workspaceId,
-        category,
-        date: params.date,
-        timestamp: params.timestamp,
-        balance,
-        currency: params.currency,
-      })
-    }
-  }
+  return await ctx.db.insert('balanceSnapshots', {
+    bankAccountId: params.bankAccountId,
+    portfolioId: params.portfolioId,
+    currency: params.currency,
+    date,
+    timestamp,
+    encryptedData: '', // placeholder — patched with encrypted data by the calling action
+  })
 }
 
 function getPowensConfig() {
@@ -539,7 +367,6 @@ export const upsertBankAccount = internalMutation({
     portfolioId: v.id('portfolios'),
     powensBankAccountId: v.number(),
     type: v.optional(v.string()),
-    balance: v.number(), // plaintext balance for daily aggregate computation
     currency: v.string(),
     disabled: v.boolean(),
     deleted: v.boolean(),
@@ -584,7 +411,6 @@ export const upsertBankAccount = internalMutation({
     const snapshotId = await recordBalanceSnapshot(ctx, {
       bankAccountId,
       portfolioId: args.portfolioId,
-      balance: args.balance,
       currency: args.currency,
     })
 
@@ -699,7 +525,6 @@ export const syncConnectionFromPowens = internalAction({
             portfolioId: args.portfolioId,
             powensBankAccountId: acct.id,
             type: acct.type ?? undefined,
-            balance,
             currency: acct.currency?.id ?? 'EUR',
             disabled: acct.disabled ?? false,
             deleted: acct.deleted != null,
@@ -914,23 +739,6 @@ export const deleteConnectionData = internalMutation({
     const investments = investmentsByAccount.flat()
     const transactions = transactionsByAccount.flat()
 
-    // Compute deltas per date and per category+date to subtract from aggregates
-    const dateDeltas = new Map<string, number>()
-    const categoryDateDeltas = new Map<string, number>()
-    const bankAccountTypeMap = new Map(
-      bankAccounts.map((ba) => [ba._id, getCategoryKey(ba.type)]),
-    )
-
-    for (const s of snapshots) {
-      dateDeltas.set(s.date, (dateDeltas.get(s.date) ?? 0) + s.balance)
-      const category = bankAccountTypeMap.get(s.bankAccountId) ?? 'checking'
-      const catKey = `${category}:${s.date}`
-      categoryDateDeltas.set(
-        catKey,
-        (categoryDateDeltas.get(catKey) ?? 0) + s.balance,
-      )
-    }
-
     // Delete records
     await Promise.all([
       ...snapshots.map((s) => ctx.db.delete('balanceSnapshots', s._id)),
@@ -939,64 +747,6 @@ export const deleteConnectionData = internalMutation({
       ...bankAccounts.map((ba) => ctx.db.delete('bankAccounts', ba._id)),
       ctx.db.delete('connections', args.connectionId),
     ])
-
-    // Update dailyNetWorth aggregates by subtracting deleted balances
-    const dnwEntries = await Promise.all(
-      [...dateDeltas.keys()].map((date) =>
-        ctx.db
-          .query('dailyNetWorth')
-          .withIndex('by_portfolioId_date', (q) =>
-            q.eq('portfolioId', args.portfolioId).eq('date', date),
-          )
-          .first(),
-      ),
-    )
-
-    await Promise.all(
-      [...dateDeltas.entries()].map(([, delta], i) => {
-        const dnw = dnwEntries[i]
-        if (!dnw) return undefined
-        const newBalance = Math.round((dnw.balance - delta) * 100) / 100
-        if (newBalance === 0) {
-          return ctx.db.delete('dailyNetWorth', dnw._id)
-        }
-        return ctx.db.patch('dailyNetWorth', dnw._id, {
-          balance: newBalance,
-        })
-      }),
-    )
-
-    // Update dailyCategoryBalance aggregates
-    const dcbKeys = [...categoryDateDeltas.keys()]
-    const dcbEntries = await Promise.all(
-      dcbKeys.map((key) => {
-        const [category, date] = key.split(':')
-        return ctx.db
-          .query('dailyCategoryBalance')
-          .withIndex('by_portfolioId_category_date', (q) =>
-            q
-              .eq('portfolioId', args.portfolioId)
-              .eq('category', category)
-              .eq('date', date),
-          )
-          .first()
-      }),
-    )
-
-    await Promise.all(
-      dcbKeys.map((key, i) => {
-        const dcb = dcbEntries[i]
-        if (!dcb) return undefined
-        const delta = categoryDateDeltas.get(key) ?? 0
-        const newBalance = Math.round((dcb.balance - delta) * 100) / 100
-        if (newBalance === 0) {
-          return ctx.db.delete('dailyCategoryBalance', dcb._id)
-        }
-        return ctx.db.patch('dailyCategoryBalance', dcb._id, {
-          balance: newBalance,
-        })
-      }),
-    )
   },
 })
 

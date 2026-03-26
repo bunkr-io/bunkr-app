@@ -1,8 +1,9 @@
 import { useAction, useQuery } from 'convex/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 
@@ -13,17 +14,34 @@ type ResolvedUser = {
   email: string
 }
 
+type DecryptedBankAccount = {
+  _id: string
+  portfolioId: string
+  balance: number
+  currency?: string
+  deleted: boolean
+  disabled: boolean
+}
+
 export function TeamBreakdown({
   workspaceId,
 }: {
   workspaceId: Id<'workspaces'>
 }) {
-  const breakdown = useQuery(api.team.getTeamMemberBreakdown, {
+  const breakdownMeta = useQuery(api.team.getTeamMemberBreakdown, {
     workspaceId,
   })
   const sharedPortfolios = useQuery(api.team.listSharedPortfolios, {
     workspaceId,
   })
+  const rawBankAccounts = useQuery(api.team.listTeamBankAccounts, {
+    workspaceId,
+  })
+  const bankAccounts = useCachedDecryptRecords(
+    'bankAccounts',
+    rawBankAccounts,
+  ) as DecryptedBankAccount[] | undefined
+
   const resolveUsers = useAction(api.members.resolveUsers)
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})
   const formatCurrency = useFormatCurrency()
@@ -48,6 +66,70 @@ export function TeamBreakdown({
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
+
+  // Compute member breakdown from decrypted bank accounts
+  const breakdown = useMemo(() => {
+    if (!breakdownMeta || !bankAccounts) return null
+
+    // Sum balances per portfolio from active bank accounts
+    const portfolioBalanceMap = new Map<
+      string,
+      { balance: number; currency: string }
+    >()
+    for (const a of bankAccounts) {
+      if (a.deleted || a.disabled) continue
+      const existing = portfolioBalanceMap.get(a.portfolioId)
+      if (existing) {
+        existing.balance += a.balance
+      } else {
+        portfolioBalanceMap.set(a.portfolioId, {
+          balance: a.balance,
+          currency: a.currency ?? 'EUR',
+        })
+      }
+    }
+
+    // Group by memberId
+    const byMember = new Map<
+      string,
+      {
+        memberId: string
+        balance: number
+        shareAmounts: boolean
+        currency: string
+      }
+    >()
+    for (const meta of breakdownMeta) {
+      const portfolioData = portfolioBalanceMap.get(meta.portfolioId)
+      const balance = portfolioData?.balance ?? 0
+      const currency = portfolioData?.currency ?? 'EUR'
+
+      const existing = byMember.get(meta.memberId)
+      if (existing) {
+        existing.balance += balance
+        if (!meta.shareAmounts) existing.shareAmounts = false
+      } else {
+        byMember.set(meta.memberId, {
+          memberId: meta.memberId,
+          balance,
+          shareAmounts: meta.shareAmounts,
+          currency,
+        })
+      }
+    }
+
+    const totalBalance = [...byMember.values()].reduce(
+      (sum, m) => sum + m.balance,
+      0,
+    )
+
+    return [...byMember.values()].map((m) => ({
+      memberId: m.memberId,
+      balance: m.shareAmounts ? m.balance : null,
+      percentage: totalBalance > 0 ? (m.balance / totalBalance) * 100 : 0,
+      currency: m.currency,
+    }))
+  }, [breakdownMeta, bankAccounts])
 
   if (!breakdown || breakdown.length === 0) return null
 

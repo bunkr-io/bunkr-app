@@ -60,7 +60,14 @@ function AccountDetailPage() {
     bankAccountId: accountId as Id<'bankAccounts'>,
     startTimestamp,
   })
-  const snapshots = useCachedDecryptRecords('balanceSnapshots', rawSnapshots)
+  const snapshots = useCachedDecryptRecords('balanceSnapshots', rawSnapshots) as
+    | Array<{
+        _id: string
+        date: string
+        balance: number
+        encryptedData?: string
+      }>
+    | undefined
 
   const isInvestment = isInvestmentAccount(bankAccount?.type ?? undefined)
 
