@@ -26,6 +26,7 @@ import {
 } from '~/components/ui/dialog'
 import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
+import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
@@ -74,9 +75,10 @@ function EncryptionPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
-      <header>
-        <h1 className="text-3xl font-semibold">Encryption</h1>
-      </header>
+      <PageHeader
+        title="Encryption"
+        description="Manage zero-knowledge encryption for your financial data."
+      />
       <div className="mt-8 space-y-6">
         <div>
           <h2 className="text-lg font-medium">Zero-knowledge encryption</h2>

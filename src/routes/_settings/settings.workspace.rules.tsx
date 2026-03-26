@@ -17,6 +17,7 @@ import {
   EmptyTitle,
 } from '~/components/ui/empty'
 import { Input } from '~/components/ui/input'
+import { PageHeader } from '~/components/ui/page-header'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Sortable, SortableItem } from '~/components/ui/sortable'
@@ -31,14 +32,12 @@ function RulesPage() {
   return (
     <RequireOwner>
       <div className="flex h-full flex-col overflow-hidden px-10 pt-16">
-        <header className="shrink-0">
-          <h1 className="text-3xl font-semibold">Automation Rules</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Rules are processed top-to-bottom. The first matching rule assigns
-            the category. Labels and budget exclusions are applied from all
-            matching rules.
-          </p>
-        </header>
+        <div className="shrink-0">
+          <PageHeader
+            title="Automation Rules"
+            description="Rules are processed top-to-bottom. The first matching rule assigns the category. Labels and budget exclusions are applied from all matching rules."
+          />
+        </div>
         <div className="mt-8 flex min-h-0 flex-1 flex-col">
           <RulesList />
         </div>

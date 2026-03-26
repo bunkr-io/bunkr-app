@@ -39,6 +39,7 @@ import {
 import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
+import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
 import { encryptString, importPublicKey } from '~/lib/crypto'
@@ -111,9 +112,10 @@ function MembersPage() {
   return (
     <RequireOwner>
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
-        <header>
-          <h1 className="text-3xl font-semibold">Members</h1>
-        </header>
+        <PageHeader
+          title="Members"
+          description="Invite and manage who has access to this workspace."
+        />
         <div className="mt-8 space-y-6">
           <ItemCard>
             <ItemCardHeader>
