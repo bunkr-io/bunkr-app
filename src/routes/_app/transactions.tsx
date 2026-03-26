@@ -69,6 +69,7 @@ interface TransactionRecord {
   counterparty?: string
   card?: string
   comment?: string
+  customDescription?: string
   encryptedData?: string
 }
 
@@ -439,6 +440,7 @@ function TransactionsContent() {
       counterparty: t.counterparty,
       card: t.card,
       comment: t.comment,
+      customDescription: t.customDescription,
       accountName: accountNameMap.get(t.bankAccountId),
       accountNumber: accountNumberMap.get(t.bankAccountId),
     }))

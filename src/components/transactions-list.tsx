@@ -22,6 +22,7 @@ import {
   ChevronsRight,
   Eye,
   EyeOff,
+  Pencil,
   Plus,
   Search,
 } from 'lucide-react'
@@ -32,9 +33,9 @@ import {
   CreateCategoryDialog,
   useCreateCategoryDialog,
 } from '~/components/create-category-dialog'
-import { CreateRuleDialog } from '~/components/create-rule-dialog'
 import type { LabelData } from '~/components/label-picker'
 import { LabelPicker } from '~/components/label-picker'
+import { RuleDialog } from '~/components/rule-dialog'
 import { SelectionBar } from '~/components/selection-bar'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -95,6 +96,7 @@ export interface TransactionRow {
   counterparty?: string
   card?: string
   comment?: string
+  customDescription?: string
   rdate?: string
   vdate?: string
   accountName?: string
@@ -157,7 +159,14 @@ export function TransactionsList({
     pattern: string
     categoryKey: string
     excludeFromBudget: boolean
-  }>({ open: false, pattern: '', categoryKey: '', excludeFromBudget: false })
+    customDescription: string
+  }>({
+    open: false,
+    pattern: '',
+    categoryKey: '',
+    excludeFromBudget: false,
+    customDescription: '',
+  })
 
   const updateTransactionLabels = useMutation(
     api.transactions.updateTransactionLabels,
@@ -174,6 +183,10 @@ export function TransactionsList({
   const batchUpdateExclusion = useMutation(
     api.transactions.batchUpdateTransactionExclusion,
   )
+  const updateDetails = useMutation(api.transactions.updateTransactionDetails)
+  const batchUpdateDetails = useMutation(
+    api.transactions.batchUpdateTransactionDetails,
+  )
   const labelMap = React.useMemo(() => {
     const map = new Map<string, LabelData>()
     for (const label of labels) {
@@ -187,12 +200,14 @@ export function TransactionsList({
       wording: string,
       categoryKey: string,
       excludeFromBudget: boolean = false,
+      customDescription: string = '',
     ) => {
       setRuleDialog({
         open: true,
         pattern: wording,
         categoryKey,
         excludeFromBudget,
+        customDescription,
       })
     },
     [],
@@ -279,7 +294,7 @@ export function TransactionsList({
                   row.original.excludedFromBudget && 'line-through',
                 )}
               >
-                {row.original.wording}
+                {row.original.customDescription || row.original.wording}
               </span>
               {row.original.coming && (
                 <Badge variant="outline" className="shrink-0 text-xs">
@@ -551,6 +566,88 @@ export function TransactionsList({
     [getSelectedIds, batchUpdateExclusion],
   )
 
+  const handleDescriptionUpdate = React.useCallback(
+    async (transactionId: string, customDescription: string) => {
+      const txn = data.find((t) => t._id === transactionId)
+      if (!txn || !workspacePublicKey) return
+
+      try {
+        const pubKey = await importPublicKey(workspacePublicKey)
+        const encryptedDetails = await encryptData(
+          {
+            wording: txn.wording,
+            originalWording: txn.originalWording,
+            simplifiedWording: txn.simplifiedWording,
+            counterparty: txn.counterparty,
+            card: txn.card,
+            comment: txn.comment,
+            customDescription: customDescription || undefined,
+          },
+          pubKey,
+          transactionId,
+          'encryptedDetails',
+        )
+        await updateDetails({
+          transactionId: transactionId as Id<'transactions'>,
+          encryptedDetails,
+        })
+        toast.success(
+          customDescription ? 'Description updated' : 'Description reset',
+          customDescription
+            ? {
+                action: {
+                  label: 'Create rule',
+                  onClick: () =>
+                    handleCreateRule(txn.wording, '', false, customDescription),
+                },
+              }
+            : undefined,
+        )
+      } catch {
+        toast.error('Failed to update description')
+      }
+    },
+    [data, workspacePublicKey, updateDetails, handleCreateRule],
+  )
+
+  const handleBulkDescriptionChange = React.useCallback(
+    async (customDescription: string) => {
+      const rows = getSelectedRows()
+      if (rows.length === 0 || !workspacePublicKey) return
+
+      try {
+        const pubKey = await importPublicKey(workspacePublicKey)
+        const items = await Promise.all(
+          rows.map(async (txn) => {
+            const encryptedDetails = await encryptData(
+              {
+                wording: txn.wording,
+                originalWording: txn.originalWording,
+                simplifiedWording: txn.simplifiedWording,
+                counterparty: txn.counterparty,
+                card: txn.card,
+                comment: txn.comment,
+                customDescription: customDescription || undefined,
+              },
+              pubKey,
+              txn._id,
+              'encryptedDetails',
+            )
+            return {
+              transactionId: txn._id as Id<'transactions'>,
+              encryptedDetails,
+            }
+          }),
+        )
+        await batchUpdateDetails({ items })
+        toast.success(`Updating description for ${rows.length} transactions...`)
+      } catch {
+        toast.error('Failed to update descriptions')
+      }
+    },
+    [getSelectedRows, batchUpdateDetails, workspacePublicKey],
+  )
+
   const selectedRows = React.useMemo(() => getSelectedRows(), [getSelectedRows])
 
   useCommand('selection.change-labels', {
@@ -585,6 +682,17 @@ export function TransactionsList({
     disabled: !hasSelection,
     view: ({ onBack }) => (
       <BulkExclusionView onSelect={handleBulkExclusionChange} onBack={onBack} />
+    ),
+  })
+
+  useCommand('selection.change-description', {
+    handler: () => {},
+    disabled: !hasSelection,
+    view: ({ onBack }) => (
+      <BulkDescriptionView
+        onSubmit={handleBulkDescriptionChange}
+        onBack={onBack}
+      />
     ),
   })
 
@@ -753,14 +861,16 @@ export function TransactionsList({
         workspaceId={workspaceId}
         onLabelToggle={handleLabelToggle}
         onExclusionToggle={handleExclusionToggle}
+        onDescriptionUpdate={handleDescriptionUpdate}
       />
 
-      <CreateRuleDialog
+      <RuleDialog
         open={ruleDialog.open}
         onOpenChange={(open) => setRuleDialog((prev) => ({ ...prev, open }))}
         defaultPattern={ruleDialog.pattern}
         defaultCategoryKey={ruleDialog.categoryKey}
         defaultExcludeFromBudget={ruleDialog.excludeFromBudget}
+        defaultCustomDescription={ruleDialog.customDescription}
       />
     </div>
   )
@@ -1086,6 +1196,7 @@ function TransactionDetailSheet({
   workspaceId,
   onLabelToggle,
   onExclusionToggle,
+  onDescriptionUpdate,
 }: {
   transaction: TransactionRow | null
   onOpenChange: (open: boolean) => void
@@ -1100,6 +1211,10 @@ function TransactionDetailSheet({
   workspaceId?: string
   onLabelToggle: (transactionId: string, labelIds: Array<string>) => void
   onExclusionToggle: (transactionId: string, excluded: boolean) => void
+  onDescriptionUpdate: (
+    transactionId: string,
+    customDescription: string,
+  ) => void
 }) {
   if (!transaction) return null
 
@@ -1120,6 +1235,7 @@ function TransactionDetailSheet({
     { label: 'Type', value: transaction.type },
     { label: 'Counterparty', value: transaction.counterparty },
     { label: 'Card', value: transaction.card },
+    { label: 'Wording', value: transaction.wording },
     {
       label: 'Original wording',
       value: transaction.originalWording,
@@ -1140,7 +1256,12 @@ function TransactionDetailSheet({
     <Sheet open={!!transaction} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
         <SheetHeader>
-          <SheetTitle className="pr-6">{transaction.wording}</SheetTitle>
+          <EditableDescription
+            transactionId={transaction._id}
+            customDescription={transaction.customDescription}
+            wording={transaction.wording}
+            onUpdate={onDescriptionUpdate}
+          />
           <SheetDescription>
             {transaction.coming
               ? 'Pending transaction'
@@ -1281,6 +1402,133 @@ function BulkExclusionView({
             <span>{option.label}</span>
           </button>
         ))}
+      </div>
+    </>
+  )
+}
+
+function EditableDescription({
+  transactionId,
+  customDescription,
+  wording,
+  onUpdate,
+}: {
+  transactionId: string
+  customDescription?: string
+  wording: string
+  onUpdate: (transactionId: string, customDescription: string) => void
+}) {
+  const [editing, setEditing] = React.useState(false)
+  const [value, setValue] = React.useState(customDescription ?? '')
+  const inputRef = React.useRef<HTMLInputElement>(null)
+
+  React.useEffect(() => {
+    setValue(customDescription ?? '')
+  }, [customDescription])
+
+  const handleSave = () => {
+    setEditing(false)
+    const trimmed = value.trim()
+    if (trimmed !== (customDescription ?? '')) {
+      onUpdate(transactionId, trimmed)
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="pr-6">
+        <Input
+          ref={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') {
+              setValue(customDescription ?? '')
+              setEditing(false)
+            }
+          }}
+          className="text-lg font-semibold"
+          placeholder={wording}
+          autoFocus
+        />
+        {customDescription && (
+          <p className="mt-1 text-xs text-muted-foreground">{wording}</p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="pr-6">
+      <button
+        type="button"
+        tabIndex={-1}
+        className="group flex items-center gap-2 text-left"
+        onClick={() => setEditing(true)}
+      >
+        <SheetTitle className="text-lg">
+          {customDescription || wording}
+        </SheetTitle>
+        <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </button>
+      {customDescription && (
+        <p className="mt-0.5 text-xs text-muted-foreground">{wording}</p>
+      )}
+    </div>
+  )
+}
+
+function BulkDescriptionView({
+  onSubmit,
+  onBack,
+}: {
+  onSubmit: (description: string) => void
+  onBack: () => void
+}) {
+  const [value, setValue] = React.useState('')
+
+  return (
+    <>
+      <div className="flex h-12 items-center gap-2 border-b px-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+        </button>
+        <span className="text-sm font-medium">Change description</span>
+      </div>
+      <div className="p-3">
+        <Input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Custom description..."
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && value.trim()) {
+              onSubmit(value.trim())
+              onBack()
+            }
+          }}
+        />
+        <div className="mt-2 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onBack}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={!value.trim()}
+            onClick={() => {
+              onSubmit(value.trim())
+              onBack()
+            }}
+          >
+            Apply
+          </Button>
+        </div>
       </div>
     </>
   )

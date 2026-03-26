@@ -1,10 +1,11 @@
 import { useMutation, useQuery } from 'convex/react'
-import { ChevronsUpDown, X } from 'lucide-react'
+import { ChevronsUpDown } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
 import { CategoryCombobox } from '~/components/category-combobox'
 import { DialogFormFooter } from '~/components/dialog-form-footer'
 import { Badge } from '~/components/ui/badge'
+import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
 import {
   Command,
@@ -40,6 +41,7 @@ interface RuleDialogProps {
   defaultPattern?: string
   defaultCategoryKey?: string
   defaultExcludeFromBudget?: boolean
+  defaultCustomDescription?: string
 }
 
 export function RuleDialog({
@@ -49,6 +51,7 @@ export function RuleDialog({
   defaultPattern = '',
   defaultCategoryKey = '',
   defaultExcludeFromBudget = false,
+  defaultCustomDescription = '',
 }: RuleDialogProps) {
   const isEdit = !!rule
   const [pattern, setPattern] = React.useState(defaultPattern)
@@ -60,6 +63,7 @@ export function RuleDialog({
     defaultExcludeFromBudget,
   )
   const [selectedLabelIds, setSelectedLabelIds] = React.useState<string[]>([])
+  const [customDescription, setCustomDescription] = React.useState('')
   const [applyRetroactively, setApplyRetroactively] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
 
@@ -80,6 +84,7 @@ export function RuleDialog({
         setCategoryKey(rule.categoryKey ?? '')
         setExcludeFromBudget(rule.excludeFromBudget ?? false)
         setSelectedLabelIds((rule.labelIds as string[] | undefined) ?? [])
+        setCustomDescription(rule.customDescription ?? '')
         setApplyRetroactively(true)
       } else {
         setPattern(defaultPattern)
@@ -87,13 +92,24 @@ export function RuleDialog({
         setCategoryKey(defaultCategoryKey)
         setExcludeFromBudget(defaultExcludeFromBudget)
         setSelectedLabelIds([])
+        setCustomDescription(defaultCustomDescription)
         setApplyRetroactively(true)
       }
     }
-  }, [open, rule, defaultPattern, defaultCategoryKey, defaultExcludeFromBudget])
+  }, [
+    open,
+    rule,
+    defaultPattern,
+    defaultCategoryKey,
+    defaultExcludeFromBudget,
+    defaultCustomDescription,
+  ])
 
   const hasAction =
-    !!categoryKey || excludeFromBudget || selectedLabelIds.length > 0
+    !!categoryKey ||
+    excludeFromBudget ||
+    selectedLabelIds.length > 0 ||
+    !!customDescription.trim()
 
   const handleSave = async () => {
     if (!pattern.trim() || !hasAction) return
@@ -107,6 +123,7 @@ export function RuleDialog({
           categoryKey: categoryKey || '',
           excludeFromBudget,
           labelIds: selectedLabelIds as Array<Id<'transactionLabels'>>,
+          customDescription: customDescription.trim() || '',
         })
         toast.success('Rule updated')
       } else {
@@ -119,6 +136,7 @@ export function RuleDialog({
             selectedLabelIds.length > 0
               ? (selectedLabelIds as Array<Id<'transactionLabels'>>)
               : undefined,
+          customDescription: customDescription.trim() || undefined,
         })
         toast.success('Rule created', {
           description: applyRetroactively
@@ -134,6 +152,7 @@ export function RuleDialog({
             excludeFromBudget: excludeFromBudget || undefined,
             labelIds:
               selectedLabelIds.length > 0 ? selectedLabelIds : undefined,
+            customDescription: customDescription.trim() || undefined,
           })
         }
       }
@@ -167,91 +186,107 @@ export function RuleDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* Condition: "When a transaction [contains ▾] [pattern]" */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-sm text-muted-foreground">
-                When a transaction
+          {/* Condition */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                when transaction
               </span>
-              <MatchTypePicker matchType={matchType} onChange={setMatchType} />
+              <div className="h-px flex-1 bg-border" />
             </div>
-            <Input
-              value={pattern}
-              onChange={(e) => setPattern(e.target.value)}
-              placeholder={
-                matchType === 'regex'
-                  ? 'e.g. CARREFOUR|LECLERC'
-                  : 'e.g. CARREFOUR'
-              }
-              className="font-mono"
-              autoFocus
-            />
+            <div className="flex">
+              <MatchTypePicker matchType={matchType} onChange={setMatchType} />
+              <Input
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+                placeholder={
+                  matchType === 'regex'
+                    ? 'e.g. CARREFOUR|LECLERC or ^CB\\s.*'
+                    : 'e.g. CARREFOUR'
+                }
+                className="rounded-l-none border-l-0 font-mono"
+                autoFocus
+              />
+            </div>
           </div>
 
-          {/* Actions: "then assign ..., add ..., exclude from budget" */}
-          <div className="space-y-3">
-            <span className="text-sm text-muted-foreground">then</span>
+          {/* Actions */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                then
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
 
             {/* Assign category */}
-            <ActionRow
-              label="assign"
-              active={!!categoryKey}
-              onClear={() => setCategoryKey('')}
-            >
+            <div className="space-y-2">
+              <Label>Assign category</Label>
               <CategoryCombobox
                 value={categoryKey}
                 onChange={(key) => setCategoryKey(key)}
                 allowCreate
                 trigger={({ category, open }) => (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="flex w-full items-center gap-2 rounded-md text-sm transition-colors hover:opacity-80"
+                    className="w-full justify-between font-normal"
                   >
                     {categoryKey ? (
-                      <>
+                      <span className="flex items-center gap-2">
                         <span
                           className="size-2.5 shrink-0 rounded-full"
                           style={{ backgroundColor: category.color }}
                         />
-                        <span className="truncate">{category.label}</span>
-                      </>
+                        {category.label}
+                      </span>
                     ) : (
-                      <span className="text-muted-foreground">category...</span>
+                      <span className="text-muted-foreground">
+                        No category (optional)
+                      </span>
                     )}
-                    <ChevronsUpDown className="ml-auto size-3.5 shrink-0 opacity-50" />
-                  </button>
+                    <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+                  </Button>
                 )}
               />
-            </ActionRow>
+            </div>
 
             {/* Add labels */}
             {labels && labels.length > 0 && (
-              <ActionRow
-                label="add"
-                active={selectedLabelIds.length > 0}
-                onClear={() => setSelectedLabelIds([])}
-              >
+              <div className="space-y-2">
+                <Label>Add labels</Label>
                 <LabelMultiSelect
                   labels={labels}
                   selectedLabelIds={selectedLabelIds}
                   selectedLabels={selectedLabels}
                   onToggle={toggleLabel}
                 />
-              </ActionRow>
+              </div>
             )}
 
+            {/* Change description */}
+            <div className="space-y-2">
+              <Label>Change description to</Label>
+              <Input
+                value={customDescription}
+                onChange={(e) => setCustomDescription(e.target.value)}
+                placeholder="Custom description (optional)"
+              />
+            </div>
+
             {/* Exclude from budget */}
-            <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
-              <span className="text-sm text-muted-foreground">
-                exclude from
-              </span>
-              <span className="text-sm">budget</span>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="exclude-budget" className="font-normal">
+                Exclude from budget
+              </Label>
               <Switch
+                id="exclude-budget"
                 checked={excludeFromBudget}
                 onCheckedChange={setExcludeFromBudget}
-                className="ml-auto"
               />
             </div>
           </div>
@@ -299,7 +334,7 @@ function MatchTypePicker({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-md border bg-muted/50 px-2 py-1 text-sm font-medium transition-colors hover:bg-accent"
+          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-l-md border bg-muted/50 px-3 text-sm font-medium transition-colors hover:bg-accent"
         >
           {matchType === 'contains' ? 'contains' : 'matches'}
           <ChevronsUpDown className="size-3 opacity-50" />
@@ -337,34 +372,6 @@ function MatchTypePicker({
   )
 }
 
-function ActionRow({
-  label,
-  active,
-  onClear,
-  children,
-}: {
-  label: string
-  active: boolean
-  onClear: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
-      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
-      <div className="min-w-0 flex-1">{children}</div>
-      {active && (
-        <button
-          type="button"
-          className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={onClear}
-        >
-          <X className="size-3.5" />
-        </button>
-      )}
-    </div>
-  )
-}
-
 function LabelMultiSelect({
   labels,
   selectedLabelIds,
@@ -381,11 +388,12 @@ function LabelMultiSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="flex w-full items-center gap-2 rounded-md text-sm transition-colors hover:opacity-80"
+          className="h-auto min-h-9 w-full justify-between font-normal"
         >
           {selectedLabels.length > 0 ? (
             <span className="flex min-w-0 flex-wrap gap-1">
@@ -409,12 +417,15 @@ function LabelMultiSelect({
               ))}
             </span>
           ) : (
-            <span className="text-muted-foreground">labels...</span>
+            <span className="text-muted-foreground">No labels (optional)</span>
           )}
-          <ChevronsUpDown className="ml-auto size-3.5 shrink-0 opacity-50" />
-        </button>
+          <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+        </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+      >
         <Command>
           <CommandInput placeholder="Search labels..." />
           <CommandList>

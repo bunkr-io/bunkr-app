@@ -1348,6 +1348,7 @@ interface MappedTransaction {
   card: string | undefined
   comment: string | undefined
   userCategoryKey?: string
+  customDescription?: string
 }
 
 function mapPowensTransaction(raw: PowensRawTransaction): MappedTransaction {
@@ -1537,6 +1538,9 @@ export const syncTransactionsFromWebhook = internalAction({
               if (rule.categoryKey && !txn.userCategoryKey) {
                 txn.userCategoryKey = rule.categoryKey
               }
+              if (rule.customDescription && !txn.customDescription) {
+                txn.customDescription = rule.customDescription
+              }
               if (rule.excludeFromBudget) {
                 excludedIds.push(txn.powensTransactionId)
               }
@@ -1591,6 +1595,7 @@ export const syncTransactionsFromWebhook = internalAction({
                 counterparty: txn.counterparty,
                 card: txn.card,
                 comment: txn.comment,
+                customDescription: txn.customDescription,
               },
               encryptedFinancials: {
                 value: txn.value,
@@ -1741,6 +1746,9 @@ export const backfillTransactions = internalAction({
               if (rule.categoryKey && !txn.userCategoryKey) {
                 txn.userCategoryKey = rule.categoryKey
               }
+              if (rule.customDescription && !txn.customDescription) {
+                txn.customDescription = rule.customDescription
+              }
               if (rule.excludeFromBudget) {
                 backfillExcludedIds.push(txn.powensTransactionId)
               }
@@ -1795,6 +1803,7 @@ export const backfillTransactions = internalAction({
                 counterparty: txn.counterparty,
                 card: txn.card,
                 comment: txn.comment,
+                customDescription: txn.customDescription,
               },
               encryptedFinancials: {
                 value: txn.value,

@@ -201,6 +201,7 @@ export default defineSchema({
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
     labelIds: v.optional(v.array(v.id('transactionLabels'))),
+    customDescription: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
     sortOrder: v.optional(v.number()),
     createdBy: v.string(),

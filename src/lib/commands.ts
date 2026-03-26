@@ -6,6 +6,7 @@ import {
   Landmark,
   LayoutDashboard,
   PanelLeft,
+  Pencil,
   Settings,
   Sparkles,
   Sticker,
@@ -80,6 +81,12 @@ export const COMMAND_DEFINITIONS: Record<string, CommandDefinition> = {
     label: 'Change category...',
     group: 'Selection',
     icon: Tag,
+  },
+  'selection.change-description': {
+    id: 'selection.change-description',
+    label: 'Change description...',
+    group: 'Selection',
+    icon: Pencil,
   },
   'selection.toggle-exclusion': {
     id: 'selection.toggle-exclusion',

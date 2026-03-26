@@ -49,7 +49,12 @@ export function RuleCard({
   const patternDisplay = isRegex ? `/${rule.pattern}/` : `"${rule.pattern}"`
   const matchVerb = isRegex ? 'matches' : 'contains'
 
-  const actions = buildActions(category, ruleLabels, rule.excludeFromBudget)
+  const actions = buildActions(
+    category,
+    ruleLabels,
+    rule.excludeFromBudget,
+    rule.customDescription,
+  )
   const isEnabled = rule.enabled !== false
 
   return (
@@ -131,6 +136,7 @@ function buildActions(
   category: Doc<'transactionCategories'> | undefined,
   labels: Doc<'transactionLabels'>[],
   excludeFromBudget: boolean | undefined,
+  customDescription: string | undefined,
 ): RuleAction[] {
   const actions: RuleAction[] = []
 
@@ -185,6 +191,18 @@ function buildActions(
       element: (
         <Badge variant="outline" className="rounded-md">
           Budget
+        </Badge>
+      ),
+    })
+  }
+
+  if (customDescription) {
+    actions.push({
+      key: 'description',
+      connector: 'change description to',
+      element: (
+        <Badge variant="outline" className="rounded-md">
+          {customDescription}
         </Badge>
       ),
     })

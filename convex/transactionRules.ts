@@ -31,6 +31,7 @@ export const createRule = mutation({
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
     labelIds: v.optional(v.array(v.id('transactionLabels'))),
+    customDescription: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -45,6 +46,7 @@ export const createRule = mutation({
     if (
       !args.categoryKey &&
       !args.excludeFromBudget &&
+      !args.customDescription &&
       (!args.labelIds || args.labelIds.length === 0)
     ) {
       throw new Error('At least one action is required')
@@ -68,6 +70,7 @@ export const createRule = mutation({
       categoryKey: args.categoryKey,
       excludeFromBudget: args.excludeFromBudget,
       labelIds: args.labelIds,
+      customDescription: args.customDescription,
       enabled: true,
       sortOrder: existingRules.length === 0 ? 0 : maxOrder + 1,
       createdBy: userId,
@@ -84,6 +87,7 @@ export const updateRule = mutation({
     categoryKey: v.optional(v.string()),
     excludeFromBudget: v.optional(v.boolean()),
     labelIds: v.optional(v.array(v.id('transactionLabels'))),
+    customDescription: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -112,6 +116,9 @@ export const updateRule = mutation({
       }),
       ...(args.labelIds !== undefined && {
         labelIds: args.labelIds.length > 0 ? args.labelIds : undefined,
+      }),
+      ...(args.customDescription !== undefined && {
+        customDescription: args.customDescription || undefined,
       }),
       ...(args.enabled !== undefined && { enabled: args.enabled }),
     })
