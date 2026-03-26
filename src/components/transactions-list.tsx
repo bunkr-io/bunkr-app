@@ -1179,6 +1179,7 @@ function TransactionDetailSheet({
               currentCategoryKey={categoryKey}
               wording={transaction.wording}
               onCreateRule={onCreateRule}
+              modal
             />
           </div>
 

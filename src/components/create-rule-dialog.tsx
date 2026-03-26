@@ -1,7 +1,9 @@
 import { useMutation } from 'convex/react'
+import { ChevronsUpDown } from 'lucide-react'
 import * as React from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
+import { CategoryCombobox } from '~/components/category-combobox'
 import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
 import {
@@ -15,16 +17,8 @@ import {
 import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { Label } from '~/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select'
 import { Switch } from '~/components/ui/switch'
 import { useRetroactiveRuleApplication } from '~/hooks/use-retroactive-rule-application'
-import { useCategories } from '~/lib/categories'
 import { cn } from '~/lib/utils'
 import { api } from '../../convex/_generated/api'
 
@@ -51,7 +45,6 @@ export function CreateRuleDialog({
   const [applyRetroactively, setApplyRetroactively] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
 
-  const { categories } = useCategories()
   const createRule = useMutation(api.transactionRules.createRule)
   const { apply } = useRetroactiveRuleApplication()
 
@@ -123,24 +116,34 @@ export function CreateRuleDialog({
           </div>
           <div className="space-y-2">
             <Label>Assign category</Label>
-            <Select value={categoryKey} onValueChange={setCategoryKey}>
-              <SelectTrigger>
-                <SelectValue placeholder="No category (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.key} value={cat.key}>
+            <CategoryCombobox
+              value={categoryKey}
+              onChange={(key) => setCategoryKey(key)}
+              allowCreate
+              trigger={({ category, open }) => (
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={open}
+                  className="w-full justify-between font-normal"
+                >
+                  {categoryKey ? (
                     <span className="flex items-center gap-2">
                       <span
-                        className="inline-block size-2.5 rounded-full"
-                        style={{ backgroundColor: cat.color }}
+                        className="size-2.5 shrink-0 rounded-full"
+                        style={{ backgroundColor: category.color }}
                       />
-                      {cat.label}
+                      {category.label}
                     </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      No category (optional)
+                    </span>
+                  )}
+                  <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+                </Button>
+              )}
+            />
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="exclude-budget" className="font-normal">

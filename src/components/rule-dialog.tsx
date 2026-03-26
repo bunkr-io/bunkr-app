@@ -1,7 +1,8 @@
 import { useMutation, useQuery } from 'convex/react'
-import { Check, ChevronsUpDown, X } from 'lucide-react'
+import { ChevronsUpDown, X } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
+import { CategoryCombobox } from '~/components/category-combobox'
 import { DialogFormFooter } from '~/components/dialog-form-footer'
 import { Badge } from '~/components/ui/badge'
 import { Checkbox } from '~/components/ui/checkbox'
@@ -28,7 +29,6 @@ import {
 } from '~/components/ui/popover'
 import { Switch } from '~/components/ui/switch'
 import { useRetroactiveRuleApplication } from '~/hooks/use-retroactive-rule-application'
-import { useCategories } from '~/lib/categories'
 import { cn } from '~/lib/utils'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
@@ -63,7 +63,6 @@ export function RuleDialog({
   const [applyRetroactively, setApplyRetroactively] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
 
-  const { categories } = useCategories()
   const workspace = useQuery(api.workspaces.getMyWorkspace)
   const labels = useQuery(
     api.transactionLabels.listWorkspaceLabels,
@@ -154,10 +153,6 @@ export function RuleDialog({
     )
   }
 
-  const selectedCategory = categoryKey
-    ? categories.find((c) => c.key === categoryKey)
-    : undefined
-
   const selectedLabels = (labels ?? []).filter((l) =>
     selectedLabelIds.includes(l._id),
   )
@@ -203,11 +198,31 @@ export function RuleDialog({
               active={!!categoryKey}
               onClear={() => setCategoryKey('')}
             >
-              <CategorySelect
-                categories={categories}
-                categoryKey={categoryKey}
-                selectedCategory={selectedCategory}
-                onChange={setCategoryKey}
+              <CategoryCombobox
+                value={categoryKey}
+                onChange={(key) => setCategoryKey(key)}
+                allowCreate
+                trigger={({ category, open }) => (
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 rounded-md text-sm transition-colors hover:opacity-80"
+                  >
+                    {categoryKey ? (
+                      <>
+                        <span
+                          className="size-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <span className="truncate">{category.label}</span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">category...</span>
+                    )}
+                    <ChevronsUpDown className="ml-auto size-3.5 shrink-0 opacity-50" />
+                  </button>
+                )}
               />
             </ActionRow>
 
@@ -347,112 +362,6 @@ function ActionRow({
         </button>
       )}
     </div>
-  )
-}
-
-function CategorySelect({
-  categories,
-  categoryKey,
-  selectedCategory,
-  onChange,
-}: {
-  categories: Array<{
-    key: string
-    label: string
-    color: string
-    builtIn?: boolean
-  }>
-  categoryKey: string
-  selectedCategory: { key: string; label: string; color: string } | undefined
-  onChange: (key: string) => void
-}) {
-  const [open, setOpen] = React.useState(false)
-
-  const builtIn = categories.filter((c) => c.builtIn)
-  const custom = categories.filter((c) => !c.builtIn)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          role="combobox"
-          aria-expanded={open}
-          className="flex w-full items-center gap-2 rounded-md text-sm transition-colors hover:opacity-80"
-        >
-          {selectedCategory ? (
-            <>
-              <span
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: selectedCategory.color }}
-              />
-              <span className="truncate">{selectedCategory.label}</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">category...</span>
-          )}
-          <ChevronsUpDown className="ml-auto size-3.5 shrink-0 opacity-50" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search categories..." />
-          <CommandList>
-            <CommandEmpty>No category found.</CommandEmpty>
-            <CommandGroup heading="Categories">
-              {builtIn.map((cat) => (
-                <CommandItem
-                  key={cat.key}
-                  value={cat.label}
-                  onSelect={() => {
-                    onChange(cat.key)
-                    setOpen(false)
-                  }}
-                >
-                  <span
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span>{cat.label}</span>
-                  <Check
-                    className={cn(
-                      'ml-auto size-3',
-                      categoryKey === cat.key ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                </CommandItem>
-              ))}
-            </CommandGroup>
-            {custom.length > 0 && (
-              <CommandGroup heading="Custom">
-                {custom.map((cat) => (
-                  <CommandItem
-                    key={cat.key}
-                    value={cat.label}
-                    onSelect={() => {
-                      onChange(cat.key)
-                      setOpen(false)
-                    }}
-                  >
-                    <span
-                      className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: cat.color }}
-                    />
-                    <span>{cat.label}</span>
-                    <Check
-                      className={cn(
-                        'ml-auto size-3',
-                        categoryKey === cat.key ? 'opacity-100' : 'opacity-0',
-                      )}
-                    />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
   )
 }
 
