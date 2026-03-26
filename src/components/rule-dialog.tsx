@@ -42,6 +42,7 @@ interface RuleDialogProps {
   defaultCategoryKey?: string
   defaultExcludeFromBudget?: boolean
   defaultCustomDescription?: string
+  onCreated?: (ruleId: Id<'transactionRules'>) => void
 }
 
 export function RuleDialog({
@@ -52,6 +53,7 @@ export function RuleDialog({
   defaultCategoryKey = '',
   defaultExcludeFromBudget = false,
   defaultCustomDescription = '',
+  onCreated,
 }: RuleDialogProps) {
   const isEdit = !!rule
   const [pattern, setPattern] = React.useState(defaultPattern)
@@ -127,7 +129,7 @@ export function RuleDialog({
         })
         toast.success('Rule updated')
       } else {
-        await createRule({
+        const ruleId = await createRule({
           pattern: pattern.trim(),
           matchType,
           categoryKey: categoryKey || undefined,
@@ -142,6 +144,12 @@ export function RuleDialog({
           description: applyRetroactively
             ? 'Existing transactions are being updated.'
             : 'New transactions will be processed automatically.',
+          action: onCreated
+            ? {
+                label: 'Edit',
+                onClick: () => onCreated(ruleId),
+              }
+            : undefined,
         })
 
         if (applyRetroactively) {

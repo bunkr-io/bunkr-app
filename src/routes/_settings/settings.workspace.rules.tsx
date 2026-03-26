@@ -67,11 +67,23 @@ function RulesList() {
     Doc<'transactionRules'> | undefined
   >(undefined)
   const [deleting, setDeleting] = React.useState(false)
+  const [pendingEditId, setPendingEditId] = React.useState<string | null>(null)
   const [filter, setFilter] = React.useState('')
   const [localRules, setLocalRules] = React.useState<
     Doc<'transactionRules'>[] | null
   >(null)
   const pendingReorder = React.useRef(false)
+
+  // Open edit dialog once a newly created rule appears in the list
+  React.useEffect(() => {
+    if (pendingEditId && rules) {
+      const created = rules.find((r) => r._id === pendingEditId)
+      if (created) {
+        setPendingEditId(null)
+        setEditingRule(created)
+      }
+    }
+  }, [pendingEditId, rules])
 
   // Sync server rules to local state when no reorder is pending
   React.useEffect(() => {
@@ -202,7 +214,11 @@ function RulesList() {
         )}
       </ScrollArea>
 
-      <RuleDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <RuleDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={(ruleId) => setPendingEditId(ruleId)}
+      />
 
       <RuleDialog
         open={!!editingRule}

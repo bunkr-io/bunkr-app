@@ -11,7 +11,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import {
   ArrowDown,
   ArrowUp,
@@ -153,6 +153,15 @@ export function TransactionsList({
   const selectedTransaction = React.useMemo(
     () => data.find((t) => t._id === selectedTransactionId) ?? null,
     [data, selectedTransactionId],
+  )
+  const [editingRuleId, setEditingRuleId] = React.useState<string | null>(null)
+  const allRules = useQuery(
+    api.transactionRules.listRules,
+    editingRuleId ? {} : 'skip',
+  )
+  const editingRule = React.useMemo(
+    () => allRules?.find((r) => r._id === editingRuleId),
+    [allRules, editingRuleId],
   )
   const [ruleDialog, setRuleDialog] = React.useState<{
     open: boolean
@@ -871,6 +880,15 @@ export function TransactionsList({
         defaultCategoryKey={ruleDialog.categoryKey}
         defaultExcludeFromBudget={ruleDialog.excludeFromBudget}
         defaultCustomDescription={ruleDialog.customDescription}
+        onCreated={(ruleId) => setEditingRuleId(ruleId)}
+      />
+
+      <RuleDialog
+        open={!!editingRule}
+        onOpenChange={(open) => {
+          if (!open) setEditingRuleId(null)
+        }}
+        rule={editingRule}
       />
     </div>
   )
