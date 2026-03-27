@@ -86,7 +86,25 @@ export function CashFlowChart({
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatCurrency(value as number)}
+                    formatter={(value, name, item) => (
+                      <>
+                        <div
+                          className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                          style={{
+                            backgroundColor: item.payload.fill || item.color,
+                          }}
+                        />
+                        <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                          <span className="text-muted-foreground">
+                            {chartConfig[name as keyof typeof chartConfig]
+                              ?.label ?? name}
+                          </span>
+                          <span className="font-mono font-medium text-foreground tabular-nums">
+                            {formatCurrency(value as number)}
+                          </span>
+                        </div>
+                      </>
+                    )}
                     indicator="dot"
                   />
                 }
