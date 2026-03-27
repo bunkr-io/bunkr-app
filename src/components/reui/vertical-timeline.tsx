@@ -1,4 +1,5 @@
 import { Bot } from 'lucide-react'
+import type { ReactNode } from 'react'
 import {
   Timeline,
   TimelineContent,
@@ -22,15 +23,139 @@ export interface TimelineEntry {
   resourceType?: string
 }
 
+function CategoryBadge({ label, color }: { label: string; color?: string }) {
+  return (
+    <Badge variant="outline" className="inline-badge rounded-md">
+      <span
+        className="mr-1 inline-block size-2 rounded-full"
+        style={{ backgroundColor: color ?? 'currentColor' }}
+      />
+      {label}
+    </Badge>
+  )
+}
+
+function LabelBadge({ name, color }: { name: string; color: string }) {
+  return (
+    <Badge
+      variant="secondary"
+      className="inline-badge gap-1 px-2 py-0.5 text-xs"
+      style={{
+        backgroundColor: `${color}20`,
+        color,
+        borderColor: `${color}40`,
+      }}
+    >
+      <span
+        className="size-2 shrink-0 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      {name}
+    </Badge>
+  )
+}
+
 // Human-readable action descriptions — written so they read naturally after
 // the actor name, e.g. "Alice updated labels (2 labels)" or "Bunkr synced
 // 15 new and 8 updated transactions from bank".
+function formatLabelDiff(m: Record<string, unknown>): ReactNode {
+  const added = m.addedLabels as
+    | Array<{ name: string; color: string }>
+    | undefined
+  const removed = m.removedLabels as
+    | Array<{ name: string; color: string }>
+    | undefined
+  // Fallback to legacy string-only format
+  const addedNames = m.addedLabelNames as string[] | undefined
+  const removedNames = m.removedLabelNames as string[] | undefined
+
+  const parts: ReactNode[] = []
+
+  if (added?.length) {
+    parts.push(
+      <span key="added">
+        added{' '}
+        {added.map((l, i) => (
+          <span key={l.name}>
+            {i > 0 && ', '}
+            <LabelBadge name={l.name} color={l.color} />
+          </span>
+        ))}
+      </span>,
+    )
+  } else if (addedNames?.length) {
+    parts.push(
+      <span key="added">
+        added {addedNames.map((n) => `"${n}"`).join(', ')}
+      </span>,
+    )
+  }
+
+  if (removed?.length) {
+    parts.push(
+      <span key="removed">
+        removed{' '}
+        {removed.map((l, i) => (
+          <span key={l.name}>
+            {i > 0 && ', '}
+            <LabelBadge name={l.name} color={l.color} />
+          </span>
+        ))}
+      </span>,
+    )
+  } else if (removedNames?.length) {
+    parts.push(
+      <span key="removed">
+        removed {removedNames.map((n) => `"${n}"`).join(', ')}
+      </span>,
+    )
+  }
+
+  if (parts.length === 2) {
+    return (
+      <>
+        {parts[0]} and {parts[1]}
+      </>
+    )
+  }
+  if (parts.length === 1) return parts[0]
+  return `updated labels (${m.labelCount} label${m.labelCount !== 1 ? 's' : ''})`
+}
+
+function formatCategoryChange(m: Record<string, unknown>): ReactNode {
+  const fromLabel = m.previousCategoryLabel as string | undefined
+  const fromColor = m.previousCategoryColor as string | undefined
+  const toLabel = m.categoryLabel as string | undefined
+  const toColor = m.categoryColor as string | undefined
+
+  if (fromLabel && toLabel) {
+    return (
+      <>
+        changed category from{' '}
+        <CategoryBadge label={fromLabel} color={fromColor} /> to{' '}
+        <CategoryBadge label={toLabel} color={toColor} />
+      </>
+    )
+  }
+  if (toLabel) {
+    return (
+      <>
+        set category to <CategoryBadge label={toLabel} color={toColor} />
+      </>
+    )
+  }
+  return 'changed the category'
+}
+
+function formatRuleChanges(m: Record<string, unknown>): ReactNode {
+  return `updated rule "${m.pattern}"`
+}
+
 const EVENT_LABELS: Record<
   string,
-  (metadata: Record<string, unknown>) => string
+  (metadata: Record<string, unknown>) => ReactNode
 > = {
-  'transaction.labels_updated': (m) =>
-    `updated labels (${m.labelCount} label${m.labelCount !== 1 ? 's' : ''})`,
+  'transaction.labels_updated': formatLabelDiff,
   'transaction.labels_batch_updated': (m) =>
     `updated labels on ${m.affectedCount} transaction${m.affectedCount !== 1 ? 's' : ''}`,
   'transaction.excluded_from_budget': () =>
@@ -41,18 +166,20 @@ const EVENT_LABELS: Record<
   'transaction.description_updated': () => 'updated the description',
   'transaction.description_batch_updated': (m) =>
     `updated description on ${m.affectedCount} transaction${m.affectedCount !== 1 ? 's' : ''}`,
-  'transaction.category_updated': () => 'changed the category',
+  'transaction.category_updated': formatCategoryChange,
   'transaction.category_batch_updated': (m) =>
     `changed category on ${m.affectedCount} transaction${m.affectedCount !== 1 ? 's' : ''}`,
   'rule.created': (m) => `created rule "${m.pattern}"`,
-  'rule.updated': (m) => `updated rule "${m.pattern}"`,
-  'rule.toggled': (m) => (m.enabled ? 'enabled a rule' : 'disabled a rule'),
+  'rule.updated': formatRuleChanges,
+  'rule.toggled': (m) =>
+    m.enabled ? `enabled rule "${m.pattern}"` : `disabled rule "${m.pattern}"`,
   'rule.deleted': (m) => `deleted rule "${m.pattern}"`,
   'rule.batch_deleted': (m) =>
     `deleted ${m.count} rule${m.count !== 1 ? 's' : ''}`,
   'rule.reordered': (m) =>
     `reordered ${m.count} rule${m.count !== 1 ? 's' : ''}`,
-  'workspace.renamed': (m) => `renamed workspace to "${m.newName}"`,
+  'workspace.renamed': (m) =>
+    `renamed workspace from "${m.previousName}" to "${m.newName}"`,
   'workspace.member_invited': (m) => `invited ${m.invitedEmail}`,
   'workspace.member_removed': () => 'removed a member',
   'workspace.member_permissions_updated': () => 'updated member permissions',
@@ -62,8 +189,12 @@ const EVENT_LABELS: Record<
     `synced ${m.created} new and ${m.updated} updated transaction${(m.created as number) + (m.updated as number) !== 1 ? 's' : ''} from bank`,
   'transaction.rule_applied': () => 'applied a rule to this transaction',
   'connection.synced': () => 'synced a bank connection',
-  'connection.state_changed': (m) =>
-    `changed connection state to ${m.newState}`,
+  'connection.state_changed': (m) => {
+    const prev = m.previousState as string | undefined
+    if (prev)
+      return `changed connection state from "${prev}" to "${m.newState}"`
+    return `changed connection state to "${m.newState}"`
+  },
 }
 
 function formatRelativeTime(timestamp: number): string {
@@ -101,7 +232,7 @@ function getDisplayName(entry: TimelineEntry): string {
   return entry.actorName ?? 'Someone'
 }
 
-function getEventLabel(event: string, metadata: string): string {
+function getEventLabel(event: string, metadata: string): ReactNode {
   try {
     const parsed = JSON.parse(metadata)
     const labelFn = EVENT_LABELS[event]
@@ -154,7 +285,7 @@ export function AuditTimeline({
               const label = getEventLabel(entry.event, entry.metadata)
               const isKnown = EVENT_LABELS[entry.event] !== undefined
               return isKnown ? (
-                <p className="text-sm">
+                <p className="text-sm leading-relaxed [&_span]:inline [&_.inline-badge]:inline-flex [&_.inline-badge]:align-middle [&_.inline-badge]:mx-0.5">
                   <span className="text-foreground font-medium">{name}</span>{' '}
                   <span className="text-muted-foreground">{label}</span>
                 </p>

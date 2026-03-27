@@ -42,9 +42,19 @@ export function CategoryPicker({
         transactionId,
         'encryptedCategories',
       )
+      const prevCat = currentCategoryKey
+        ? getCategory(currentCategoryKey)
+        : undefined
+      const newCat = getCategory(categoryKey)
       await updateCategory({
         transactionId: transactionId as Id<'transactions'>,
         encryptedCategories,
+        categoryKey,
+        categoryLabel: categoryLabel || newCat.label,
+        categoryColor: newCat.color,
+        previousCategoryKey: currentCategoryKey || undefined,
+        previousCategoryLabel: prevCat?.label || undefined,
+        previousCategoryColor: prevCat?.color || undefined,
       })
       const label = categoryLabel || getCategory(categoryKey).label
       toast.success('Category updated', {

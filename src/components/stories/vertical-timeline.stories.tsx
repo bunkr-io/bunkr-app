@@ -34,6 +34,10 @@ const mockEntries: TimelineEntry[] = [
       previousLabelIds: [],
       newLabelIds: ['label1', 'label2'],
       labelCount: 2,
+      addedLabels: [
+        { name: 'Recurring', color: '#8b5cf6' },
+        { name: 'Business', color: '#f59e0b' },
+      ],
     }),
   },
   {
@@ -46,6 +50,11 @@ const mockEntries: TimelineEntry[] = [
     metadata: JSON.stringify({
       transactionId: 'txn_1',
       categoryKey: 'groceries',
+      categoryLabel: 'Groceries',
+      categoryColor: '#22c55e',
+      previousCategoryKey: 'uncategorized',
+      previousCategoryLabel: 'Shopping',
+      previousCategoryColor: '#3b82f6',
     }),
   },
   {
@@ -131,6 +140,10 @@ export const RuleEvents: Story = {
           ruleId: 'rule_1',
           pattern: '*amazon*',
           changedFields: ['categoryKey', 'excludeFromBudget'],
+          changes: {
+            categoryKey: { from: 'shopping', to: 'groceries' },
+            excludeFromBudget: { from: false, to: true },
+          },
         }),
       },
     ],
@@ -173,6 +186,69 @@ export const WorkspaceEvents: Story = {
             canViewTeamDashboard: true,
             canViewMemberBreakdown: false,
           },
+        }),
+      },
+    ],
+  },
+}
+
+export const EnrichedBadges: Story = {
+  args: {
+    entries: [
+      {
+        id: '1',
+        timestamp: now,
+        event: 'transaction.category_updated',
+        actorType: 'user',
+        actorName: 'Alice Johnson',
+        metadata: JSON.stringify({
+          transactionId: 'txn_1',
+          categoryLabel: 'Groceries',
+          categoryColor: '#22c55e',
+          previousCategoryLabel: 'Shopping',
+          previousCategoryColor: '#3b82f6',
+        }),
+      },
+      {
+        id: '2',
+        timestamp: oneHourAgo,
+        event: 'transaction.category_updated',
+        actorType: 'user',
+        actorName: 'Bob Smith',
+        metadata: JSON.stringify({
+          transactionId: 'txn_1',
+          categoryLabel: 'Restaurants',
+          categoryColor: '#f97316',
+        }),
+      },
+      {
+        id: '3',
+        timestamp: twoHoursAgo,
+        event: 'transaction.labels_updated',
+        actorType: 'user',
+        actorName: 'Alice Johnson',
+        metadata: JSON.stringify({
+          transactionId: 'txn_1',
+          labelCount: 3,
+          addedLabels: [{ name: 'Vacation', color: '#06b6d4' }],
+          removedLabels: [
+            { name: 'Business', color: '#f59e0b' },
+            { name: 'Tax', color: '#ef4444' },
+          ],
+        }),
+      },
+      {
+        id: '4',
+        timestamp: oneDayAgo,
+        event: 'transaction.labels_updated',
+        actorType: 'system',
+        metadata: JSON.stringify({
+          transactionId: 'txn_1',
+          labelCount: 2,
+          addedLabels: [
+            { name: 'Recurring', color: '#8b5cf6' },
+            { name: 'Subscription', color: '#ec4899' },
+          ],
         }),
       },
     ],

@@ -171,6 +171,15 @@ export const updateRule = mutation({
         ruleId: args.ruleId,
         pattern: args.pattern ?? rule.pattern,
         changedFields,
+        changes: Object.fromEntries(
+          changedFields.map((field) => [
+            field,
+            {
+              from: rule[field as keyof typeof rule],
+              to: args[field as keyof typeof args],
+            },
+          ]),
+        ),
       }),
     })
   },
@@ -210,6 +219,7 @@ export const toggleRule = mutation({
       resourceId: args.ruleId,
       metadata: JSON.stringify({
         ruleId: args.ruleId,
+        pattern: rule.pattern,
         enabled: args.enabled,
       }),
     })

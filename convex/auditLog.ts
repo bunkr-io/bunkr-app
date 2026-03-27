@@ -55,6 +55,8 @@ export type AuditMetadata =
         previousLabelIds: string[]
         newLabelIds: string[]
         labelCount: number
+        addedLabelNames?: string[]
+        removedLabelNames?: string[]
       }
     }
   | {
@@ -87,7 +89,13 @@ export type AuditMetadata =
     }
   | {
       type: 'transaction.category_updated'
-      data: { transactionId: string; categoryKey?: string }
+      data: {
+        transactionId: string
+        categoryKey?: string
+        categoryLabel?: string
+        previousCategoryKey?: string
+        previousCategoryLabel?: string
+      }
     }
   | {
       type: 'transaction.category_batch_updated'
@@ -106,7 +114,12 @@ export type AuditMetadata =
     }
   | {
       type: 'rule.updated'
-      data: { ruleId: string; pattern: string; changedFields: string[] }
+      data: {
+        ruleId: string
+        pattern: string
+        changedFields: string[]
+        changes?: Record<string, { from: unknown; to: unknown }>
+      }
     }
   | { type: 'rule.toggled'; data: { ruleId: string; enabled: boolean } }
   | { type: 'rule.deleted'; data: { ruleId: string; pattern: string } }

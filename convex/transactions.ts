@@ -110,6 +110,18 @@ export const updateTransactionLabels = mutation({
       labelIds: args.labelIds,
     })
 
+    // Resolve label names for audit metadata
+    const addedIds = args.labelIds.filter(
+      (id) => !previousLabelIds.includes(id),
+    )
+    const removedIds = previousLabelIds.filter(
+      (id) => !args.labelIds.includes(id),
+    )
+    const addedLabels = await Promise.all(addedIds.map((id) => ctx.db.get(id)))
+    const removedLabels = await Promise.all(
+      removedIds.map((id) => ctx.db.get(id)),
+    )
+
     const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
     const identity = await ctx.auth.getUserIdentity()
     await insertAuditLogDirect(ctx.db, {
@@ -127,6 +139,12 @@ export const updateTransactionLabels = mutation({
         previousLabelIds,
         newLabelIds: args.labelIds,
         labelCount: args.labelIds.length,
+        addedLabels: addedLabels
+          .filter((l) => l != null)
+          .map((l) => ({ name: l.name, color: l.color })),
+        removedLabels: removedLabels
+          .filter((l) => l != null)
+          .map((l) => ({ name: l.name, color: l.color })),
       }),
     })
   },
@@ -606,6 +624,11 @@ export const updateTransactionCategory = mutation({
     transactionId: v.id('transactions'),
     encryptedCategories: v.string(),
     categoryKey: v.optional(v.string()),
+    categoryLabel: v.optional(v.string()),
+    categoryColor: v.optional(v.string()),
+    previousCategoryKey: v.optional(v.string()),
+    previousCategoryLabel: v.optional(v.string()),
+    previousCategoryColor: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -645,6 +668,11 @@ export const updateTransactionCategory = mutation({
       metadata: JSON.stringify({
         transactionId: args.transactionId,
         categoryKey: args.categoryKey,
+        categoryLabel: args.categoryLabel,
+        categoryColor: args.categoryColor,
+        previousCategoryKey: args.previousCategoryKey,
+        previousCategoryLabel: args.previousCategoryLabel,
+        previousCategoryColor: args.previousCategoryColor,
       }),
     })
   },
