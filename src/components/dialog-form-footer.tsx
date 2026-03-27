@@ -10,6 +10,7 @@ interface DialogFormFooterProps {
   disabled: boolean
   saving: boolean
   confirmLabel: string
+  className?: string
 }
 
 export function DialogFormFooter({
@@ -18,6 +19,7 @@ export function DialogFormFooter({
   disabled,
   saving,
   confirmLabel,
+  className,
 }: DialogFormFooterProps) {
   const handleConfirm = useCallback(() => {
     if (!disabled) onConfirm()
@@ -35,7 +37,7 @@ export function DialogFormFooter({
   })
 
   return (
-    <DialogFooter>
+    <DialogFooter className={className}>
       <Button variant="outline" onClick={onCancel}>
         Cancel <Kbd>Esc</Kbd>
       </Button>

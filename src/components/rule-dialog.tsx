@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from 'convex/react'
-import { ChevronsUpDown } from 'lucide-react'
+import { ChevronsUpDown, Loader2, Search } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
 import { CategoryCombobox } from '~/components/category-combobox'
@@ -32,6 +32,7 @@ import { Switch } from '~/components/ui/switch'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { useRetroactiveRuleApplication } from '~/hooks/use-retroactive-rule-application'
+import { type PreviewMatch, useRulePreview } from '~/hooks/use-rule-preview'
 import { cn } from '~/lib/utils'
 import { api } from '../../convex/_generated/api'
 import type { Doc, Id } from '../../convex/_generated/dataModel'
@@ -116,9 +117,11 @@ export function RuleDialog({
   const createRule = useMutation(api.transactionRules.createRule)
   const updateRule = useMutation(api.transactionRules.updateRule)
   const { apply } = useRetroactiveRuleApplication()
+  const preview = useRulePreview()
 
   React.useEffect(() => {
     if (open) {
+      preview.reset()
       if (rule) {
         setPattern(rule.pattern)
         setMatchType(rule.matchType)
@@ -146,6 +149,7 @@ export function RuleDialog({
     defaultCategoryKey,
     defaultExcludeFromBudget,
     defaultCustomDescription,
+    preview.reset,
   ])
 
   const hasAction =
@@ -246,143 +250,159 @@ export function RuleDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
-          {/* Condition */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                when transaction
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-            <div className="flex">
-              <MatchTypePicker matchType={matchType} onChange={setMatchType} />
-              <Input
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                placeholder={
-                  matchType === 'regex'
-                    ? 'e.g. CARREFOUR|LECLERC or ^CB\\s.*'
-                    : 'e.g. CARREFOUR'
-                }
-                className="rounded-l-none border-l-0 font-mono"
-                autoFocus
-              />
+        <div className="-mx-4 max-h-[50vh] overflow-y-auto px-4">
+          <div className="space-y-5">
+            {/* Condition */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                  when transaction
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <div className="flex">
+                <MatchTypePicker
+                  matchType={matchType}
+                  onChange={setMatchType}
+                />
+                <Input
+                  value={pattern}
+                  onChange={(e) => setPattern(e.target.value)}
+                  placeholder={
+                    matchType === 'regex'
+                      ? 'e.g. CARREFOUR|LECLERC or ^CB\\s.*'
+                      : 'e.g. CARREFOUR'
+                  }
+                  className="rounded-l-none border-l-0 font-mono"
+                  autoFocus
+                />
+              </div>
+
+              {/* Account filter */}
+              {activeBankAccounts.length > 0 && (
+                <div className="space-y-2">
+                  <Label>From account</Label>
+                  <AccountMultiSelect
+                    accounts={activeBankAccounts}
+                    selectedAccountIds={selectedAccountIds}
+                    onToggle={(accountId) =>
+                      setSelectedAccountIds((prev) =>
+                        prev.includes(accountId)
+                          ? prev.filter((id) => id !== accountId)
+                          : [...prev, accountId],
+                      )
+                    }
+                  />
+                </div>
+              )}
             </div>
 
-            {/* Account filter */}
-            {activeBankAccounts.length > 0 && (
+            {/* Preview */}
+            <RulePreview
+              pattern={pattern}
+              matchType={matchType}
+              portfolioId={portfolioId}
+              selectedAccountIds={selectedAccountIds}
+              preview={preview}
+            />
+
+            {/* Actions */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">
+                  then
+                </span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* Assign category */}
               <div className="space-y-2">
-                <Label>From account</Label>
-                <AccountMultiSelect
-                  accounts={activeBankAccounts}
-                  selectedAccountIds={selectedAccountIds}
-                  onToggle={(accountId) =>
-                    setSelectedAccountIds((prev) =>
-                      prev.includes(accountId)
-                        ? prev.filter((id) => id !== accountId)
-                        : [...prev, accountId],
-                    )
+                <Label>Assign category</Label>
+                <CategoryCombobox
+                  value={categoryKey}
+                  onChange={(key) => setCategoryKey(key)}
+                  allowCreate
+                  trigger={({ category, open }) => (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={open}
+                      className="w-full justify-between font-normal"
+                    >
+                      {categoryKey ? (
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="size-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: category.color }}
+                          />
+                          {category.label}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          No category
+                        </span>
+                      )}
+                      <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+                    </Button>
+                  )}
+                />
+              </div>
+
+              {/* Add labels */}
+              {labels && labels.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Add labels</Label>
+                  <LabelMultiSelect
+                    labels={labels}
+                    selectedLabelIds={selectedLabelIds}
+                    selectedLabels={selectedLabels}
+                    onToggle={toggleLabel}
+                  />
+                </div>
+              )}
+
+              {/* Change description */}
+              <div className="space-y-2">
+                <Label>Change description to</Label>
+                <Input
+                  value={customDescription}
+                  onChange={(e) => setCustomDescription(e.target.value)}
+                  placeholder="Custom description"
+                />
+              </div>
+
+              {/* Exclude from budget */}
+              <div className="flex items-center justify-between">
+                <Label htmlFor="exclude-budget" className="font-normal">
+                  Exclude from budget
+                </Label>
+                <Switch
+                  id="exclude-budget"
+                  checked={excludeFromBudget}
+                  onCheckedChange={setExcludeFromBudget}
+                />
+              </div>
+            </div>
+
+            {/* Apply retroactively */}
+            {!isEdit && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="apply-retroactively"
+                  checked={applyRetroactively}
+                  onCheckedChange={(checked) =>
+                    setApplyRetroactively(checked === true)
                   }
                 />
+                <Label htmlFor="apply-retroactively" className="font-normal">
+                  Apply to existing transactions
+                </Label>
               </div>
             )}
           </div>
-
-          {/* Actions */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                then
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            {/* Assign category */}
-            <div className="space-y-2">
-              <Label>Assign category</Label>
-              <CategoryCombobox
-                value={categoryKey}
-                onChange={(key) => setCategoryKey(key)}
-                allowCreate
-                trigger={({ category, open }) => (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between font-normal"
-                  >
-                    {categoryKey ? (
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="size-2.5 shrink-0 rounded-full"
-                          style={{ backgroundColor: category.color }}
-                        />
-                        {category.label}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">No category</span>
-                    )}
-                    <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
-                  </Button>
-                )}
-              />
-            </div>
-
-            {/* Add labels */}
-            {labels && labels.length > 0 && (
-              <div className="space-y-2">
-                <Label>Add labels</Label>
-                <LabelMultiSelect
-                  labels={labels}
-                  selectedLabelIds={selectedLabelIds}
-                  selectedLabels={selectedLabels}
-                  onToggle={toggleLabel}
-                />
-              </div>
-            )}
-
-            {/* Change description */}
-            <div className="space-y-2">
-              <Label>Change description to</Label>
-              <Input
-                value={customDescription}
-                onChange={(e) => setCustomDescription(e.target.value)}
-                placeholder="Custom description"
-              />
-            </div>
-
-            {/* Exclude from budget */}
-            <div className="flex items-center justify-between">
-              <Label htmlFor="exclude-budget" className="font-normal">
-                Exclude from budget
-              </Label>
-              <Switch
-                id="exclude-budget"
-                checked={excludeFromBudget}
-                onCheckedChange={setExcludeFromBudget}
-              />
-            </div>
-          </div>
-
-          {/* Apply retroactively */}
-          {!isEdit && (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="apply-retroactively"
-                checked={applyRetroactively}
-                onCheckedChange={(checked) =>
-                  setApplyRetroactively(checked === true)
-                }
-              />
-              <Label htmlFor="apply-retroactively" className="font-normal">
-                Apply to existing transactions
-              </Label>
-            </div>
-          )}
         </div>
 
         <DialogFormFooter
@@ -446,6 +466,138 @@ function MatchTypePicker({
         </button>
       </PopoverContent>
     </Popover>
+  )
+}
+
+function RulePreview({
+  pattern,
+  matchType,
+  portfolioId,
+  selectedAccountIds,
+  preview,
+}: {
+  pattern: string
+  matchType: 'contains' | 'regex'
+  portfolioId?: Id<'portfolios'>
+  selectedAccountIds: string[]
+  preview: ReturnType<typeof useRulePreview>
+}) {
+  const handleTest = () => {
+    preview.scan({
+      pattern: pattern.trim(),
+      matchType,
+      portfolioId,
+      accountIds:
+        selectedAccountIds.length > 0
+          ? (selectedAccountIds as Array<Id<'bankAccounts'>>)
+          : undefined,
+    })
+  }
+
+  const hasResults =
+    !preview.isScanning && !preview.error && preview.totalScanned > 0
+
+  return (
+    <div className="space-y-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={!pattern.trim() || preview.isScanning}
+        onClick={handleTest}
+      >
+        {preview.isScanning ? (
+          <>
+            <Loader2 className="size-3.5 animate-spin" />
+            Scanning...
+          </>
+        ) : (
+          <>
+            <Search className="size-3.5" />
+            Test rule
+          </>
+        )}
+      </Button>
+
+      {preview.isScanning && preview.totalScanned > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {preview.totalMatched} match
+          {preview.totalMatched !== 1 ? 'es' : ''} found —{' '}
+          {preview.totalScanned} scanned...
+        </p>
+      )}
+
+      {preview.error && (
+        <p className="text-xs text-destructive">{preview.error}</p>
+      )}
+
+      {hasResults && (
+        <div className="min-w-0 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {preview.totalMatched}
+            </span>{' '}
+            transaction{preview.totalMatched !== 1 ? 's' : ''} match
+            {preview.totalMatched === 1 ? 'es' : ''} out of{' '}
+            {preview.totalScanned}
+          </p>
+
+          {preview.matches.length > 0 && (
+            <div className="overflow-hidden rounded-md border">
+              <table className="w-full table-fixed text-xs">
+                <colgroup>
+                  <col className="w-16" />
+                  <col />
+                  <col className="w-16" />
+                </colgroup>
+                <tbody className="divide-y">
+                  {preview.matches.map((match) => (
+                    <PreviewRow key={match._id} match={match} />
+                  ))}
+                </tbody>
+              </table>
+              {preview.totalMatched > preview.matches.length && (
+                <div className="border-t px-3 py-1.5 text-xs text-muted-foreground">
+                  ... and {preview.totalMatched - preview.matches.length} more
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PreviewRow({ match }: { match: PreviewMatch }) {
+  const dateStr = new Date(match.date).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+  const amount = new Intl.NumberFormat('fr-FR', {
+    style: 'decimal',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(match.value)
+
+  return (
+    <tr>
+      <td className="whitespace-nowrap px-3 py-1.5 text-muted-foreground">
+        {dateStr}
+      </td>
+      <td className="truncate px-3 py-1.5" title={match.wording}>
+        {match.wording}
+      </td>
+      <td
+        className={cn(
+          'px-3 py-1.5 text-right tabular-nums',
+          match.value < 0 ? 'text-foreground' : 'text-emerald-600',
+        )}
+      >
+        {match.value >= 0 ? '+' : ''}
+        {amount}
+      </td>
+    </tr>
   )
 }
 
