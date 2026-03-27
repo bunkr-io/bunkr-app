@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { Landmark } from 'lucide-react'
 import * as React from 'react'
@@ -66,6 +66,7 @@ function Dashboard() {
 }
 
 function BankAccountsSection() {
+  const navigate = useNavigate()
   const {
     isLoading: portfolioLoading,
     isAllPortfolios,
@@ -280,6 +281,9 @@ function BankAccountsSection() {
           data={allocationData}
           currency={currency}
           total={totalBalance}
+          onCategoryClick={(categoryKey) => {
+            navigate({ to: '/accounts', search: { type: categoryKey } })
+          }}
         />
       </div>
 

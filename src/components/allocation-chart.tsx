@@ -36,6 +36,7 @@ interface AllocationChartProps {
   data: Array<AllocationEntry>
   currency: string
   total: number
+  onCategoryClick?: (categoryKey: string) => void
 }
 
 type ChartView = 'donut' | 'treemap'
@@ -301,11 +302,13 @@ function AllocationLegend({
   currency,
   total,
   formatCurrency,
+  onCategoryClick,
 }: {
   data: Array<AllocationEntry>
   currency: string
   total: number
   formatCurrency: (value: number, currency: string) => string
+  onCategoryClick?: (categoryKey: string) => void
 }) {
   return (
     <div className="grid w-full gap-2 text-sm">
@@ -313,7 +316,28 @@ function AllocationLegend({
         const percentage =
           total > 0 ? ((entry.value / total) * 100).toFixed(1) : '0'
 
-        return (
+        return onCategoryClick ? (
+          <button
+            key={entry.key}
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-3"
+            onClick={() => onCategoryClick(entry.key)}
+          >
+            <div
+              className="size-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="flex-1 text-left font-medium hover:underline">
+              {entry.label}
+            </span>
+            <span className="font-mono tabular-nums text-muted-foreground">
+              {percentage}%
+            </span>
+            <span className="font-mono font-medium tabular-nums">
+              {formatCurrency(entry.value, currency)}
+            </span>
+          </button>
+        ) : (
           <div key={entry.key} className="flex items-center gap-3">
             <div
               className="size-3 shrink-0 rounded-sm"
@@ -337,6 +361,7 @@ export function AllocationChart({
   data,
   currency,
   total,
+  onCategoryClick,
 }: AllocationChartProps) {
   const [view, setView] = React.useState<ChartView>('donut')
   const { isPrivate } = usePrivacy()
@@ -414,6 +439,7 @@ export function AllocationChart({
             currency={currency}
             total={total}
             formatCurrency={formatCurrency}
+            onCategoryClick={onCategoryClick}
           />
         </div>
       </CardContent>
