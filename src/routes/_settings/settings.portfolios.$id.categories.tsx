@@ -1,21 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
+import { ConvexError } from 'convex/values'
 import { MoreHorizontal, Plus } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
-import { CategoryFormFields } from '~/components/category-form-fields'
 import { ConfirmDialog } from '~/components/confirm-dialog'
-import { DataTable, type DataTableGroup } from '~/components/data-table'
-import { DialogFormFooter } from '~/components/dialog-form-footer'
-import { Button } from '~/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '~/components/ui/dialog'
+  CreateCategoryDialog,
+  useCreateCategoryDialog,
+} from '~/components/create-category-dialog'
+import { DataTable, type DataTableGroup } from '~/components/data-table'
+import { Button } from '~/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,46 +84,20 @@ function CategoriesTable({
   categories: CategoryRow[]
   portfolioId: Id<'portfolios'>
 }) {
-  const createCategory = useMutation(api.categories.createCategory)
   const deleteCategory = useMutation(api.categories.deleteCategory)
   const batchDeleteCategories = useMutation(
     api.categories.batchDeleteCategories,
   )
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const [newLabel, setNewLabel] = React.useState('')
-  const [newDescription, setNewDescription] = React.useState('')
-  const [newColor, setNewColor] = React.useState('#3B82F6')
-  const [saving, setSaving] = React.useState(false)
+  const customCategoryCount = categories.filter(
+    (c) => c.portfolioId === portfolioId && !c.builtIn,
+  ).length
+  const createDialog = useCreateCategoryDialog(customCategoryCount, portfolioId)
   const [deletingCategoryId, setDeletingCategoryId] =
     React.useState<Id<'transactionCategories'> | null>(null)
 
   const isPortfolioLevel = (row: CategoryRow) => row.portfolioId === portfolioId
 
   const canSelect = (row: CategoryRow) => isPortfolioLevel(row) && !row.builtIn
-
-  const handleCreate = async () => {
-    if (!newLabel.trim()) return
-    setSaving(true)
-    try {
-      await createCategory({
-        portfolioId,
-        label: newLabel.trim(),
-        description: newDescription.trim() || undefined,
-        color: newColor,
-      })
-      toast.success('Category created')
-      setCreateOpen(false)
-      setNewLabel('')
-      setNewDescription('')
-      setNewColor('#3B82F6')
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to create category',
-      )
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const handleDelete = async () => {
     if (!deletingCategoryId) return
@@ -137,7 +107,9 @@ function CategoriesTable({
       setDeletingCategoryId(null)
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to delete category',
+        err instanceof ConvexError
+          ? (err.data as string)
+          : 'Failed to delete category',
       )
     }
   }
@@ -152,7 +124,9 @@ function CategoriesTable({
       )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to delete categories',
+        err instanceof ConvexError
+          ? (err.data as string)
+          : 'Failed to delete categories',
       )
     }
   }
@@ -245,38 +219,21 @@ function CategoriesTable({
         disabledRowTooltip="Inherited from workspace — manage in workspace settings"
         groups={categoryGroups}
         actions={
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" onClick={() => createDialog.openDialog('')}>
             <Plus className="size-4" />
             Add category
           </Button>
         }
       />
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md" showCloseButton={false}>
-          <DialogHeader>
-            <DialogTitle>Add Category</DialogTitle>
-            <DialogDescription>
-              Create a category for this portfolio.
-            </DialogDescription>
-          </DialogHeader>
-          <CategoryFormFields
-            label={newLabel}
-            description={newDescription}
-            color={newColor}
-            onLabelChange={setNewLabel}
-            onDescriptionChange={setNewDescription}
-            onColorChange={setNewColor}
-          />
-          <DialogFormFooter
-            onCancel={() => setCreateOpen(false)}
-            onConfirm={handleCreate}
-            disabled={saving || !newLabel.trim()}
-            saving={saving}
-            confirmLabel="Create"
-          />
-        </DialogContent>
-      </Dialog>
+      <CreateCategoryDialog
+        open={createDialog.dialogOpen}
+        onOpenChange={createDialog.setDialogOpen}
+        initialName={createDialog.initialName}
+        initialColor={createDialog.initialColor}
+        defaultPortfolioId={createDialog.defaultPortfolioId}
+        onCreated={() => {}}
+      />
 
       <ConfirmDialog
         open={deletingCategoryId !== null}

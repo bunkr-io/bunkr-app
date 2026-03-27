@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
+import { ConvexError } from 'convex/values'
 import { Lock, MoreHorizontal, Plus } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
@@ -97,7 +98,9 @@ function CategoriesList() {
       setNewDescription('')
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to create category',
+        err instanceof ConvexError
+          ? (err.data as string)
+          : 'Failed to create category',
       )
     } finally {
       setSaving(false)
@@ -112,7 +115,9 @@ function CategoriesList() {
       setDeletingCategoryId(null)
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to delete category',
+        err instanceof ConvexError
+          ? (err.data as string)
+          : 'Failed to delete category',
       )
     }
   }
@@ -127,7 +132,9 @@ function CategoriesList() {
       )
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to delete categories',
+        err instanceof ConvexError
+          ? (err.data as string)
+          : 'Failed to delete categories',
       )
     }
   }

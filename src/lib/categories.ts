@@ -81,10 +81,23 @@ export function useCategories(): {
     [dbCategories],
   )
 
-  const categoryMap = React.useMemo(
-    () => new Map(categories.map((c) => [c.key, c])),
-    [categories],
-  )
+  const categoryMap = React.useMemo(() => {
+    if (!dbCategories || dbCategories.length === 0) {
+      return new Map(categories.map((c) => [c.key, c]))
+    }
+    // When includeAllPortfolios is true, duplicate keys may exist across
+    // portfolios. Prefer workspace-level categories (no portfolioId) over
+    // portfolio-specific ones when building the lookup map.
+    const map = new Map<string, CategoryInfo>()
+    for (let i = 0; i < categories.length; i++) {
+      const cat = categories[i]
+      const isWorkspaceLevel = !dbCategories[i].portfolioId
+      if (!map.has(cat.key) || isWorkspaceLevel) {
+        map.set(cat.key, cat)
+      }
+    }
+    return map
+  }, [categories, dbCategories])
 
   const getCategory = React.useCallback(
     (key: string): CategoryInfo =>

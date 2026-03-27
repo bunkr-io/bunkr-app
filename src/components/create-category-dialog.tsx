@@ -1,7 +1,10 @@
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
+import { ConvexError } from 'convex/values'
 import * as React from 'react'
 import { toast } from 'sonner'
 import { DialogFormFooter } from '~/components/dialog-form-footer'
+import { Alert, AlertDescription } from '~/components/ui/alert'
+import { Button } from '~/components/ui/button'
 import { ColorPicker } from '~/components/ui/color-picker'
 import {
   Dialog,
@@ -52,8 +55,22 @@ export function CreateCategoryDialog({
     defaultPortfolioId ?? 'workspace',
   )
   const [saving, setSaving] = React.useState(false)
+  const [showPromote, setShowPromote] = React.useState(false)
   const createCategory = useMutation(api.categories.createCategory)
+  const promoteCategoryMutation = useMutation(api.categories.promoteCategory)
   const { portfolios } = usePortfolio()
+
+  const key = deriveCategoryKey(name.trim())
+  const conflict = useQuery(
+    api.categories.checkCategoryKeyConflict,
+    key
+      ? {
+          key,
+          portfolioId:
+            scope !== 'workspace' ? (scope as Id<'portfolios'>) : undefined,
+        }
+      : 'skip',
+  )
 
   // Sync initial values when dialog opens with new props
   React.useEffect(() => {
@@ -62,6 +79,7 @@ export function CreateCategoryDialog({
       setDescription('')
       setColor(initialColor)
       setScope(defaultPortfolioId ?? 'workspace')
+      setShowPromote(false)
     }
   }, [open, initialName, initialColor, defaultPortfolioId])
 
@@ -70,6 +88,12 @@ export function CreateCategoryDialog({
   const handleCreate = async () => {
     const label = name.trim()
     if (!label) return
+
+    // Suggest promoting when same key exists in another portfolio
+    if (conflict?.type === 'exists_in_portfolio') {
+      setShowPromote(true)
+      return
+    }
 
     setSaving(true)
     try {
@@ -80,13 +104,37 @@ export function CreateCategoryDialog({
         portfolioId:
           scope !== 'workspace' ? (scope as Id<'portfolios'>) : undefined,
       })
-      const key = deriveCategoryKey(label)
+      const categoryKey = deriveCategoryKey(label)
       onOpenChange(false)
-      onCreated(key, label)
+      onCreated(categoryKey, label)
       toast.success(`Category "${label}" created`)
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : 'Failed to create category',
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to create category',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handlePromote = async () => {
+    if (conflict?.type !== 'exists_in_portfolio') return
+
+    setSaving(true)
+    try {
+      await promoteCategoryMutation({ categoryId: conflict.categoryId })
+      onOpenChange(false)
+      onCreated(key, name.trim())
+      toast.success(
+        `Category "${name.trim()}" is now available across all portfolios`,
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof ConvexError
+          ? (error.data as string)
+          : 'Failed to promote category',
       )
     } finally {
       setSaving(false)
@@ -117,7 +165,10 @@ export function CreateCategoryDialog({
             <Input
               id="create-cat-name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value)
+                setShowPromote(false)
+              }}
               placeholder="e.g. Coffee Shops"
               autoFocus
             />
@@ -140,7 +191,10 @@ export function CreateCategoryDialog({
             <Label>Scope</Label>
             <Select
               value={scope}
-              onValueChange={(v) => setScope(v as CategoryScope)}
+              onValueChange={(v) => {
+                setScope(v as CategoryScope)
+                setShowPromote(false)
+              }}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -157,14 +211,39 @@ export function CreateCategoryDialog({
               </SelectContent>
             </Select>
           </div>
+          {showPromote && conflict?.type === 'exists_in_portfolio' && (
+            <Alert>
+              <AlertDescription className="space-y-3">
+                <p>
+                  "{name.trim()}" already exists in{' '}
+                  <span className="font-medium">{conflict.portfolioName}</span>.
+                  Would you like to make it available across all portfolios?
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handlePromote} loading={saving}>
+                    Make workspace-wide
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowPromote(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
-        <DialogFormFooter
-          onCancel={handleCancel}
-          onConfirm={handleCreate}
-          disabled={disabled}
-          saving={saving}
-          confirmLabel="Create"
-        />
+        {!showPromote && (
+          <DialogFormFooter
+            onCancel={handleCancel}
+            onConfirm={handleCreate}
+            disabled={disabled}
+            saving={saving}
+            confirmLabel="Create"
+          />
+        )}
       </DialogContent>
     </Dialog>
   )

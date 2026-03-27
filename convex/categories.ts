@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internalMutation, mutation, query } from './_generated/server'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 
@@ -218,13 +218,26 @@ export const createCategory = mutation({
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_|_$/g, '')
 
-    const existing = await ctx.db
+    const existingWithKey = await ctx.db
       .query('transactionCategories')
       .withIndex('by_workspaceId_key', (q) =>
         q.eq('workspaceId', member.workspaceId).eq('key', key),
       )
-      .first()
-    if (existing) throw new Error('A category with this name already exists')
+      .collect()
+
+    if (args.portfolioId) {
+      // Portfolio-level: only block if same key exists in the same portfolio
+      const samePortfolio = existingWithKey.find(
+        (c) => c.portfolioId === args.portfolioId,
+      )
+      if (samePortfolio)
+        throw new ConvexError('A category with this name already exists')
+    } else {
+      // Workspace-level: only block if same key exists at workspace level
+      const sameWorkspace = existingWithKey.find((c) => !c.portfolioId)
+      if (sameWorkspace)
+        throw new ConvexError('A category with this name already exists')
+    }
 
     return await ctx.db.insert('transactionCategories', {
       workspaceId: member.workspaceId,
@@ -316,6 +329,115 @@ export const deleteCategory = mutation({
     }
 
     await ctx.db.delete('transactionCategories', args.categoryId)
+  },
+})
+
+export const checkCategoryKeyConflict = query({
+  args: {
+    key: v.string(),
+    portfolioId: v.optional(v.id('portfolios')),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return { type: 'none' as const }
+
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member) return { type: 'none' as const }
+
+    const existing = await ctx.db
+      .query('transactionCategories')
+      .withIndex('by_workspaceId_key', (q) =>
+        q.eq('workspaceId', member.workspaceId).eq('key', args.key),
+      )
+      .collect()
+
+    if (args.portfolioId) {
+      // Creating portfolio-level: block if same key in same portfolio
+      const samePortfolio = existing.find(
+        (c) => c.portfolioId === args.portfolioId,
+      )
+      if (samePortfolio) return { type: 'exact_duplicate' as const }
+
+      // Suggest promote if it exists in another portfolio
+      const otherPortfolio = existing.find(
+        (c) => c.portfolioId && c.portfolioId !== args.portfolioId,
+      )
+      if (otherPortfolio) {
+        const portfolio = await ctx.db.get(
+          'portfolios',
+          otherPortfolio.portfolioId!,
+        )
+        return {
+          type: 'exists_in_portfolio' as const,
+          categoryId: otherPortfolio._id,
+          portfolioName: portfolio?.name ?? 'Unknown',
+        }
+      }
+      return { type: 'none' as const }
+    }
+
+    // Creating workspace-level
+    const workspaceLevel = existing.find((c) => !c.portfolioId)
+    if (workspaceLevel) return { type: 'exact_duplicate' as const }
+
+    // Check if it exists in a portfolio — offer to promote
+    const portfolioLevel = existing.find((c) => c.portfolioId)
+    if (portfolioLevel) {
+      const portfolio = portfolioLevel.portfolioId
+        ? await ctx.db.get('portfolios', portfolioLevel.portfolioId)
+        : null
+      return {
+        type: 'exists_in_portfolio' as const,
+        categoryId: portfolioLevel._id,
+        portfolioName: portfolio?.name ?? 'Unknown',
+      }
+    }
+
+    return { type: 'none' as const }
+  },
+})
+
+export const promoteCategory = mutation({
+  args: { categoryId: v.id('transactionCategories') },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+
+    if (!member || member.role !== 'owner') {
+      throw new Error(
+        'Only workspace owners can promote categories to workspace level',
+      )
+    }
+
+    const category = await ctx.db.get('transactionCategories', args.categoryId)
+    if (!category) throw new Error('Category not found')
+    if (category.workspaceId !== member.workspaceId)
+      throw new Error('Not authorized')
+    if (!category.portfolioId)
+      throw new Error('Category is already workspace-level')
+
+    // Ensure no workspace-level category with same key
+    const existing = await ctx.db
+      .query('transactionCategories')
+      .withIndex('by_workspaceId_key', (q) =>
+        q.eq('workspaceId', member.workspaceId).eq('key', category.key),
+      )
+      .collect()
+    const workspaceLevel = existing.find((c) => !c.portfolioId)
+    if (workspaceLevel)
+      throw new ConvexError(
+        'A workspace-level category with this name already exists',
+      )
+
+    await ctx.db.patch('transactionCategories', args.categoryId, {
+      portfolioId: undefined,
+    })
   },
 })
 
