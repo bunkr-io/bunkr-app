@@ -7,6 +7,7 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  mutation,
   query,
 } from './_generated/server'
 import { insertAuditLogDirect } from './auditLog'
@@ -1703,5 +1704,50 @@ export const getBankAccount = query({
       ...account,
       connectionEncryptedData: connection?.encryptedData ?? undefined,
     }
+  },
+})
+
+export const updateBankAccountCustomName = mutation({
+  args: {
+    bankAccountId: v.id('bankAccounts'),
+    encryptedCustomName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const account = await ctx.db.get('bankAccounts', args.bankAccountId)
+    if (!account) throw new Error('Bank account not found')
+
+    const portfolio = await ctx.db.get('portfolios', account.portfolioId)
+    if (!portfolio) throw new Error('Portfolio not found')
+
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member || member.workspaceId !== portfolio.workspaceId) {
+      throw new Error('Not authorized')
+    }
+
+    await ctx.db.patch('bankAccounts', args.bankAccountId, {
+      encryptedCustomName: args.encryptedCustomName,
+    })
+
+    const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: portfolio.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      portfolioId: portfolio._id,
+      portfolioName: portfolio.name,
+      actorType: 'user',
+      actorId: userId,
+      event: 'bank_account.custom_name_updated',
+      resourceType: 'bankAccount',
+      resourceId: account._id,
+      metadata: JSON.stringify({
+        bankAccountId: account._id,
+        action: args.encryptedCustomName ? 'set' : 'cleared',
+      }),
+    })
   },
 })

@@ -45,6 +45,7 @@ type DecryptedBankAccount = NonNullable<
   iban?: string
   balance?: number
   connectorName?: string
+  customName?: string
 }
 
 interface TransactionRecord {
@@ -191,9 +192,11 @@ function TransactionsContent() {
     const map = new Map<string, string>()
     if (!bankAccounts) return map
     for (const ba of bankAccounts) {
-      const label = ba.connectorName
-        ? `${ba.connectorName} – ${ba.name ?? ''}`
-        : (ba.name ?? '')
+      const label = ba.customName
+        ? ba.customName
+        : ba.connectorName
+          ? `${ba.connectorName} – ${ba.name ?? ''}`
+          : (ba.name ?? '')
       map.set(ba._id, label)
     }
     return map

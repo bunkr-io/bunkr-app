@@ -108,6 +108,7 @@ export default defineSchema({
     lastSync: v.optional(v.string()),
     encryptedIdentity: v.string(),
     encryptedBalance: v.string(),
+    encryptedCustomName: v.optional(v.string()),
   })
     .index('by_connectionId', ['connectionId'])
     .index('by_portfolioId', ['portfolioId']),

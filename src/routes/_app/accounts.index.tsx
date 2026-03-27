@@ -50,6 +50,7 @@ type DecryptedBankAccount = NonNullable<
   iban?: string
   balance: number
   connectorName?: string
+  customName?: string
 }
 
 export const Route = createFileRoute('/_app/accounts/')({
@@ -269,7 +270,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
     if (!bankAccounts) return []
     const bankTotals = new Map<string, number>()
     for (const a of bankAccounts) {
-      const name = a.connectorName ?? 'Unknown'
+      const name = a.customName ?? a.connectorName ?? 'Unknown'
       bankTotals.set(name, (bankTotals.get(name) ?? 0) + a.balance)
     }
     return [...bankTotals.entries()]
@@ -457,7 +458,9 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
                         </ItemMedia>
                         <ItemContent>
                           <ItemTitle>
-                            {account.connectorName ?? account.name}
+                            {account.customName ??
+                              account.connectorName ??
+                              account.name}
                           </ItemTitle>
                           <ItemDescription>
                             {account.iban

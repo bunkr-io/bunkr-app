@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { ChevronDown, Link2, Loader2 } from 'lucide-react'
 import * as React from 'react'
@@ -176,6 +176,7 @@ function ConnectionItem({
   numAccounts: number
   lastSync: string | null
 }) {
+  const navigate = useNavigate()
   const deleteConnection = useAction(api.powens.deleteConnection)
   const generateManageUrl = useAction(api.powens.generateManageUrl)
   const syncConnection = useAction(api.powens.syncConnection)
@@ -266,6 +267,16 @@ function ConnectionItem({
               >
                 {editing && <Loader2 className="size-4 animate-spin" />}
                 Manage
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate({
+                    to: '/settings/portfolios/$id/connections',
+                    params: { id: connection.portfolioId },
+                  })
+                }
+              >
+                Rename accounts
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"

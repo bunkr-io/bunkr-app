@@ -26,6 +26,7 @@ type DecryptedBankAccount = NonNullable<
   name?: string
   balance?: number
   connectorName?: string
+  customName?: string
 }
 
 export const Route = createFileRoute('/_app/accounts/$accountId')({
@@ -116,7 +117,11 @@ function AccountDetailPage() {
         breadcrumbs={[
           { label: 'Accounts', href: '/accounts' },
           {
-            label: bankAccount?.connectorName ?? bankAccount?.name ?? 'Account',
+            label:
+              bankAccount?.customName ??
+              bankAccount?.connectorName ??
+              bankAccount?.name ??
+              'Account',
           },
         ]}
       />
@@ -169,7 +174,11 @@ function AccountDetailPage() {
                     isLoading={false}
                     period={period}
                     onPeriodChange={setPeriod}
-                    title={bankAccount.connectorName ?? bankAccount.name}
+                    title={
+                      bankAccount.customName ??
+                      bankAccount.connectorName ??
+                      bankAccount.name
+                    }
                     description={formatCurrency(
                       bankAccount.balance ?? 0,
                       bankAccount.currency,

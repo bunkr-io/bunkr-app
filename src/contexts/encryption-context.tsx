@@ -216,6 +216,7 @@ const FIELD_GROUP_NAMES = [
   'encryptedFinancials',
   'encryptedCategories',
   'encryptedValuation',
+  'encryptedCustomName',
 ] as const
 
 function hasAnyEncryptedField(r: Record<string, unknown>): boolean {
