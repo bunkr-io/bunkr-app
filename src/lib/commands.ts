@@ -5,6 +5,7 @@ import {
   Keyboard,
   Landmark,
   LayoutDashboard,
+  Lock,
   PanelLeft,
   Pencil,
   Settings,
@@ -107,6 +108,13 @@ export const COMMAND_DEFINITIONS: Record<string, CommandDefinition> = {
     group: 'General',
     icon: Landmark,
     hotkey: { keys: 'shift+c', scope: 'global' },
+  },
+  'vault.lock': {
+    id: 'vault.lock',
+    label: 'Lock vault',
+    group: 'General',
+    icon: Lock,
+    hotkey: { keys: 'alt+l', scope: 'global' },
   },
   'ai.filter': {
     id: 'ai.filter',

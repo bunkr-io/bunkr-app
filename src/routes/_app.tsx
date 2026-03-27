@@ -13,6 +13,7 @@ import {
   useSidebar,
 } from '~/components/ui/sidebar'
 import { CommandProvider, useCommandDispatch } from '~/contexts/command-context'
+import { useEncryption } from '~/contexts/encryption-context'
 import { useCommand } from '~/hooks/use-command'
 import { useNavigationCommands } from '~/hooks/use-navigation-commands'
 import { api } from '../../convex/_generated/api'
@@ -24,6 +25,7 @@ export const Route = createFileRoute('/_app')({
 function AppCommands() {
   const { setPaletteState } = useCommandDispatch()
   const { toggleSidebar } = useSidebar()
+  const { lock, isUnlocked } = useEncryption()
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
   const [connectionDialogOpen, setConnectionDialogOpen] = React.useState(false)
 
@@ -41,6 +43,13 @@ function AppCommands() {
 
   useCommand('connection.add', {
     handler: () => setConnectionDialogOpen(true),
+  })
+
+  useCommand('vault.lock', {
+    handler: () => {
+      void lock()
+    },
+    disabled: !isUnlocked,
   })
 
   useNavigationCommands()

@@ -1,7 +1,9 @@
 import { Clock, Lock } from 'lucide-react'
 import { useState } from 'react'
+import { useHotkeys } from 'react-hotkeys-hook'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { HotkeyDisplay } from '~/components/ui/kbd'
 import { useEncryption } from '~/contexts/encryption-context'
 
 export function PassphrasePrompt() {
@@ -16,6 +18,24 @@ export function PassphrasePrompt() {
   const [passphrase, setPassphrase] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [unlocking, setUnlocking] = useState(false)
+
+  useHotkeys(
+    'mod+enter',
+    () => {
+      const form = document.querySelector('form')
+      form?.requestSubmit()
+    },
+    {
+      enabled:
+        !unlocking &&
+        passphrase.trim().length > 0 &&
+        hasPersonalKey &&
+        hasWorkspaceAccess &&
+        !isUnlocked,
+      enableOnFormTags: true,
+      preventDefault: true,
+    },
+  )
 
   if (isLoading || !isEncryptionEnabled || isUnlocked) return null
 
@@ -49,6 +69,7 @@ export function PassphrasePrompt() {
     setUnlocking(true)
     try {
       await unlock(passphrase)
+      setPassphrase('')
     } catch {
       setError('Incorrect passphrase')
     } finally {
@@ -76,11 +97,16 @@ export function PassphrasePrompt() {
               value={passphrase}
               onChange={(e) => setPassphrase(e.target.value)}
               autoFocus
+              data-1p-type="password"
+              autoComplete="passphrase"
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <Button type="submit" className="w-full" loading={unlocking}>
-            Unlock
+            <span className="flex items-center justify-between gap-2">
+              <span>Unlock</span>
+              <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+            </span>
           </Button>
         </form>
       </div>

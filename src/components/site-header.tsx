@@ -10,6 +10,7 @@ import {
   BreadcrumbSeparator,
 } from '~/components/ui/breadcrumb'
 import { Button } from '~/components/ui/button'
+import { HotkeyDisplay } from '~/components/ui/kbd'
 import { Separator } from '~/components/ui/separator'
 import { SidebarTrigger } from '~/components/ui/sidebar'
 import {
@@ -121,7 +122,10 @@ function EncryptionStatusButton({ onLock }: { onLock: () => void }) {
               <Lock className="size-3.5" />
             </button>
           </TooltipTrigger>
-          <TooltipContent>Lock vault</TooltipContent>
+          <TooltipContent className="flex items-center gap-2">
+            <span>Lock vault</span>
+            <HotkeyDisplay hotkey={{ keys: 'alt+l' }} />
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>
