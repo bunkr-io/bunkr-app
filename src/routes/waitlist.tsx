@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { WaitlistCarousel } from '~/components/waitlist-carousel'
 import { WaitlistForm } from '~/components/waitlist-form'
 
 export const Route = createFileRoute('/waitlist')({
@@ -21,14 +22,7 @@ function WaitlistPage() {
       </div>
       <div className="relative hidden bg-muted lg:block">
         <div className="absolute inset-0 flex items-center justify-center p-12">
-          <div className="max-w-md space-y-4 text-center">
-            <h2 className="text-3xl font-bold">Own Your Financial Data</h2>
-            <p className="text-lg text-muted-foreground">
-              Track your net worth, investments, and cash flow with
-              zero-knowledge encryption. Your data stays private — not even we
-              can access it.
-            </p>
-          </div>
+          <WaitlistCarousel />
         </div>
       </div>
     </div>
