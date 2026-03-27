@@ -129,15 +129,32 @@ export const updateRule = mutation({
     }
 
     const changedFields: string[] = []
-    if (args.pattern !== undefined) changedFields.push('pattern')
-    if (args.matchType !== undefined) changedFields.push('matchType')
-    if (args.categoryKey !== undefined) changedFields.push('categoryKey')
-    if (args.excludeFromBudget !== undefined)
+    if (args.pattern !== undefined && args.pattern !== rule.pattern)
+      changedFields.push('pattern')
+    if (args.matchType !== undefined && args.matchType !== rule.matchType)
+      changedFields.push('matchType')
+    if (args.categoryKey !== undefined && args.categoryKey !== rule.categoryKey)
+      changedFields.push('categoryKey')
+    if (
+      args.excludeFromBudget !== undefined &&
+      args.excludeFromBudget !== rule.excludeFromBudget
+    )
       changedFields.push('excludeFromBudget')
-    if (args.labelIds !== undefined) changedFields.push('labelIds')
-    if (args.customDescription !== undefined)
+    if (
+      args.labelIds !== undefined &&
+      JSON.stringify(args.labelIds) !== JSON.stringify(rule.labelIds)
+    )
+      changedFields.push('labelIds')
+    if (
+      args.customDescription !== undefined &&
+      args.customDescription !== rule.customDescription
+    )
       changedFields.push('customDescription')
-    if (args.enabled !== undefined) changedFields.push('enabled')
+    if (args.enabled !== undefined && args.enabled !== rule.enabled)
+      changedFields.push('enabled')
+
+    // Skip if nothing actually changed
+    if (changedFields.length === 0) return
 
     await ctx.db.patch(args.ruleId, {
       ...(args.pattern !== undefined && { pattern: args.pattern }),

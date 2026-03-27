@@ -224,16 +224,33 @@ export function TransactionsList({
     [],
   )
 
+  const labelToggleTimer = React.useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map())
+  const labelToggleLatest = React.useRef<Map<string, Array<string>>>(new Map())
+
   const handleLabelToggle = React.useCallback(
-    async (transactionId: string, labelIds: Array<string>) => {
-      try {
-        await updateTransactionLabels({
-          transactionId: transactionId as Id<'transactions'>,
-          labelIds: labelIds as Array<Id<'transactionLabels'>>,
-        })
-      } catch {
-        toast.error('Failed to update labels')
-      }
+    (transactionId: string, labelIds: Array<string>) => {
+      labelToggleLatest.current.set(transactionId, labelIds)
+      const existing = labelToggleTimer.current.get(transactionId)
+      if (existing) clearTimeout(existing)
+      labelToggleTimer.current.set(
+        transactionId,
+        setTimeout(async () => {
+          labelToggleTimer.current.delete(transactionId)
+          const latest = labelToggleLatest.current.get(transactionId)
+          labelToggleLatest.current.delete(transactionId)
+          if (!latest) return
+          try {
+            await updateTransactionLabels({
+              transactionId: transactionId as Id<'transactions'>,
+              labelIds: latest as Array<Id<'transactionLabels'>>,
+            })
+          } catch {
+            toast.error('Failed to update labels')
+          }
+        }, 500),
+      )
     },
     [updateTransactionLabels],
   )

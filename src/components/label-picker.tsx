@@ -87,8 +87,8 @@ export function LabelPicker({
     const isSelected = effectiveIds.includes(labelId)
     setOptimistic((prev) => new Map(prev).set(labelId, !isSelected))
     const next = isSelected
-      ? selectedLabelIds.filter((id) => id !== labelId)
-      : [...selectedLabelIds, labelId]
+      ? effectiveIds.filter((id) => id !== labelId)
+      : [...effectiveIds, labelId]
     onToggle(next)
   }
 
@@ -105,7 +105,7 @@ export function LabelPicker({
       })
       setSearch('')
       setOptimistic((prev) => new Map(prev).set(labelId, true))
-      onToggle([...selectedLabelIds, labelId])
+      onToggle([...effectiveIds, labelId])
       toast.success(`Label "${name}" created`)
     } catch {
       toast.error('Failed to create label')

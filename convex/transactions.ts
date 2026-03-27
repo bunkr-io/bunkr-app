@@ -117,6 +117,10 @@ export const updateTransactionLabels = mutation({
     const removedIds = previousLabelIds.filter(
       (id) => !args.labelIds.includes(id),
     )
+
+    // Skip audit log if nothing actually changed
+    if (addedIds.length === 0 && removedIds.length === 0) return
+
     const addedLabels = await Promise.all(addedIds.map((id) => ctx.db.get(id)))
     const removedLabels = await Promise.all(
       removedIds.map((id) => ctx.db.get(id)),
@@ -352,6 +356,9 @@ export const updateTransactionExclusion = mutation({
     }
 
     const previousValue = transaction.excludedFromBudget ?? false
+
+    // Skip if nothing actually changed
+    if (previousValue === args.excludedFromBudget) return
 
     await ctx.db.patch(args.transactionId, {
       excludedFromBudget: args.excludedFromBudget,
@@ -646,6 +653,10 @@ export const updateTransactionCategory = mutation({
     if (!member || member.workspaceId !== portfolio.workspaceId) {
       throw new Error('Not authorized')
     }
+
+    // Skip if selecting the same category
+    if (args.categoryKey && args.categoryKey === args.previousCategoryKey)
+      return
 
     // userCategoryKey is now inside encryptedCategories — client must re-encrypt
     // the entire categories blob with the updated key
