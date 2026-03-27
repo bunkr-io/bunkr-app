@@ -131,7 +131,6 @@ export default defineSchema({
   balanceSnapshots: defineTable({
     bankAccountId: v.id('bankAccounts'),
     portfolioId: v.id('portfolios'),
-    balance: v.optional(v.number()), // deprecated — kept optional for backward compat with existing docs
     currency: v.string(),
     date: v.string(),
     timestamp: v.number(),
