@@ -30,6 +30,7 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { useCommandRegistry } from '~/contexts/command-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useAggregatedBalances } from '~/hooks/use-aggregated-balances'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import type { Period } from '~/lib/chart-periods'
@@ -123,25 +124,47 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
     rawAllBankAccounts,
   ) as DecryptedBankAccount[] | undefined
 
-  const categoryBalanceSingle = useQuery(
-    api.balanceSnapshots.listDailyCategoryBalance,
+  const snapshotsSingle = useQuery(
+    api.balanceSnapshots.listSnapshotsByPortfolio,
     singlePortfolioId
       ? { portfolioId: singlePortfolioId, startTimestamp }
       : 'skip',
   )
-  const categoryBalanceAll = useQuery(
-    api.balanceSnapshots.listAllDailyCategoryBalance,
-    isAllPortfolios && workspaceId ? { workspaceId, startTimestamp } : 'skip',
+  const snapshotsAll = useQuery(
+    api.balanceSnapshots.listAllSnapshotsByPortfolios,
+    isAllPortfolios && allPortfolioIds.length > 0
+      ? { portfolioIds: allPortfolioIds, startTimestamp }
+      : 'skip',
   )
-  const categoryBalanceTeam = useQuery(
-    api.team.listTeamDailyCategoryBalance,
+  const snapshotsTeam = useQuery(
+    api.team.listTeamBalanceSnapshots,
     isTeamView && workspaceId ? { workspaceId, startTimestamp } : 'skip',
   )
-  const categoryBalances = isTeamView
-    ? categoryBalanceTeam
+  const rawSnapshots = isTeamView
+    ? snapshotsTeam
     : isAllPortfolios
-      ? categoryBalanceAll
-      : categoryBalanceSingle
+      ? snapshotsAll
+      : snapshotsSingle
+  const decryptedSnapshots = useCachedDecryptRecords(
+    'balanceSnapshots',
+    rawSnapshots,
+  ) as
+    | Array<{
+        _id: string
+        bankAccountId: string
+        portfolioId: string
+        date: string
+        timestamp: number
+        currency: string
+        balance: number
+      }>
+    | undefined
+
+  const { dailyCategoryBalance: categoryBalances } = useAggregatedBalances(
+    decryptedSnapshots,
+    allBankAccounts,
+  )
+
   const formatCurrency = useFormatCurrency()
   const { commands } = useCommandRegistry()
   const addConnectionCommand = commands.find((c) => c.id === 'connection.add')
@@ -358,7 +381,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
             <BalanceChart
               data={chartData}
               currency={currency}
-              isLoading={categoryBalances === undefined}
+              isLoading={decryptedSnapshots === undefined}
               period={period}
               onPeriodChange={setPeriod}
               title={
@@ -390,7 +413,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
               data={stackedChartData}
               categories={activeCategorySeries}
               currency={currency}
-              isLoading={categoryBalances === undefined}
+              isLoading={decryptedSnapshots === undefined}
               period={period}
               onPeriodChange={setPeriod}
               title="Accounts"

@@ -114,25 +114,6 @@ export const deleteWorkspaceData = internalMutation({
         .collect()
       for (const s of snapshots) await ctx.db.delete('balanceSnapshots', s._id)
 
-      // Daily net worth
-      const netWorth = await ctx.db
-        .query('dailyNetWorth')
-        .withIndex('by_portfolioId_timestamp', (q) =>
-          q.eq('portfolioId', portfolio._id),
-        )
-        .collect()
-      for (const n of netWorth) await ctx.db.delete('dailyNetWorth', n._id)
-
-      // Daily category balance
-      const catBalance = await ctx.db
-        .query('dailyCategoryBalance')
-        .withIndex('by_portfolioId_timestamp', (q) =>
-          q.eq('portfolioId', portfolio._id),
-        )
-        .collect()
-      for (const c of catBalance)
-        await ctx.db.delete('dailyCategoryBalance', c._id)
-
       // Bank accounts
       const accounts = await ctx.db
         .query('bankAccounts')

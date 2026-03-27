@@ -117,7 +117,7 @@ export const listTeamBankAccounts = query({
   },
 })
 
-export const listTeamDailyNetWorth = query({
+export const listTeamBalanceSnapshots = query({
   args: {
     workspaceId: v.id('workspaces'),
     startTimestamp: v.number(),
@@ -125,61 +125,27 @@ export const listTeamDailyNetWorth = query({
   handler: async (ctx, args) => {
     const { sharedPortfolios } = await getTeamContext(ctx, args.workspaceId)
 
-    const sharedPortfolioIds = new Set(
-      sharedPortfolios.map((p) => p._id as string),
-    )
     const shareAmountsMap = new Map(
       sharedPortfolios.map((p) => [p._id as string, p.shareAmounts ?? true]),
     )
 
-    const all = await ctx.db
-      .query('dailyNetWorth')
-      .withIndex('by_workspaceId_timestamp', (q) =>
-        q
-          .eq('workspaceId', args.workspaceId)
-          .gte('timestamp', args.startTimestamp),
-      )
-      .collect()
-
-    return all
-      .filter((d) => sharedPortfolioIds.has(d.portfolioId as string))
-      .map((d) => ({
-        ...d,
-        balance: shareAmountsMap.get(d.portfolioId as string) ? d.balance : 0,
-      }))
-  },
-})
-
-export const listTeamDailyCategoryBalance = query({
-  args: {
-    workspaceId: v.id('workspaces'),
-    startTimestamp: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const { sharedPortfolios } = await getTeamContext(ctx, args.workspaceId)
-
-    const sharedPortfolioIds = new Set(
-      sharedPortfolios.map((p) => p._id as string),
-    )
-    const shareAmountsMap = new Map(
-      sharedPortfolios.map((p) => [p._id as string, p.shareAmounts ?? true]),
+    const results = await Promise.all(
+      sharedPortfolios.map((p) =>
+        ctx.db
+          .query('balanceSnapshots')
+          .withIndex('by_portfolioId_timestamp', (q) =>
+            q.eq('portfolioId', p._id).gte('timestamp', args.startTimestamp),
+          )
+          .collect(),
+      ),
     )
 
-    const all = await ctx.db
-      .query('dailyCategoryBalance')
-      .withIndex('by_workspaceId_timestamp', (q) =>
-        q
-          .eq('workspaceId', args.workspaceId)
-          .gte('timestamp', args.startTimestamp),
-      )
-      .collect()
-
-    return all
-      .filter((d) => sharedPortfolioIds.has(d.portfolioId as string))
-      .map((d) => ({
-        ...d,
-        balance: shareAmountsMap.get(d.portfolioId as string) ? d.balance : 0,
-      }))
+    return results.flat().map((s) => ({
+      ...s,
+      encryptedData: shareAmountsMap.get(s.portfolioId as string)
+        ? s.encryptedData
+        : '',
+    }))
   },
 })
 
@@ -272,61 +238,11 @@ export const getTeamMemberBreakdown = query({
       }
     }
 
-    // Get latest dailyNetWorth per shared portfolio
-    const latestByPortfolio = await Promise.all(
-      sharedPortfolios.map(async (p) => {
-        const latest = await ctx.db
-          .query('dailyNetWorth')
-          .withIndex('by_portfolioId_timestamp', (q) =>
-            q.eq('portfolioId', p._id),
-          )
-          .order('desc')
-          .first()
-        return {
-          portfolioId: p._id as string,
-          memberId: p.memberId as string,
-          shareAmounts: p.shareAmounts ?? true,
-          balance: latest?.balance ?? 0,
-          currency: latest?.currency ?? 'EUR',
-        }
-      }),
-    )
-
-    // Group by memberId
-    const byMember = new Map<
-      string,
-      {
-        memberId: string
-        balance: number
-        shareAmounts: boolean
-        currency: string
-      }
-    >()
-    for (const entry of latestByPortfolio) {
-      const existing = byMember.get(entry.memberId)
-      if (existing) {
-        existing.balance += entry.balance
-        if (!entry.shareAmounts) existing.shareAmounts = false
-      } else {
-        byMember.set(entry.memberId, {
-          memberId: entry.memberId,
-          balance: entry.balance,
-          shareAmounts: entry.shareAmounts,
-          currency: entry.currency,
-        })
-      }
-    }
-
-    const totalBalance = [...byMember.values()].reduce(
-      (sum, m) => sum + m.balance,
-      0,
-    )
-
-    return [...byMember.values()].map((m) => ({
-      memberId: m.memberId,
-      balance: m.shareAmounts ? m.balance : null,
-      percentage: totalBalance > 0 ? (m.balance / totalBalance) * 100 : 0,
-      currency: m.currency,
+    // Return portfolio metadata — client computes balances from decrypted bank accounts
+    return sharedPortfolios.map((p) => ({
+      portfolioId: p._id as string,
+      memberId: p.memberId as string,
+      shareAmounts: p.shareAmounts ?? true,
     }))
   },
 })

@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { formatHotkey, type Hotkey } from '~/lib/hotkeys'
 import { cn } from '~/lib/utils'
 
@@ -35,7 +36,13 @@ function HotkeyDisplay({
   hotkey: Hotkey
   className?: string
 }) {
-  const formatted = formatHotkey(hotkey)
+  const [userAgent, setUserAgent] = React.useState('')
+
+  React.useEffect(() => {
+    setUserAgent(navigator.userAgent)
+  }, [])
+
+  const formatted = formatHotkey(hotkey, userAgent)
 
   return (
     <KbdGroup className={className}>

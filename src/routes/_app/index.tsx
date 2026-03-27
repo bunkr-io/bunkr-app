@@ -22,6 +22,7 @@ import { WinnersLosers } from '~/components/winners-losers'
 import { useCommandRegistry } from '~/contexts/command-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { useFormatCurrency } from '~/contexts/privacy-context'
+import { useAggregatedBalances } from '~/hooks/use-aggregated-balances'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { ACCOUNT_CATEGORIES, getCategoryKey } from '~/lib/account-categories'
 import type { Period } from '~/lib/chart-periods'
@@ -104,25 +105,46 @@ function BankAccountsSection() {
     rawBankAccounts,
   ) as DecryptedBankAccount[] | undefined
 
-  const netWorthSingle = useQuery(
-    api.balanceSnapshots.listDailyNetWorth,
+  const snapshotsSingle = useQuery(
+    api.balanceSnapshots.listSnapshotsByPortfolio,
     singlePortfolioId
       ? { portfolioId: singlePortfolioId, startTimestamp }
       : 'skip',
   )
-  const netWorthAll = useQuery(
-    api.balanceSnapshots.listAllDailyNetWorth,
-    isAllPortfolios && workspaceId ? { workspaceId, startTimestamp } : 'skip',
+  const snapshotsAll = useQuery(
+    api.balanceSnapshots.listAllSnapshotsByPortfolios,
+    isAllPortfolios && allPortfolioIds.length > 0
+      ? { portfolioIds: allPortfolioIds, startTimestamp }
+      : 'skip',
   )
-  const netWorthTeam = useQuery(
-    api.team.listTeamDailyNetWorth,
+  const snapshotsTeam = useQuery(
+    api.team.listTeamBalanceSnapshots,
     isTeamView && workspaceId ? { workspaceId, startTimestamp } : 'skip',
   )
-  const dailyNetWorth = isTeamView
-    ? netWorthTeam
+  const rawSnapshots = isTeamView
+    ? snapshotsTeam
     : isAllPortfolios
-      ? netWorthAll
-      : netWorthSingle
+      ? snapshotsAll
+      : snapshotsSingle
+  const decryptedSnapshots = useCachedDecryptRecords(
+    'balanceSnapshots',
+    rawSnapshots,
+  ) as
+    | Array<{
+        _id: string
+        bankAccountId: string
+        portfolioId: string
+        date: string
+        timestamp: number
+        currency: string
+        balance: number
+      }>
+    | undefined
+
+  const { dailyNetWorth } = useAggregatedBalances(
+    decryptedSnapshots,
+    bankAccounts,
+  )
 
   const investmentsSingle = useQuery(
     api.investments.listInvestmentsByPortfolio,
@@ -247,7 +269,7 @@ function BankAccountsSection() {
           <BalanceChart
             data={netWorthData}
             currency={currency}
-            isLoading={dailyNetWorth === undefined}
+            isLoading={decryptedSnapshots === undefined}
             period={period}
             onPeriodChange={setPeriod}
             title="Net Worth"

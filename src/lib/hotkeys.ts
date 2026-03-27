@@ -11,15 +11,19 @@ export interface FormattedHotkey {
 
 type Platform = 'mac' | 'windows' | 'other'
 
-export function isMac(userAgent = navigator.userAgent): boolean {
-  return userAgent.toLowerCase().includes('mac')
+export function isMac(userAgent?: string): boolean {
+  const ua =
+    userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  return ua.toLowerCase().includes('mac')
 }
 
-function isWindows(userAgent = navigator.userAgent): boolean {
-  return userAgent.toLowerCase().includes('windows')
+function isWindows(userAgent?: string): boolean {
+  const ua =
+    userAgent ?? (typeof navigator !== 'undefined' ? navigator.userAgent : '')
+  return ua.toLowerCase().includes('windows')
 }
 
-function platform(userAgent = navigator.userAgent): Platform {
+function platform(userAgent?: string): Platform {
   if (isMac(userAgent)) return 'mac'
   if (isWindows(userAgent)) return 'windows'
   return 'other'

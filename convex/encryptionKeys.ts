@@ -323,7 +323,6 @@ export const reEncryptBalanceSnapshotBatch = mutation({
     for (const item of args.items) {
       await ctx.db.patch('balanceSnapshots', item.snapshotId, {
         encryptedData: item.encryptedData,
-        balance: 0,
       })
     }
   },

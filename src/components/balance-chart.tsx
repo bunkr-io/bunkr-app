@@ -63,7 +63,7 @@ function ChartArea({
   return (
     <ChartContainer
       config={chartConfig}
-      className="aspect-auto h-full min-h-[250px] w-full"
+      className="aspect-auto h-[250px] w-full"
     >
       <AreaChart data={data}>
         <defs>

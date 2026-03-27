@@ -131,7 +131,6 @@ export default defineSchema({
   balanceSnapshots: defineTable({
     bankAccountId: v.id('bankAccounts'),
     portfolioId: v.id('portfolios'),
-    balance: v.number(), // plaintext for daily aggregate computation (dailyNetWorth, dailyCategoryBalance)
     currency: v.string(),
     date: v.string(),
     timestamp: v.number(),
@@ -141,18 +140,6 @@ export default defineSchema({
     .index('by_bankAccountId_timestamp', ['bankAccountId', 'timestamp'])
     .index('by_bankAccountId_date', ['bankAccountId', 'date'])
     .index('by_portfolioId_timestamp', ['portfolioId', 'timestamp']),
-
-  dailyNetWorth: defineTable({
-    portfolioId: v.id('portfolios'),
-    workspaceId: v.id('workspaces'),
-    date: v.string(),
-    timestamp: v.number(),
-    balance: v.number(),
-    currency: v.string(),
-  })
-    .index('by_portfolioId_timestamp', ['portfolioId', 'timestamp'])
-    .index('by_portfolioId_date', ['portfolioId', 'date'])
-    .index('by_workspaceId_timestamp', ['workspaceId', 'timestamp']),
 
   transactions: defineTable({
     bankAccountId: v.id('bankAccounts'),
@@ -227,17 +214,4 @@ export default defineSchema({
   })
     .index('by_workspaceId', ['workspaceId'])
     .index('by_portfolioId', ['portfolioId']),
-
-  dailyCategoryBalance: defineTable({
-    portfolioId: v.id('portfolios'),
-    workspaceId: v.id('workspaces'),
-    category: v.string(),
-    date: v.string(),
-    timestamp: v.number(),
-    balance: v.number(),
-    currency: v.string(),
-  })
-    .index('by_portfolioId_category_date', ['portfolioId', 'category', 'date'])
-    .index('by_portfolioId_timestamp', ['portfolioId', 'timestamp'])
-    .index('by_workspaceId_timestamp', ['workspaceId', 'timestamp']),
 })
