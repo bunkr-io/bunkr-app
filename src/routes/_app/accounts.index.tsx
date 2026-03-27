@@ -164,6 +164,7 @@ function BankAccountsList({ categoryFilter }: { categoryFilter?: string }) {
     decryptedSnapshots,
     allBankAccounts,
   )
+
   const formatCurrency = useFormatCurrency()
   const { commands } = useCommandRegistry()
   const addConnectionCommand = commands.find((c) => c.id === 'connection.add')
