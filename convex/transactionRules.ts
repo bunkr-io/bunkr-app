@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { internalQuery, mutation, query } from './_generated/server'
-import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { insertAuditLogDirect } from './auditLog'
+import { getActorInfo, getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const listRules = query({
   args: {},
@@ -63,7 +64,7 @@ export const createRule = mutation({
       0,
     )
 
-    return await ctx.db.insert('transactionRules', {
+    const ruleId = await ctx.db.insert('transactionRules', {
       workspaceId: member.workspaceId,
       pattern: args.pattern,
       matchType: args.matchType,
@@ -76,6 +77,28 @@ export const createRule = mutation({
       createdBy: userId,
       createdAt: Date.now(),
     })
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'rule.created',
+      resourceType: 'rule',
+      resourceId: ruleId,
+      metadata: JSON.stringify({
+        ruleId,
+        pattern: args.pattern,
+        matchType: args.matchType,
+        categoryKey: args.categoryKey,
+        excludeFromBudget: args.excludeFromBudget,
+        labelCount: args.labelIds?.length ?? 0,
+      }),
+    })
+
+    return ruleId
   },
 })
 
@@ -105,6 +128,17 @@ export const updateRule = mutation({
       throw new Error('Rule not found')
     }
 
+    const changedFields: string[] = []
+    if (args.pattern !== undefined) changedFields.push('pattern')
+    if (args.matchType !== undefined) changedFields.push('matchType')
+    if (args.categoryKey !== undefined) changedFields.push('categoryKey')
+    if (args.excludeFromBudget !== undefined)
+      changedFields.push('excludeFromBudget')
+    if (args.labelIds !== undefined) changedFields.push('labelIds')
+    if (args.customDescription !== undefined)
+      changedFields.push('customDescription')
+    if (args.enabled !== undefined) changedFields.push('enabled')
+
     await ctx.db.patch(args.ruleId, {
       ...(args.pattern !== undefined && { pattern: args.pattern }),
       ...(args.matchType !== undefined && { matchType: args.matchType }),
@@ -121,6 +155,23 @@ export const updateRule = mutation({
         customDescription: args.customDescription || undefined,
       }),
       ...(args.enabled !== undefined && { enabled: args.enabled }),
+    })
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'rule.updated',
+      resourceType: 'rule',
+      resourceId: args.ruleId,
+      metadata: JSON.stringify({
+        ruleId: args.ruleId,
+        pattern: args.pattern ?? rule.pattern,
+        changedFields,
+      }),
     })
   },
 })
@@ -146,6 +197,22 @@ export const toggleRule = mutation({
     }
 
     await ctx.db.patch(args.ruleId, { enabled: args.enabled })
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'rule.toggled',
+      resourceType: 'rule',
+      resourceId: args.ruleId,
+      metadata: JSON.stringify({
+        ruleId: args.ruleId,
+        enabled: args.enabled,
+      }),
+    })
   },
 })
 
@@ -167,6 +234,22 @@ export const deleteRule = mutation({
     }
 
     await ctx.db.delete(args.ruleId)
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'rule.deleted',
+      resourceType: 'rule',
+      resourceId: args.ruleId,
+      metadata: JSON.stringify({
+        ruleId: args.ruleId,
+        pattern: rule.pattern,
+      }),
+    })
   },
 })
 
@@ -182,11 +265,30 @@ export const batchDeleteRules = mutation({
       throw new Error('Only workspace owners can delete rules')
     }
 
+    let deletedCount = 0
     for (const ruleId of args.ruleIds) {
       const rule = await ctx.db.get(ruleId)
       if (rule && rule.workspaceId === member.workspaceId) {
         await ctx.db.delete(ruleId)
+        deletedCount++
       }
+    }
+
+    if (deletedCount > 0) {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: member.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'rule.batch_deleted',
+        resourceType: 'rule',
+        metadata: JSON.stringify({
+          ruleIds: args.ruleIds,
+          count: deletedCount,
+        }),
+      })
     }
   },
 })
@@ -210,6 +312,20 @@ export const reorderRules = mutation({
       }
       await ctx.db.patch(args.orderedRuleIds[i], { sortOrder: i })
     }
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'rule.reordered',
+      resourceType: 'rule',
+      metadata: JSON.stringify({
+        count: args.orderedRuleIds.length,
+      }),
+    })
   },
 })
 

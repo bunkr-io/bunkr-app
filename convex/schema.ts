@@ -214,4 +214,25 @@ export default defineSchema({
   })
     .index('by_workspaceId', ['workspaceId'])
     .index('by_portfolioId', ['portfolioId']),
+
+  auditLogs: defineTable({
+    timestamp: v.number(),
+    retainUntil: v.optional(v.number()),
+    workspaceId: v.id('workspaces'),
+    workspaceName: v.string(),
+    portfolioId: v.optional(v.id('portfolios')),
+    portfolioName: v.optional(v.string()),
+    actorType: v.union(v.literal('user'), v.literal('system')),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
+    event: v.string(),
+    resourceType: v.optional(v.string()),
+    resourceId: v.optional(v.string()),
+    resourceName: v.optional(v.string()),
+    metadata: v.string(),
+  })
+    .index('by_workspaceId_timestamp', ['workspaceId', 'timestamp'])
+    .index('by_resourceId_timestamp', ['resourceId', 'timestamp'])
+    .index('by_retainUntil', ['retainUntil']),
 })

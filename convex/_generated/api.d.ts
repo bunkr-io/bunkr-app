@@ -9,6 +9,7 @@
  */
 
 import type * as aiFilters from "../aiFilters.js";
+import type * as auditLog from "../auditLog.js";
 import type * as balanceSnapshots from "../balanceSnapshots.js";
 import type * as billing from "../billing.js";
 import type * as categories from "../categories.js";
@@ -42,6 +43,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   aiFilters: typeof aiFilters;
+  auditLog: typeof auditLog;
   balanceSnapshots: typeof balanceSnapshots;
   billing: typeof billing;
   categories: typeof categories;

@@ -7,8 +7,9 @@ import {
   mutation,
   query,
 } from './_generated/server'
+import { insertAuditLogDirect } from './auditLog'
 import { resend } from './email'
-import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { getActorInfo, getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const listMembers = query({
   args: {},
@@ -154,9 +155,26 @@ export const sendInvitation = action({
 export const revokeInvitation = internalMutation({
   args: { invitationId: v.id('workspaceInvitations') },
   handler: async (ctx, { invitationId }) => {
+    const invitation = await ctx.db.get('workspaceInvitations', invitationId)
+
     await ctx.db.patch('workspaceInvitations', invitationId, {
       status: 'revoked',
     })
+
+    if (invitation) {
+      const workspace = await ctx.db.get('workspaces', invitation.workspaceId)
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: invitation.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        event: 'workspace.invitation_revoked',
+        resourceType: 'workspace',
+        resourceId: invitation.workspaceId,
+        metadata: JSON.stringify({
+          invitedEmail: invitation.email,
+        }),
+      })
+    }
   },
 })
 
@@ -216,6 +234,19 @@ export const deleteMember = internalMutation({
         .withIndex('by_userId', (q) => q.eq('userId', member.userId))
         .first()
       if (personalKey) await ctx.db.delete('encryptionKeys', personalKey._id)
+
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: member.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        event: 'workspace.member_removed',
+        resourceType: 'workspace',
+        resourceId: member.workspaceId,
+        metadata: JSON.stringify({
+          removedUserId: member.userId,
+        }),
+      })
     }
     await ctx.db.delete('workspaceMembers', memberId)
   },
@@ -348,6 +379,20 @@ export const sendInvitationEmail = internalMutation({
       status: 'pending',
     })
 
+    const workspace = await ctx.db.get('workspaces', workspaceId)
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      actorId: invitedBy,
+      event: 'workspace.member_invited',
+      resourceType: 'workspace',
+      resourceId: workspaceId,
+      metadata: JSON.stringify({
+        invitedEmail: email,
+      }),
+    })
+
     const fromEmail = process.env.RESEND_FROM_EMAIL
     if (!fromEmail) {
       throw new Error(
@@ -391,6 +436,22 @@ export const updateMemberPermissions = mutation({
 
     await ctx.db.patch('workspaceMembers', args.memberId, {
       permissions: args.permissions,
+    })
+
+    const workspace = await ctx.db.get('workspaces', membership.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: membership.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'workspace.member_permissions_updated',
+      resourceType: 'workspace',
+      resourceId: membership.workspaceId,
+      metadata: JSON.stringify({
+        memberId: args.memberId,
+        permissions: args.permissions,
+      }),
     })
   },
 })

@@ -1,7 +1,8 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { action, internalMutation, mutation, query } from './_generated/server'
-import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { insertAuditLogDirect } from './auditLog'
+import { getActorInfo, getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const getMyWorkspace = query({
   args: {},
@@ -36,7 +37,25 @@ export const updateWorkspace = mutation({
     const trimmed = name.trim()
     if (!trimmed) throw new Error('Workspace name cannot be empty')
 
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const previousName = workspace?.name ?? ''
+
     await ctx.db.patch('workspaces', member.workspaceId, { name: trimmed })
+
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: trimmed,
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'workspace.renamed',
+      resourceType: 'workspace',
+      resourceId: member.workspaceId,
+      metadata: JSON.stringify({
+        previousName,
+        newName: trimmed,
+      }),
+    })
   },
 })
 

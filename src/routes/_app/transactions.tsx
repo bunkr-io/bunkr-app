@@ -50,6 +50,7 @@ type DecryptedBankAccount = NonNullable<
 interface TransactionRecord {
   _id: string
   bankAccountId: string
+  portfolioId: string
   date: string
   rdate?: string
   vdate?: string
@@ -421,6 +422,7 @@ function TransactionsContent() {
     return filteredTransactions.map((t) => ({
       _id: t._id,
       bankAccountId: t.bankAccountId,
+      portfolioId: t.portfolioId,
       date: t.date,
       rdate: t.rdate,
       vdate: t.vdate,

@@ -9,6 +9,7 @@ import {
   internalQuery,
   query,
 } from './_generated/server'
+import { insertAuditLogDirect } from './auditLog'
 import { getAuthUserId, requireAuthUserId } from './lib/auth'
 import { encryptFieldGroups, encryptForProfile } from './lib/serverCrypto'
 
@@ -299,6 +300,13 @@ export const getPortfolioInternal = internalQuery({
   },
 })
 
+export const getWorkspaceInternal = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, args) => {
+    return await ctx.db.get('workspaces', args.workspaceId)
+  },
+})
+
 export const updatePortfolioPowensUser = internalMutation({
   args: {
     portfolioId: v.id('portfolios'),
@@ -501,6 +509,32 @@ export const syncConnectionFromPowens = internalAction({
         ],
       },
     )
+
+    // Log connection sync event
+    if (portfolio) {
+      const workspace = await ctx.runQuery(
+        internal.powens.getWorkspaceInternal,
+        {
+          workspaceId: portfolio.workspaceId,
+        },
+      )
+      await ctx.runMutation(internal.auditLog.insertAuditLog, {
+        workspaceId: portfolio.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        portfolioId: args.portfolioId,
+        portfolioName: portfolio.name,
+        actorType: 'system',
+        actorId: 'powens_sync',
+        event: 'connection.synced',
+        resourceType: 'connection',
+        resourceId: connectionDocId,
+        metadata: JSON.stringify({
+          connectionId: connectionDocId,
+          powensConnectionId: args.powensConnectionId,
+          portfolioId: args.portfolioId,
+        }),
+      })
+    }
 
     // Fetch and sync bank accounts
     const acctResponse = await fetch(
@@ -1150,6 +1184,8 @@ export const upsertTransactions = internalMutation({
     ),
   },
   handler: async (ctx, args) => {
+    let createdCount = 0
+    let updatedCount = 0
     const transactionIds: Array<{
       powensTransactionId: number
       id: Id<'transactions'>
@@ -1170,18 +1206,44 @@ export const upsertTransactions = internalMutation({
           portfolioId: args.portfolioId,
         })
         transactionId = existing._id
+        updatedCount++
       } else {
         transactionId = await ctx.db.insert('transactions', {
           bankAccountId: args.bankAccountId,
           portfolioId: args.portfolioId,
           ...txn,
         })
+        createdCount++
       }
       transactionIds.push({
         powensTransactionId: txn.powensTransactionId,
         id: transactionId,
       })
     }
+
+    if (createdCount > 0 || updatedCount > 0) {
+      const portfolio = await ctx.db.get('portfolios', args.portfolioId)
+      if (portfolio) {
+        const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+        await insertAuditLogDirect(ctx.db, {
+          workspaceId: portfolio.workspaceId,
+          workspaceName: workspace?.name ?? '',
+          portfolioId: args.portfolioId,
+          portfolioName: portfolio.name,
+          actorType: 'system',
+          actorId: 'powens_sync',
+          event: 'transaction.synced',
+          resourceType: 'transaction',
+          metadata: JSON.stringify({
+            bankAccountId: args.bankAccountId,
+            portfolioId: args.portfolioId,
+            created: createdCount,
+            updated: updatedCount,
+          }),
+        })
+      }
+    }
+
     return transactionIds
   },
 })
@@ -1388,6 +1450,9 @@ export const syncTransactionsFromWebhook = internalAction({
               {
                 transactionIds: exclusionPatches.map((e) => e.id),
                 excludedFromBudget: true,
+                workspaceId: portfolio.workspaceId,
+                actorId: 'powens_sync',
+                actorName: 'Powens Sync',
               },
             )
           }
@@ -1596,6 +1661,9 @@ export const backfillTransactions = internalAction({
               {
                 transactionIds: exclusionPatches.map((e) => e.id),
                 excludedFromBudget: true,
+                workspaceId: portfolio.workspaceId,
+                actorId: 'powens_sync',
+                actorName: 'Powens Sync',
               },
             )
           }

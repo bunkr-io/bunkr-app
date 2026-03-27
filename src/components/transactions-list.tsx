@@ -35,6 +35,7 @@ import {
 } from '~/components/create-category-dialog'
 import type { LabelData } from '~/components/label-picker'
 import { LabelPicker } from '~/components/label-picker'
+import { AuditTimeline } from '~/components/reui/vertical-timeline'
 import { RuleDialog } from '~/components/rule-dialog'
 import { SelectionBar } from '~/components/selection-bar'
 import { Badge } from '~/components/ui/badge'
@@ -79,6 +80,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 export interface TransactionRow {
   _id: string
   bankAccountId?: string
+  portfolioId?: string
   date: string
   wording: string
   originalWording?: string
@@ -1254,6 +1256,16 @@ function TransactionDetailSheet({
     customDescription: string,
   ) => void
 }) {
+  const auditEntries = useQuery(
+    api.auditLog.listByTransactionPublic,
+    transaction?.portfolioId
+      ? {
+          transactionId: transaction._id as Id<'transactions'>,
+          portfolioId: transaction.portfolioId as Id<'portfolios'>,
+        }
+      : 'skip',
+  )
+
   if (!transaction) return null
 
   const categoryKey = resolveTransactionCategoryKey(transaction)
@@ -1399,6 +1411,29 @@ function TransactionDetailSheet({
                 </div>
               ))}
           </dl>
+
+          {auditEntries && auditEntries.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <p className="mb-3 text-xs font-medium text-muted-foreground">
+                  Activity
+                </p>
+                <AuditTimeline
+                  entries={auditEntries.map((log) => ({
+                    id: log._id,
+                    timestamp: log.timestamp,
+                    event: log.event,
+                    actorType: log.actorType as 'user' | 'system',
+                    actorName: log.actorName,
+                    actorAvatarUrl: log.actorAvatarUrl ?? undefined,
+                    metadata: log.metadata,
+                    resourceType: log.resourceType,
+                  }))}
+                />
+              </div>
+            </>
+          )}
         </div>
       </SheetContent>
     </Sheet>

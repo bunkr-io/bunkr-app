@@ -6,7 +6,8 @@ import {
   mutation,
   query,
 } from './_generated/server'
-import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { insertAuditLogDirect } from './auditLog'
+import { getActorInfo, getAuthUserId, requireAuthUserId } from './lib/auth'
 
 export const listTransactionsByPortfolio = query({
   args: {
@@ -103,8 +104,30 @@ export const updateTransactionLabels = mutation({
       throw new Error('Not authorized')
     }
 
+    const previousLabelIds = transaction.labelIds ?? []
+
     await ctx.db.patch('transactions', args.transactionId, {
       labelIds: args.labelIds,
+    })
+
+    const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: portfolio.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      portfolioId: transaction.portfolioId,
+      portfolioName: portfolio.name,
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'transaction.labels_updated',
+      resourceType: 'transaction',
+      resourceId: args.transactionId,
+      metadata: JSON.stringify({
+        transactionId: args.transactionId,
+        previousLabelIds,
+        newLabelIds: args.labelIds,
+        labelCount: args.labelIds.length,
+      }),
     })
   },
 })
@@ -124,6 +147,8 @@ export const batchUpdateTransactionLabels = mutation({
       .first()
     if (!member) throw new Error('Not authorized')
 
+    const identity = await ctx.auth.getUserIdentity()
+
     await ctx.scheduler.runAfter(
       0,
       internal.transactions.batchUpdateLabelsAsync,
@@ -131,6 +156,8 @@ export const batchUpdateTransactionLabels = mutation({
         transactionIds: args.transactionIds,
         addLabelIds: args.addLabelIds,
         removeLabelIds: args.removeLabelIds,
+        workspaceId: member.workspaceId,
+        ...getActorInfo(identity),
       },
     )
   },
@@ -143,6 +170,10 @@ export const batchUpdateLabelsAsync = internalAction({
     transactionIds: v.array(v.id('transactions')),
     addLabelIds: v.optional(v.array(v.id('transactionLabels'))),
     removeLabelIds: v.optional(v.array(v.id('transactionLabels'))),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (let i = 0; i < args.transactionIds.length; i += BATCH_CHUNK_SIZE) {
@@ -151,6 +182,10 @@ export const batchUpdateLabelsAsync = internalAction({
         transactionIds: chunk,
         addLabelIds: args.addLabelIds,
         removeLabelIds: args.removeLabelIds,
+        workspaceId: args.workspaceId,
+        actorId: args.actorId,
+        actorName: args.actorName,
+        actorAvatarUrl: args.actorAvatarUrl,
       })
     }
   },
@@ -161,6 +196,10 @@ export const batchUpdateLabelsChunk = internalMutation({
     transactionIds: v.array(v.id('transactions')),
     addLabelIds: v.optional(v.array(v.id('transactionLabels'))),
     removeLabelIds: v.optional(v.array(v.id('transactionLabels'))),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (const transactionId of args.transactionIds) {
@@ -184,6 +223,23 @@ export const batchUpdateLabelsChunk = internalMutation({
 
       await ctx.db.patch('transactions', transactionId, { labelIds: updated })
     }
+
+    const workspace = await ctx.db.get('workspaces', args.workspaceId)
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: args.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      actorId: args.actorId,
+      actorName: args.actorName,
+      actorAvatarUrl: args.actorAvatarUrl,
+      event: 'transaction.labels_batch_updated',
+      resourceType: 'transaction',
+      metadata: JSON.stringify({
+        affectedCount: args.transactionIds.length,
+        addLabelIds: args.addLabelIds,
+        removeLabelIds: args.removeLabelIds,
+      }),
+    })
   },
 })
 
@@ -277,8 +333,32 @@ export const updateTransactionExclusion = mutation({
       throw new Error('Not authorized')
     }
 
+    const previousValue = transaction.excludedFromBudget ?? false
+
     await ctx.db.patch(args.transactionId, {
       excludedFromBudget: args.excludedFromBudget,
+    })
+
+    const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    const eventName = args.excludedFromBudget
+      ? 'transaction.excluded_from_budget'
+      : 'transaction.included_in_budget'
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: portfolio.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      portfolioId: transaction.portfolioId,
+      portfolioName: portfolio.name,
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: eventName,
+      resourceType: 'transaction',
+      resourceId: args.transactionId,
+      metadata: JSON.stringify({
+        transactionId: args.transactionId,
+        previousValue,
+        newValue: args.excludedFromBudget,
+      }),
     })
   },
 })
@@ -297,12 +377,16 @@ export const batchUpdateTransactionExclusion = mutation({
       .first()
     if (!member) throw new Error('Not authorized')
 
+    const identity = await ctx.auth.getUserIdentity()
+
     await ctx.scheduler.runAfter(
       0,
       internal.transactions.batchUpdateExclusionAsync,
       {
         transactionIds: args.transactionIds,
         excludedFromBudget: args.excludedFromBudget,
+        workspaceId: member.workspaceId,
+        ...getActorInfo(identity),
       },
     )
   },
@@ -312,6 +396,10 @@ export const batchUpdateExclusionAsync = internalAction({
   args: {
     transactionIds: v.array(v.id('transactions')),
     excludedFromBudget: v.boolean(),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (let i = 0; i < args.transactionIds.length; i += BATCH_CHUNK_SIZE) {
@@ -319,6 +407,10 @@ export const batchUpdateExclusionAsync = internalAction({
       await ctx.runMutation(internal.transactions.batchUpdateExclusionChunk, {
         transactionIds: chunk,
         excludedFromBudget: args.excludedFromBudget,
+        workspaceId: args.workspaceId,
+        actorId: args.actorId,
+        actorName: args.actorName,
+        actorAvatarUrl: args.actorAvatarUrl,
       })
     }
   },
@@ -328,6 +420,10 @@ export const batchUpdateExclusionChunk = internalMutation({
   args: {
     transactionIds: v.array(v.id('transactions')),
     excludedFromBudget: v.boolean(),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (const transactionId of args.transactionIds) {
@@ -337,6 +433,22 @@ export const batchUpdateExclusionChunk = internalMutation({
         excludedFromBudget: args.excludedFromBudget,
       })
     }
+
+    const workspace = await ctx.db.get('workspaces', args.workspaceId)
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: args.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      actorId: args.actorId,
+      actorName: args.actorName,
+      actorAvatarUrl: args.actorAvatarUrl,
+      event: 'transaction.exclusion_batch_updated',
+      resourceType: 'transaction',
+      metadata: JSON.stringify({
+        affectedCount: args.transactionIds.length,
+        excludedFromBudget: args.excludedFromBudget,
+      }),
+    })
   },
 })
 
@@ -358,6 +470,7 @@ export const batchUpdateTransactionCategories = mutation({
       .first()
     if (!member) throw new Error('Not authorized')
 
+    let updateCount = 0
     for (const item of args.items) {
       const transaction = await ctx.db.get('transactions', item.transactionId)
       if (!transaction) continue
@@ -367,6 +480,23 @@ export const batchUpdateTransactionCategories = mutation({
 
       await ctx.db.patch('transactions', item.transactionId, {
         encryptedCategories: item.encryptedCategories,
+      })
+      updateCount++
+    }
+
+    if (updateCount > 0) {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: member.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'transaction.category_batch_updated',
+        resourceType: 'transaction',
+        metadata: JSON.stringify({
+          affectedCount: updateCount,
+        }),
       })
     }
   },
@@ -394,8 +524,29 @@ export const updateTransactionDetails = mutation({
       throw new Error('Not authorized')
     }
 
+    const previousEncryptedDetails = transaction.encryptedDetails
+
     await ctx.db.patch('transactions', args.transactionId, {
       encryptedDetails: args.encryptedDetails,
+    })
+
+    const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: portfolio.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      portfolioId: transaction.portfolioId,
+      portfolioName: portfolio.name,
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'transaction.description_updated',
+      resourceType: 'transaction',
+      resourceId: args.transactionId,
+      metadata: JSON.stringify({
+        transactionId: args.transactionId,
+        hadPreviousDescription:
+          previousEncryptedDetails !== args.encryptedDetails,
+      }),
     })
   },
 })
@@ -418,6 +569,7 @@ export const batchUpdateTransactionDetails = mutation({
       .first()
     if (!member) throw new Error('Not authorized')
 
+    let updateCount = 0
     for (const item of args.items) {
       const transaction = await ctx.db.get('transactions', item.transactionId)
       if (!transaction) continue
@@ -428,6 +580,23 @@ export const batchUpdateTransactionDetails = mutation({
       await ctx.db.patch('transactions', item.transactionId, {
         encryptedDetails: item.encryptedDetails,
       })
+      updateCount++
+    }
+
+    if (updateCount > 0) {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: member.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'transaction.description_batch_updated',
+        resourceType: 'transaction',
+        metadata: JSON.stringify({
+          affectedCount: updateCount,
+        }),
+      })
     }
   },
 })
@@ -436,6 +605,7 @@ export const updateTransactionCategory = mutation({
   args: {
     transactionId: v.id('transactions'),
     encryptedCategories: v.string(),
+    categoryKey: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -459,6 +629,24 @@ export const updateTransactionCategory = mutation({
     await ctx.db.patch('transactions', args.transactionId, {
       encryptedCategories: args.encryptedCategories,
     })
+
+    const workspace = await ctx.db.get('workspaces', portfolio.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: portfolio.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      portfolioId: transaction.portfolioId,
+      portfolioName: portfolio.name,
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'transaction.category_updated',
+      resourceType: 'transaction',
+      resourceId: args.transactionId,
+      metadata: JSON.stringify({
+        transactionId: args.transactionId,
+        categoryKey: args.categoryKey,
+      }),
+    })
   },
 })
 
@@ -480,10 +668,16 @@ export const batchUpdateTransactionCategory = mutation({
       .first()
     if (!member) throw new Error('Not authorized')
 
+    const identity = await ctx.auth.getUserIdentity()
+
     await ctx.scheduler.runAfter(
       0,
       internal.transactions.batchUpdateCategoryAsync,
-      { updates: args.updates },
+      {
+        updates: args.updates,
+        workspaceId: member.workspaceId,
+        ...getActorInfo(identity),
+      },
     )
   },
 })
@@ -496,12 +690,20 @@ export const batchUpdateCategoryAsync = internalAction({
         encryptedCategories: v.string(),
       }),
     ),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (let i = 0; i < args.updates.length; i += BATCH_CHUNK_SIZE) {
       const chunk = args.updates.slice(i, i + BATCH_CHUNK_SIZE)
       await ctx.runMutation(internal.transactions.batchUpdateCategoryChunk, {
         updates: chunk,
+        workspaceId: args.workspaceId,
+        actorId: args.actorId,
+        actorName: args.actorName,
+        actorAvatarUrl: args.actorAvatarUrl,
       })
     }
   },
@@ -515,6 +717,10 @@ export const batchUpdateCategoryChunk = internalMutation({
         encryptedCategories: v.string(),
       }),
     ),
+    workspaceId: v.id('workspaces'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     for (const update of args.updates) {
@@ -525,5 +731,20 @@ export const batchUpdateCategoryChunk = internalMutation({
         encryptedCategories: update.encryptedCategories,
       })
     }
+
+    const workspace = await ctx.db.get('workspaces', args.workspaceId)
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: args.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      actorId: args.actorId,
+      actorName: args.actorName,
+      actorAvatarUrl: args.actorAvatarUrl,
+      event: 'transaction.category_batch_updated',
+      resourceType: 'transaction',
+      metadata: JSON.stringify({
+        affectedCount: args.updates.length,
+      }),
+    })
   },
 })
