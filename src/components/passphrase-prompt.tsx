@@ -99,6 +99,9 @@ export function PassphrasePrompt() {
               autoFocus
               data-1p-type="password"
               autoComplete="passphrase"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
             />
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

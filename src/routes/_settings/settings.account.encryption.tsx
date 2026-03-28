@@ -506,6 +506,9 @@ function KeyRotationDialog({
                   placeholder="Your encryption passphrase"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
               {totalRecords > 0 && (
