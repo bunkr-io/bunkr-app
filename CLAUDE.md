@@ -80,6 +80,7 @@ Take inspiration from best-in-class web apps like **Linear** as a general rule. 
 - Use Convex validators (`v.*`) for all function arguments and schema definitions
 - Use TanStack Router for all routing — file-based routes in `src/routes/`
 - Use shadcn/ui components — do not create custom UI primitives when shadcn has one
+- When installing a UI component that would override an existing shadcn component, keep the original file to avoid breaking customizations on it
 - Use Lucide for icons (`lucide-react`)
 - Use TailwindCSS utility classes — avoid custom CSS unless absolutely necessary
 - Backend logic belongs in `convex/` — keep `src/` focused on UI and routing
