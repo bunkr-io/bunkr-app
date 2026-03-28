@@ -56,7 +56,7 @@ export function NavFavorites() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <SidebarMenuAction
-                    showOnHover
+                    className="group-hover/menu-item:opacity-100 data-[state=open]:opacity-100 md:opacity-0"
                     onClick={() => void handleRemove(fav.viewId)}
                   >
                     <X className="size-4" />
