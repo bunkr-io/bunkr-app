@@ -35,6 +35,7 @@ interface EncryptionContextValue {
   workspacePolicies: {
     categoryCreation: 'owners_only' | 'all_members'
     labelCreation: 'owners_only' | 'all_members'
+    ruleCreation: 'owners_only' | 'all_members'
   } | null
   // For granting access: the decrypted workspace private key JWK (in memory only when unlocked via passphrase)
   // Will be null after page reload (non-extractable key in IndexedDB)

@@ -43,6 +43,10 @@ export default defineSchema({
           v.literal('owners_only'),
           v.literal('all_members'),
         ),
+        ruleCreation: v.union(
+          v.literal('owners_only'),
+          v.literal('all_members'),
+        ),
       }),
     ),
   }),

@@ -172,6 +172,7 @@ export function TransactionsList({
     categoryKey: string
     excludeFromBudget: boolean
     customDescription: string
+    portfolioId?: string
   }>({
     open: false,
     pattern: '',
@@ -213,6 +214,7 @@ export function TransactionsList({
       categoryKey: string,
       excludeFromBudget: boolean = false,
       customDescription: string = '',
+      portfolioId?: string,
     ) => {
       setRuleDialog({
         open: true,
@@ -220,6 +222,7 @@ export function TransactionsList({
         categoryKey,
         excludeFromBudget,
         customDescription,
+        portfolioId,
       })
     },
     [],
@@ -411,7 +414,15 @@ export function TransactionsList({
                 transactionId={row.original._id}
                 currentCategoryKey={categoryKey}
                 wording={row.original.wording}
-                onCreateRule={handleCreateRule}
+                onCreateRule={(wording, catKey) =>
+                  handleCreateRule(
+                    wording,
+                    catKey,
+                    false,
+                    '',
+                    row.original.portfolioId,
+                  )
+                }
               />
             </div>
           )
@@ -633,7 +644,13 @@ export function TransactionsList({
                 action: {
                   label: 'Create rule',
                   onClick: () =>
-                    handleCreateRule(txn.wording, '', false, customDescription),
+                    handleCreateRule(
+                      txn.wording,
+                      '',
+                      false,
+                      customDescription,
+                      txn.portfolioId,
+                    ),
                 },
               }
             : undefined,
@@ -911,6 +928,7 @@ export function TransactionsList({
         defaultCategoryKey={ruleDialog.categoryKey}
         defaultExcludeFromBudget={ruleDialog.excludeFromBudget}
         defaultCustomDescription={ruleDialog.customDescription}
+        portfolioId={ruleDialog.portfolioId as Id<'portfolios'> | undefined}
         onCreated={(ruleId) => setEditingRuleId(ruleId)}
       />
 
@@ -1264,6 +1282,8 @@ function TransactionDetailSheet({
     wording: string,
     categoryKey: string,
     excludeFromBudget?: boolean,
+    customDescription?: string,
+    portfolioId?: string,
   ) => void
   labels: Array<LabelData>
   workspaceId?: string
@@ -1407,7 +1427,15 @@ function TransactionDetailSheet({
                     transactionId={transaction._id}
                     currentCategoryKey={categoryKey}
                     wording={transaction.wording}
-                    onCreateRule={onCreateRule}
+                    onCreateRule={(wording, catKey) =>
+                      onCreateRule(
+                        wording,
+                        catKey,
+                        false,
+                        '',
+                        transaction.portfolioId,
+                      )
+                    }
                     modal
                   />
                 </dd>
@@ -1422,9 +1450,25 @@ function TransactionDetailSheet({
                     <LabelPicker
                       labels={labels}
                       selectedLabelIds={transaction.labelIds ?? []}
-                      onToggle={(labelIds) =>
+                      onToggle={(labelIds) => {
+                        const prev = transaction.labelIds ?? []
                         onLabelToggle(transaction._id, labelIds)
-                      }
+                        if (labelIds.length > prev.length) {
+                          toast.success('Label added', {
+                            action: {
+                              label: 'Create rule',
+                              onClick: () =>
+                                onCreateRule(
+                                  transaction.wording,
+                                  '',
+                                  false,
+                                  '',
+                                  transaction.portfolioId,
+                                ),
+                            },
+                          })
+                        }
+                      }}
                       onCreateLabel={(name) =>
                         createLabelDialog.openDialog(name)
                       }
@@ -1447,7 +1491,13 @@ function TransactionDetailSheet({
                         action: {
                           label: 'Create rule',
                           onClick: () =>
-                            onCreateRule(transaction.wording, '', true),
+                            onCreateRule(
+                              transaction.wording,
+                              '',
+                              true,
+                              '',
+                              transaction.portfolioId,
+                            ),
                         },
                       })
                     } else {
@@ -1533,6 +1583,19 @@ function TransactionDetailSheet({
               ...(transaction.labelIds ?? []),
               labelId,
             ])
+            toast.success('Label created', {
+              action: {
+                label: 'Create rule',
+                onClick: () =>
+                  onCreateRule(
+                    transaction.wording,
+                    '',
+                    false,
+                    '',
+                    transaction.portfolioId,
+                  ),
+              },
+            })
           }}
         />
       )}

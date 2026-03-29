@@ -58,9 +58,10 @@ function PermissionsSettings() {
 
   const categoryCreation = workspace.policies?.categoryCreation ?? 'owners_only'
   const labelCreation = workspace.policies?.labelCreation ?? 'owners_only'
+  const ruleCreation = workspace.policies?.ruleCreation ?? 'owners_only'
 
   const handleChange = async (
-    field: 'categoryCreation' | 'labelCreation',
+    field: 'categoryCreation' | 'labelCreation' | 'ruleCreation',
     value: 'owners_only' | 'all_members',
   ) => {
     try {
@@ -68,6 +69,7 @@ function PermissionsSettings() {
         categoryCreation:
           field === 'categoryCreation' ? value : categoryCreation,
         labelCreation: field === 'labelCreation' ? value : labelCreation,
+        ruleCreation: field === 'ruleCreation' ? value : ruleCreation,
       })
       toast.success('Permissions updated')
     } catch (err) {
@@ -122,6 +124,30 @@ function PermissionsSettings() {
                   'labelCreation',
                   v as 'owners_only' | 'all_members',
                 )
+              }
+            >
+              <SelectTrigger size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="owners_only">Owners only</SelectItem>
+                <SelectItem value="all_members">All members</SelectItem>
+              </SelectContent>
+            </Select>
+          </ItemCardItemAction>
+        </ItemCardItem>
+        <ItemCardItem>
+          <ItemCardItemContent>
+            <ItemCardItemTitle>Automation rules</ItemCardItemTitle>
+            <ItemCardItemDescription>
+              Who can create new transaction automation rules for the workspace
+            </ItemCardItemDescription>
+          </ItemCardItemContent>
+          <ItemCardItemAction>
+            <Select
+              value={ruleCreation}
+              onValueChange={(v) =>
+                handleChange('ruleCreation', v as 'owners_only' | 'all_members')
               }
             >
               <SelectTrigger size="sm">

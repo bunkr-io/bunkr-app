@@ -66,6 +66,7 @@ export const updateWorkspacePolicies = mutation({
       v.literal('all_members'),
     ),
     labelCreation: v.union(v.literal('owners_only'), v.literal('all_members')),
+    ruleCreation: v.union(v.literal('owners_only'), v.literal('all_members')),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -81,6 +82,7 @@ export const updateWorkspacePolicies = mutation({
     const policies = {
       categoryCreation: args.categoryCreation,
       labelCreation: args.labelCreation,
+      ruleCreation: args.ruleCreation,
     }
 
     await ctx.db.patch('workspaces', member.workspaceId, { policies })

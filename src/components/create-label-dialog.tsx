@@ -115,7 +115,6 @@ export function CreateLabelDialog({
       })
       onOpenChange(false)
       onCreated(labelId)
-      toast.success(`Label "${label}" created`)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to create label',

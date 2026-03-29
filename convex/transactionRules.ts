@@ -67,8 +67,14 @@ export const createRule = mutation({
     if (!member) {
       throw new Error('Not authorized')
     }
-    if (!args.portfolioId && member.role !== 'owner') {
-      throw new Error('Only workspace owners can create workspace rules')
+    if (!args.portfolioId) {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const canCreate =
+        member.role === 'owner' ||
+        workspace?.policies?.ruleCreation === 'all_members'
+      if (!canCreate) {
+        throw new Error('Only workspace owners can create workspace rules')
+      }
     }
 
     if (
