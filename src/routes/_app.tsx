@@ -7,6 +7,7 @@ import { AppSidebar } from '~/components/app-sidebar'
 import { CommandPalette } from '~/components/command-palette'
 import { ConnectionAlertBanner } from '~/components/connection-alert-banner'
 import { ShortcutsDrawer } from '~/components/shortcuts-drawer'
+import { SiteFooter } from '~/components/site-footer'
 import { TrialBanner } from '~/components/trial-banner'
 import {
   SidebarInset,
@@ -110,6 +111,7 @@ function AppLayout() {
           )}
           <ConnectionAlertBanner />
           <Outlet />
+          <SiteFooter />
         </SidebarInset>
         <CommandPalette />
       </SidebarProvider>

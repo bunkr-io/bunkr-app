@@ -33,6 +33,7 @@ export default defineSchema({
     name: v.string(),
     createdBy: v.string(),
     encryptionEnabled: v.optional(v.boolean()),
+    agentEnabled: v.optional(v.boolean()),
     policies: v.optional(
       v.object({
         categoryCreation: v.union(

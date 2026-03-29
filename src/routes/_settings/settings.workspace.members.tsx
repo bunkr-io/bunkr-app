@@ -1,23 +1,15 @@
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { Ellipsis, Mail, UserX, X } from 'lucide-react'
+import { Bot, Ellipsis, Mail, UserX, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { toast } from 'sonner'
+import { ActivateAgentDialog } from '~/components/activate-agent-dialog'
 import { ConfirmDialog } from '~/components/confirm-dialog'
-import {
-  ItemCard,
-  ItemCardHeader,
-  ItemCardHeaderContent,
-  ItemCardHeaderTitle,
-  ItemCardItem,
-  ItemCardItemAction,
-  ItemCardItemContent,
-  ItemCardItemDescription,
-  ItemCardItems,
-  ItemCardItemTitle,
-} from '~/components/item-card'
+import { DataTable, type DataTableGroup } from '~/components/data-table'
+import { PassphraseDialog } from '~/components/passphrase-dialog'
 import { RequireOwner } from '~/components/require-owner'
 import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar'
 import { Badge } from '~/components/ui/badge'
@@ -39,7 +31,6 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { Input } from '~/components/ui/input'
 import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
-import { Label } from '~/components/ui/label'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
@@ -57,9 +48,26 @@ type ResolvedUser = {
   email: string
 }
 
+type MemberRow = {
+  _id: string
+  type: 'human' | 'invitation' | 'agent'
+  userId: string
+  name: string
+  email: string
+  imageUrl?: string
+  role: 'owner' | 'member' | 'agent'
+  encStatus?: {
+    hasPersonalKey: boolean
+    hasKeySlot: boolean
+    publicKey: string | null
+  }
+  isCurrentUser: boolean
+}
+
 function MembersPage() {
   const data = useQuery(api.members.listMembers)
   const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const agentStatus = useQuery(api.agent.getAgentStatus)
   const resolveUsers = useAction(api.members.resolveUsers)
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})
   const [usersLoading, setUsersLoading] = useState(true)
@@ -103,143 +111,333 @@ function MembersPage() {
 
   if (!data) return null
 
-  // Build a lookup map from userId to encryption status
   const encryptionStatusMap = new Map(
     membersStatus?.map((m) => [m.userId, m]) ?? [],
   )
 
   const isOwner = role === 'owner'
 
+  // Build unified rows
+  const rows: MemberRow[] = []
+
+  if (!usersLoading) {
+    for (const member of data.members) {
+      const user = users[member.userId] as ResolvedUser | undefined
+      const name = user
+        ? [user.firstName, user.lastName].filter(Boolean).join(' ')
+        : member.userId
+      const encStatus = encryptionStatusMap.get(member.userId)
+
+      rows.push({
+        _id: member._id,
+        type: 'human',
+        userId: member.userId,
+        name,
+        email: user?.email ?? '',
+        imageUrl: user?.imageUrl,
+        role: member.role,
+        encStatus: encStatus
+          ? {
+              hasPersonalKey: encStatus.hasPersonalKey,
+              hasKeySlot: encStatus.hasKeySlot,
+              publicKey: encStatus.publicKey,
+            }
+          : undefined,
+        isCurrentUser: member.userId === data.currentUserId,
+      })
+    }
+
+    for (const invitation of data.invitations) {
+      rows.push({
+        _id: invitation._id,
+        type: 'invitation',
+        userId: '',
+        name: invitation.email,
+        email: 'Pending invitation',
+        role: 'member',
+        isCurrentUser: false,
+      })
+    }
+  }
+
+  // Add agent row if enabled
+  if (agentStatus?.enabled) {
+    rows.push({
+      _id: 'bunkr-agent',
+      type: 'agent',
+      userId: 'bunkr-agent',
+      name: 'Bunkr Agent',
+      email: 'AI assistant with access to your financial data',
+      role: 'agent',
+      isCurrentUser: false,
+    })
+  }
+
+  const groups: DataTableGroup<MemberRow>[] = [
+    {
+      label: 'Members',
+      filter: (row) => row.type === 'human' || row.type === 'invitation',
+    },
+    {
+      label: 'Applications',
+      filter: (row) => row.type === 'agent',
+      action:
+        isOwner && !agentStatus?.enabled ? <ActivateAgentButton /> : undefined,
+    },
+  ]
+
   return (
     <RequireOwner>
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-10 py-16">
-        <PageHeader
-          title="Members"
-          description="Invite and manage who has access to this workspace."
-        />
-        <div className="mt-8 space-y-6">
-          <ItemCard>
-            <ItemCardHeader>
-              <ItemCardHeaderContent>
-                <ItemCardHeaderTitle>
-                  {data.members.length}{' '}
-                  {data.members.length === 1 ? 'member' : 'members'}
-                  {subscription?.isActive && (
-                    <span className="text-sm font-normal text-muted-foreground">
-                      / {subscription.seats} seat
-                      {subscription.seats !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </ItemCardHeaderTitle>
-              </ItemCardHeaderContent>
-              {isOwner && (
-                <InviteDialog
-                  existingEmails={[
-                    ...Object.values(users)
-                      .map((u) => u.email.toLowerCase())
-                      .filter(Boolean),
-                    ...data.invitations.map((i) => i.email.toLowerCase()),
-                  ]}
-                  atSeatLimit={
-                    subscription?.isActive
-                      ? subscription.currentSeats +
-                          subscription.pendingInvitations >=
-                        subscription.seats
-                      : false
-                  }
-                />
-              )}
-            </ItemCardHeader>
-            <ItemCardItems>
-              {usersLoading
-                ? data.members.map((member) => (
-                    <ItemCardItem key={member._id}>
-                      <div className="flex items-center gap-3">
-                        <Skeleton className="size-8 rounded-full" />
-                        <ItemCardItemContent>
-                          <Skeleton className="h-4 w-32" />
-                          <Skeleton className="h-3 w-48" />
-                        </ItemCardItemContent>
-                      </div>
-                      <ItemCardItemAction>
-                        <Skeleton className="h-5 w-14 rounded-full" />
-                      </ItemCardItemAction>
-                    </ItemCardItem>
-                  ))
-                : data.members.map((member) => {
-                    const user = users[member.userId] as
-                      | ResolvedUser
-                      | undefined
-                    const name = user
-                      ? [user.firstName, user.lastName]
-                          .filter(Boolean)
-                          .join(' ')
-                      : member.userId
-                    const email = user?.email ?? ''
-                    const initials = name
-                      .split(' ')
-                      .map((n) => n[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 2)
-
-                    const encStatus = encryptionStatusMap.get(member.userId)
-
-                    return (
-                      <ItemCardItem key={member._id}>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="size-8 rounded-full">
-                            <AvatarImage src={user?.imageUrl} alt={name} />
-                            <AvatarFallback className="rounded-full text-xs">
-                              {initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <ItemCardItemContent>
-                            <ItemCardItemTitle>
-                              {name}
-                              {member.userId === data.currentUserId && (
-                                <span className="text-sm text-muted-foreground">
-                                  (you)
-                                </span>
-                              )}
-                            </ItemCardItemTitle>
-                            <ItemCardItemDescription>
-                              {email}
-                            </ItemCardItemDescription>
-                          </ItemCardItemContent>
-                        </div>
-                        <ItemCardItemAction>
-                          <div className="flex items-center gap-2">
-                            <MemberActionBadge
-                              encStatus={encStatus}
-                              isOwner={isOwner}
-                              isEncryptionEnabled={isEncryptionEnabled}
-                            />
-                            {isOwner &&
-                              member.userId !== data.currentUserId && (
-                                <RemoveMemberMenu
-                                  memberId={member._id}
-                                  memberName={name}
-                                />
-                              )}
-                          </div>
-                        </ItemCardItemAction>
-                      </ItemCardItem>
-                    )
-                  })}
-              {data.invitations.map((invitation) => (
-                <PendingInvitationItem
-                  key={invitation._id}
-                  invitation={invitation}
-                />
-              ))}
-            </ItemCardItems>
-          </ItemCard>
+      <div className="flex h-full flex-col overflow-hidden px-10 pt-16">
+        <div className="shrink-0">
+          <PageHeader
+            title="Members"
+            description="Invite and manage who has access to this workspace."
+          />
+        </div>
+        <div className="mt-8 flex min-h-0 flex-1 flex-col">
+          {usersLoading ? (
+            <Skeleton className="h-48 w-full rounded-lg" />
+          ) : (
+            <DataTable
+              columns={memberColumns}
+              data={rows}
+              filterColumn="name"
+              filterPlaceholder="Filter by name..."
+              getRowId={(row) => row._id}
+              groups={groups}
+              actions={
+                isOwner ? (
+                  <InviteDialog
+                    existingEmails={[
+                      ...Object.values(users)
+                        .map((u) => u.email.toLowerCase())
+                        .filter(Boolean),
+                      ...data.invitations.map((i) => i.email.toLowerCase()),
+                    ]}
+                    atSeatLimit={
+                      subscription?.isActive
+                        ? subscription.currentSeats +
+                            subscription.pendingInvitations >=
+                          subscription.seats
+                        : false
+                    }
+                  />
+                ) : undefined
+              }
+            />
+          )}
         </div>
       </div>
     </RequireOwner>
   )
 }
+
+// --- Column definitions ---
+
+const memberColumns: ColumnDef<MemberRow, unknown>[] = [
+  {
+    accessorKey: 'name',
+    header: 'Name',
+    cell: ({ row }) => {
+      const { type, name, imageUrl, isCurrentUser } = row.original
+
+      if (type === 'agent') {
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 items-center justify-center rounded-full bg-primary/10">
+              <Bot className="size-4 text-primary" />
+            </div>
+            <span className="font-medium">{name}</span>
+          </div>
+        )
+      }
+
+      if (type === 'invitation') {
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8 rounded-full">
+              <AvatarFallback className="rounded-full text-xs">
+                <Mail className="size-4" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium">{name}</span>
+          </div>
+        )
+      }
+
+      const initials = name
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8 rounded-full">
+            <AvatarImage src={imageUrl} alt={name} />
+            <AvatarFallback className="rounded-full text-xs">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-medium">
+            {name}
+            {isCurrentUser && (
+              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                (you)
+              </span>
+            )}
+          </span>
+        </div>
+      )
+    },
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    cell: ({ row }) => (
+      <span className="text-muted-foreground">{row.original.email}</span>
+    ),
+  },
+  {
+    id: 'status',
+    header: '',
+    size: 180,
+    cell: ({ row }) => <MemberStatusCell row={row.original} />,
+  },
+  {
+    id: 'actions',
+    header: '',
+    size: 50,
+    cell: ({ row }) => <MemberActionsCell row={row.original} />,
+  },
+]
+
+function MemberStatusCell({ row }: { row: MemberRow }) {
+  const { isEncryptionEnabled, role } = useEncryption()
+  const isOwner = role === 'owner'
+
+  if (row.type === 'agent') {
+    return <Badge variant="secondary">Active</Badge>
+  }
+
+  if (row.type === 'invitation') {
+    return <Badge variant="outline">Invited</Badge>
+  }
+
+  if (!isEncryptionEnabled || !row.encStatus) return null
+
+  const { hasKeySlot, hasPersonalKey, publicKey } = row.encStatus
+
+  if (hasKeySlot) return null // Has access, no badge needed
+
+  if (hasPersonalKey && isOwner && publicKey) {
+    return (
+      <GrantAccessButton
+        targetUserId={row.userId}
+        targetPublicKey={publicKey}
+      />
+    )
+  }
+
+  if (hasPersonalKey) {
+    return <Badge variant="outline">Pending access</Badge>
+  }
+
+  return (
+    <Badge variant="outline">
+      <UserX className="size-3" />
+      Pending setup
+    </Badge>
+  )
+}
+
+function MemberActionsCell({ row }: { row: MemberRow }) {
+  const { role } = useEncryption()
+  const isOwner = role === 'owner'
+
+  if (row.type === 'agent' && isOwner) {
+    return <DeactivateAgentMenu />
+  }
+
+  if (row.type === 'invitation') {
+    return <RevokeInvitationButton invitationId={row._id} />
+  }
+
+  if (row.type === 'human' && isOwner && !row.isCurrentUser) {
+    return <RemoveMemberMenu memberId={row._id} memberName={row.name} />
+  }
+
+  return null
+}
+
+// --- Activate Agent Button (for Applications group action) ---
+
+function ActivateAgentButton() {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        Activate
+      </Button>
+      <ActivateAgentDialog open={open} onOpenChange={setOpen} />
+    </>
+  )
+}
+
+// --- Deactivate Agent Menu ---
+
+function DeactivateAgentMenu() {
+  const deactivateAgent = useMutation(api.agent.deactivateAgent)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
+
+  async function handleDeactivate() {
+    setDeactivating(true)
+    try {
+      await deactivateAgent()
+      toast.success('Bunkr Agent deactivated')
+      setConfirmOpen(false)
+    } catch {
+      toast.error('Failed to deactivate agent')
+    } finally {
+      setDeactivating(false)
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8">
+            <Ellipsis className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setConfirmOpen(true)}
+          >
+            Deactivate
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Deactivate Bunkr Agent"
+        description="This will revoke the agent's access to your financial data and delete all agent conversations. This action cannot be undone."
+        confirmValue="Bunkr Agent"
+        confirmLabel="Deactivate"
+        loading={deactivating}
+        onConfirm={handleDeactivate}
+      />
+    </>
+  )
+}
+
+// --- Remove Member Menu ---
 
 function RemoveMemberMenu({
   memberId,
@@ -296,51 +494,40 @@ function RemoveMemberMenu({
   )
 }
 
-function MemberActionBadge({
-  encStatus,
-  isOwner,
-  isEncryptionEnabled,
-}: {
-  encStatus:
-    | {
-        userId: string
-        hasPersonalKey: boolean
-        hasKeySlot: boolean
-        publicKey: string | null
-      }
-    | undefined
-  isOwner: boolean
-  isEncryptionEnabled: boolean
-}) {
-  if (!isEncryptionEnabled || !encStatus) {
-    return null
+// --- Revoke Invitation Button ---
+
+function RevokeInvitationButton({ invitationId }: { invitationId: string }) {
+  const revokeInvitation = useAction(api.members.revokeInvitationAction)
+  const [revoking, setRevoking] = useState(false)
+
+  async function handleRevoke() {
+    setRevoking(true)
+    try {
+      await revokeInvitation({
+        invitationId: invitationId as never,
+      })
+      toast.success('Invitation revoked')
+    } catch (error) {
+      Sentry.captureException(error)
+      toast.error('Failed to revoke invitation')
+    } finally {
+      setRevoking(false)
+    }
   }
 
-  let status: 'access' | 'pending' | 'no-setup'
-  if (encStatus.hasKeySlot) status = 'access'
-  else if (encStatus.hasPersonalKey) status = 'pending'
-  else status = 'no-setup'
-
   return (
-    <div className="flex items-center gap-2">
-      {status === 'pending' && isOwner && encStatus.publicKey && (
-        <GrantAccessButton
-          targetUserId={encStatus.userId}
-          targetPublicKey={encStatus.publicKey}
-        />
-      )}
-      {status === 'pending' && !isOwner && (
-        <Badge variant="outline">Pending access</Badge>
-      )}
-      {status === 'no-setup' && (
-        <Badge variant="outline">
-          <UserX className="size-3" />
-          Pending setup
-        </Badge>
-      )}
-    </div>
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleRevoke}
+      disabled={revoking}
+    >
+      Revoke
+    </Button>
   )
 }
+
+// --- Grant Access Button ---
 
 function GrantAccessButton({
   targetUserId,
@@ -376,8 +563,6 @@ function GrantAccessButton({
     }
   }
 
-  // After passphrase dialog unlocks the vault, workspacePrivateKeyJwk becomes
-  // available on the next render. This effect auto-triggers the grant.
   useEffect(() => {
     if (pendingGrant && workspacePrivateKeyJwk) {
       setPendingGrant(false)
@@ -411,156 +596,14 @@ function GrantAccessButton({
           setPassphraseOpen(false)
           setPendingGrant(true)
         }}
+        description="Your passphrase is needed to decrypt the workspace key before granting access to this member."
+        submitLabel="Unlock & grant access"
       />
     </>
   )
 }
 
-function PassphraseDialog({
-  open,
-  onOpenChange,
-  unlock,
-  onUnlocked,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  unlock: (passphrase: string) => Promise<void>
-  onUnlocked: () => void
-}) {
-  const [passphrase, setPassphrase] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [unlocking, setUnlocking] = useState(false)
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!passphrase) return
-    setError(null)
-    setUnlocking(true)
-    try {
-      await unlock(passphrase)
-      setPassphrase('')
-      onUnlocked()
-    } catch {
-      setError('Invalid passphrase. Please try again.')
-    } finally {
-      setUnlocking(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>Enter your passphrase</DialogTitle>
-          <DialogDescription>
-            Your passphrase is needed to decrypt the workspace key before
-            granting access to this member.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="grant-passphrase">Passphrase</Label>
-              <Input
-                id="grant-passphrase"
-                type="password"
-                placeholder="Your encryption passphrase"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                autoFocus
-                autoCapitalize="off"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-              {error && <p className="text-sm text-destructive">{error}</p>}
-            </div>
-          </div>
-          <PassphraseFooter
-            onCancel={() => onOpenChange(false)}
-            disabled={!passphrase}
-            unlocking={unlocking}
-          />
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function PassphraseFooter({
-  onCancel,
-  disabled,
-  unlocking,
-}: {
-  onCancel: () => void
-  disabled: boolean
-  unlocking: boolean
-}) {
-  useHotkeys('escape', onCancel, {
-    enableOnFormTags: true,
-    preventDefault: true,
-  })
-
-  return (
-    <DialogFooter className="mt-4">
-      <Button type="button" variant="outline" onClick={onCancel}>
-        Cancel <Kbd>Esc</Kbd>
-      </Button>
-      <Button type="submit" disabled={disabled} loading={unlocking}>
-        Unlock & grant access <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
-      </Button>
-    </DialogFooter>
-  )
-}
-
-function PendingInvitationItem({
-  invitation,
-}: {
-  invitation: { _id: string; email: string }
-}) {
-  const revokeInvitation = useAction(api.members.revokeInvitationAction)
-  const [revoking, setRevoking] = useState(false)
-
-  async function handleRevoke() {
-    setRevoking(true)
-    try {
-      await revokeInvitation({
-        invitationId: invitation._id as never,
-      })
-      toast.success('Invitation revoked')
-    } catch (error) {
-      Sentry.captureException(error)
-      toast.error('Failed to revoke invitation')
-    } finally {
-      setRevoking(false)
-    }
-  }
-
-  return (
-    <ItemCardItem>
-      <div className="flex items-center gap-3">
-        <Avatar className="size-8 rounded-full">
-          <AvatarFallback className="rounded-full text-xs">
-            <Mail className="size-4" />
-          </AvatarFallback>
-        </Avatar>
-        <ItemCardItemContent>
-          <ItemCardItemTitle>{invitation.email}</ItemCardItemTitle>
-          <ItemCardItemDescription>Pending invitation</ItemCardItemDescription>
-        </ItemCardItemContent>
-      </div>
-      <ItemCardItemAction>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleRevoke}
-          disabled={revoking}
-        >
-          Revoke
-        </Button>
-      </ItemCardItemAction>
-    </ItemCardItem>
-  )
-}
+// --- Invite Dialog ---
 
 function InviteDialog({
   existingEmails = [],
