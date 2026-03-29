@@ -17,10 +17,12 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
   Eye,
   EyeOff,
   Pencil,
@@ -1357,18 +1359,23 @@ function TransactionDetailSheet({
         </div>
 
         {/* Amount */}
-        <div className="px-4 sm:px-6">
-          <span
-            className={cn(
-              'text-2xl font-bold font-mono tabular-nums',
-              transaction.value > 0
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-red-600 dark:text-red-400',
-            )}
-          >
-            {transaction.value > 0 ? '+' : ''}
-            {formatCurrency(transaction.value, currency)}
-          </span>
+        <div className="group/copy px-4 sm:px-6">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'text-2xl font-bold font-mono tabular-nums',
+                transaction.value > 0
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-red-600 dark:text-red-400',
+              )}
+            >
+              {transaction.value > 0 ? '+' : ''}
+              {formatCurrency(transaction.value, currency)}
+            </span>
+            <CopyButton
+              value={`${transaction.value > 0 ? '+' : ''}${formatCurrency(transaction.value, currency)}`}
+            />
+          </div>
           {hasOriginalCurrency && (
             <p className="mt-1 text-sm text-muted-foreground">
               Original:{' '}
@@ -1450,11 +1457,14 @@ function TransactionDetailSheet({
             {details
               .filter((d) => d.value)
               .map((d) => (
-                <div key={d.label}>
+                <div key={d.label} className="group/copy">
                   <dt className="text-sm font-medium text-muted-foreground">
                     {d.label}
                   </dt>
-                  <dd className="mt-1 text-sm break-words">{d.value}</dd>
+                  <dd className="mt-1 flex items-start gap-1.5 text-sm break-words">
+                    <span className="flex-1">{d.value}</span>
+                    <CopyButton value={d.value as string} />
+                  </dd>
                 </div>
               ))}
           </dl>
@@ -1545,6 +1555,27 @@ function BulkExclusionView({
         ))}
       </div>
     </>
+  )
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = React.useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/copy:opacity-100"
+      aria-label="Copy to clipboard"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </button>
   )
 }
 
