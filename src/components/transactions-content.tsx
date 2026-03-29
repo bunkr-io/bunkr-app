@@ -510,7 +510,11 @@ export function TransactionsContent({
       originalCurrency: t.originalCurrency,
       type: t.type,
       coming: t.coming,
-      counterparty: t.counterparty,
+      counterparty:
+        typeof t.counterparty === 'object' && t.counterparty !== null
+          ? (((t.counterparty as Record<string, unknown>).label as string) ??
+            undefined)
+          : t.counterparty,
       card: t.card,
       comment: t.comment,
       customDescription: t.customDescription,

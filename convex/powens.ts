@@ -75,7 +75,15 @@ interface PowensRawTransaction {
   coming?: boolean | null
   active?: boolean | null
   deleted?: unknown
-  counterparty?: string | null
+  counterparty?:
+    | string
+    | {
+        label?: string | null
+        account_scheme_name?: string | null
+        account_identification?: string | null
+        type?: string | null
+      }
+    | null
   card?: string | null
   comment?: string | null
 }
@@ -1157,7 +1165,10 @@ function mapPowensTransaction(raw: PowensRawTransaction): MappedTransaction {
     coming: raw.coming ?? false,
     active: raw.active ?? true,
     deleted: raw.deleted != null,
-    counterparty: raw.counterparty ?? undefined,
+    counterparty:
+      typeof raw.counterparty === 'object' && raw.counterparty !== null
+        ? (raw.counterparty.label ?? undefined)
+        : (raw.counterparty ?? undefined),
     card: raw.card ?? undefined,
     comment: raw.comment ?? undefined,
   }
