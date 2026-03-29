@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useMutation } from 'convex/react'
 import { toast } from 'sonner'
 import { CategoryCombobox } from '~/components/category-combobox'
@@ -66,7 +67,8 @@ export function CategoryPicker({
             }
           : undefined,
       })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to update category')
     }
   }

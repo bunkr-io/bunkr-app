@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { Ellipsis, Mail, UserX, X } from 'lucide-react'
@@ -526,7 +527,8 @@ function PendingInvitationItem({
         invitationId: invitation._id as never,
       })
       toast.success('Invitation revoked')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to revoke invitation')
     } finally {
       setRevoking(false)
@@ -607,7 +609,8 @@ function InviteDialog({
       setEmails([])
       setEmailInput('')
       setOpen(false)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to send invitations')
     } finally {
       setSending(false)

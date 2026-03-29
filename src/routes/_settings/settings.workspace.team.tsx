@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { Home } from 'lucide-react'
@@ -192,7 +193,8 @@ function TeamPermissions() {
         permissions: fromAccessLevel(level),
       })
       toast.success('Permissions updated')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to update permissions')
     }
   }

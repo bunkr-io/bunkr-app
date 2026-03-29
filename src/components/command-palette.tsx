@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useAction } from 'convex/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import * as React from 'react'
@@ -110,7 +111,8 @@ export function CommandPalette() {
       setPaletteState({ open: false })
       // Dispatch after a tick so the transactions page can mount and listen
       setTimeout(() => dispatchAIFilters(conditions), 100)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to generate filters')
     } finally {
       setLoading(false)

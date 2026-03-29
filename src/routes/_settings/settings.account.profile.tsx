@@ -1,4 +1,5 @@
 import { useUser } from '@clerk/tanstack-react-start'
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { useState } from 'react'
@@ -133,7 +134,8 @@ function FullNameItem() {
         lastName: trimmed.split(' ').slice(1).join(' ') || undefined,
       })
       toast.success('Profile updated')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       setFullName(user?.fullName ?? '')
       toast.error('Failed to update name')
     } finally {
@@ -185,7 +187,8 @@ function LeaveWorkspaceCard({ workspaceName }: { workspaceName: string }) {
       await leaveWorkspace()
       toast.success('You have left the workspace')
       navigate({ to: '/' })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to leave workspace')
     } finally {
       setLoading(false)
@@ -243,7 +246,8 @@ function DeleteWorkspaceCard({ workspaceName }: { workspaceName: string }) {
       await deleteWorkspace()
       toast.success('Workspace deleted')
       navigate({ to: '/' })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete workspace')
     } finally {
       setLoading(false)

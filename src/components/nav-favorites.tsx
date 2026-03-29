@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { Layers, X } from 'lucide-react'
@@ -28,7 +29,8 @@ export function NavFavorites() {
     try {
       await toggleFavorite({ viewId: viewId as never })
       toast.success('Removed from favorites')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to remove favorite')
     }
   }

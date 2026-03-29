@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
@@ -79,7 +80,8 @@ function PortfolioNameCard({
     try {
       await updatePortfolio({ portfolioId, name: trimmed })
       toast.success('Portfolio name updated')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       setPortfolioName(name)
       toast.error('Failed to update portfolio name')
     } finally {

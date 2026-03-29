@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useMutation, useQuery } from 'convex/react'
 import { ChevronsUpDown, Loader2, Search } from 'lucide-react'
 import * as React from 'react'
@@ -222,7 +223,8 @@ export function RuleDialog({
         }
       }
       onOpenChange(false)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error(isEdit ? 'Failed to update rule' : 'Failed to create rule')
     } finally {
       setSaving(false)

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useMutation, useQuery } from 'convex/react'
@@ -115,7 +116,8 @@ function ViewsContent() {
       await removeView({ viewId: deleteViewId })
       toast.success('View deleted')
       setDeleteViewId(null)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete view')
     } finally {
       setDeleting(false)
@@ -128,7 +130,8 @@ function ViewsContent() {
         await removeView({ viewId: id as Id<'filterViews'> })
       }
       toast.success(`${ids.length} view${ids.length > 1 ? 's' : ''} deleted`)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete views')
     }
   }

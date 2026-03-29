@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useAction } from 'convex/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import * as React from 'react'
@@ -40,7 +41,8 @@ export function AskAIFilter({ fields, onLoadFilters }: AskAIFilterProps) {
         setQuery('')
         setOpen(false)
       }
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to generate filters')
     } finally {
       setLoading(false)

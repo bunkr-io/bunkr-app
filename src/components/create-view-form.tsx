@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { Globe, Lock } from 'lucide-react'
@@ -68,7 +69,8 @@ export function CreateViewForm({
       })
       toast.success('View created')
       navigate({ to: '/views/$viewId', params: { viewId } })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to create view')
       setSaving(false)
     }

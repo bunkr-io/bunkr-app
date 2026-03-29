@@ -1,5 +1,6 @@
 import { useSession, useUser } from '@clerk/tanstack-react-start'
 import { clerkClient } from '@clerk/tanstack-react-start/server'
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
 import { useCallback, useEffect, useState } from 'react'
@@ -75,7 +76,8 @@ function SecurityPage() {
       await revokeSessionsFn({ data: others.map((s) => s.id) as Array<string> })
       setSessions((prev) => prev.filter((s) => s.id === currentSession?.id))
       toast.success('All other sessions revoked')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to revoke sessions')
     }
   }

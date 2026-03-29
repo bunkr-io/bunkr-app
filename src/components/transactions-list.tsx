@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import type {
   ColumnDef,
   RowSelectionState,
@@ -250,7 +251,8 @@ export function TransactionsList({
               transactionId: transactionId as Id<'transactions'>,
               labelIds: latest as Array<Id<'transactionLabels'>>,
             })
-          } catch {
+          } catch (error) {
+            Sentry.captureException(error)
             toast.error('Failed to update labels')
           }
         }, 500),
@@ -525,7 +527,8 @@ export function TransactionsList({
             removeLabelIds: [labelId as Id<'transactionLabels'>],
           })
         }
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update labels')
       }
     },
@@ -561,7 +564,8 @@ export function TransactionsList({
         )
 
         await batchUpdateCategory({ updates })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update category')
       }
     },
@@ -575,7 +579,8 @@ export function TransactionsList({
           transactionId: transactionId as Id<'transactions'>,
           excludedFromBudget: excluded,
         })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update transaction')
       }
     },
@@ -592,7 +597,8 @@ export function TransactionsList({
           transactionIds: ids as Array<Id<'transactions'>>,
           excludedFromBudget: excluded,
         })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update exclusion')
       }
     },
@@ -636,7 +642,8 @@ export function TransactionsList({
               }
             : undefined,
         )
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update description')
       }
     },
@@ -674,7 +681,8 @@ export function TransactionsList({
         )
         await batchUpdateDetails({ items })
         toast.success(`Updating description for ${rows.length} transactions...`)
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update descriptions')
       }
     },
@@ -959,7 +967,8 @@ function BulkLabelView({
       })
       setSearch('')
       handleToggle(labelId, true)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to create label')
     }
   }

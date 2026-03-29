@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useMutation } from 'convex/react'
 import { ChevronsUpDown, Plus } from 'lucide-react'
 import * as React from 'react'
@@ -107,7 +108,8 @@ export function LabelPicker({
       setOptimistic((prev) => new Map(prev).set(labelId, true))
       onToggle([...effectiveIds, labelId])
       toast.success(`Label "${name}" created`)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to create label')
     }
   }

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { Link2 } from 'lucide-react'
@@ -257,7 +258,8 @@ function BankAccountItem({ account }: { account: DecryptedBankAccount }) {
         })
         toast.success('Custom name updated')
       }
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       setInputValue(account.customName ?? '')
       toast.error('Failed to update custom name')
     } finally {

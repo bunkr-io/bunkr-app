@@ -17,6 +17,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
 import { Route as PowensCallbackRouteImport } from './routes/powens/callback'
+import { Route as ApiTunnelRouteImport } from './routes/api/tunnel'
 import { Route as AppTransactionsRouteImport } from './routes/_app/transactions'
 import { Route as AppPortfoliosRouteImport } from './routes/_app/portfolios'
 import { Route as SettingsSettingsIndexRouteImport } from './routes/_settings/settings.index'
@@ -81,6 +82,11 @@ const SignInSplatRoute = SignInSplatRouteImport.update({
 const PowensCallbackRoute = PowensCallbackRouteImport.update({
   id: '/powens/callback',
   path: '/powens/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTunnelRoute = ApiTunnelRouteImport.update({
+  id: '/api/tunnel',
+  path: '/api/tunnel',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppTransactionsRoute = AppTransactionsRouteImport.update({
@@ -246,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/waitlist': typeof WaitlistRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
@@ -281,6 +288,7 @@ export interface FileRoutesByTo {
   '/waitlist': typeof WaitlistRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/waitlist': typeof WaitlistRoute
   '/_app/portfolios': typeof AppPortfoliosRoute
   '/_app/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/_app/': typeof AppIndexRoute
@@ -355,6 +364,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/portfolios'
     | '/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/accounts/$accountId'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/portfolios'
     | '/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/accounts/$accountId'
@@ -425,6 +436,7 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/_app/portfolios'
     | '/_app/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/_app/'
@@ -461,6 +473,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   OnboardingRoute: typeof OnboardingRoute
   WaitlistRoute: typeof WaitlistRoute
+  ApiTunnelRoute: typeof ApiTunnelRoute
   PowensCallbackRoute: typeof PowensCallbackRoute
   SignInSplatRoute: typeof SignInSplatRoute
 }
@@ -521,6 +534,13 @@ declare module '@tanstack/react-router' {
       path: '/powens/callback'
       fullPath: '/powens/callback'
       preLoaderRoute: typeof PowensCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/tunnel': {
+      id: '/api/tunnel'
+      path: '/api/tunnel'
+      fullPath: '/api/tunnel'
+      preLoaderRoute: typeof ApiTunnelRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/transactions': {
@@ -818,6 +838,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   OnboardingRoute: OnboardingRoute,
   WaitlistRoute: WaitlistRoute,
+  ApiTunnelRoute: ApiTunnelRoute,
   PowensCallbackRoute: PowensCallbackRoute,
   SignInSplatRoute: SignInSplatRoute,
 }

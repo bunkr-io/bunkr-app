@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { ConvexError } from 'convex/values'
@@ -79,7 +80,8 @@ function ViewDetailPage() {
         filters: serializeFilters(filtersRef.current),
       })
       toast.success('View filters saved')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to save filters')
     }
   }, [updateView, viewId])
@@ -105,7 +107,8 @@ function ViewDetailPage() {
       await removeView({ viewId })
       toast.success('View deleted')
       navigate({ to: '/views' })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete view')
     } finally {
       setDeleting(false)
@@ -267,7 +270,8 @@ function EditViewDialog({
       })
       toast.success('View updated')
       onOpenChange(false)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to update view')
     } finally {
       setSaving(false)
