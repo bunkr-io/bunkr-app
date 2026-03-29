@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { toast } from 'sonner'
@@ -41,7 +42,8 @@ function NotificationsPage() {
   async function handleToggleMarketing(checked: boolean) {
     try {
       await updateMarketing({ marketingCommunications: checked })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to update notification preferences')
     }
   }

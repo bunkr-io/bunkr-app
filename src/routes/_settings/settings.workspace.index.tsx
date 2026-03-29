@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
@@ -76,7 +77,8 @@ function WorkspaceNameCard({ name }: { name: string }) {
     try {
       await updateWorkspace({ name: trimmed })
       toast.success('Workspace name updated')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       setWorkspaceName(name)
       toast.error('Failed to update workspace name')
     } finally {
@@ -121,7 +123,8 @@ function DeleteWorkspaceCard({ workspaceName }: { workspaceName: string }) {
       await deleteWorkspace()
       toast.success('Workspace deleted')
       navigate({ to: '/' })
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete workspace')
     } finally {
       setLoading(false)

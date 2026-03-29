@@ -1,7 +1,9 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useAction } from 'convex/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
+import type { Filter } from '~/components/reui/filters'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import {
@@ -9,16 +11,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '~/components/ui/popover'
-import { serializeFilterConfig } from '~/lib/filters/ai/prompt'
-import type { FilterCondition, FilterConfig } from '~/lib/filters/types'
+import type { FieldDescriptor } from '~/lib/filters/types'
+import { toSerializableFields } from '~/lib/filters/types'
 import { api } from '../../../convex/_generated/api'
 
 interface AskAIFilterProps {
-  config: FilterConfig
-  onLoadConditions: (conditions: Array<FilterCondition>) => void
+  fields: Array<FieldDescriptor>
+  onLoadFilters: (filters: Array<Filter>) => void
 }
 
-export function AskAIFilter({ config, onLoadConditions }: AskAIFilterProps) {
+export function AskAIFilter({ fields, onLoadFilters }: AskAIFilterProps) {
   const askAI = useAction(api.aiFilters.askAI)
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
@@ -30,16 +32,17 @@ export function AskAIFilter({ config, onLoadConditions }: AskAIFilterProps) {
 
     setLoading(true)
     try {
-      const fields = serializeFilterConfig(config)
-      const conditions = await askAI({ query: trimmed, fields })
-      if (conditions.length === 0) {
+      const serialized = toSerializableFields(fields)
+      const result = await askAI({ query: trimmed, fields: serialized })
+      if (result.length === 0) {
         toast.info("Couldn't interpret that, try rephrasing")
       } else {
-        onLoadConditions(conditions)
+        onLoadFilters(result)
         setQuery('')
         setOpen(false)
       }
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to generate filters')
     } finally {
       setLoading(false)

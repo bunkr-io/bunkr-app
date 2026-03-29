@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { MoreVertical } from 'lucide-react'
@@ -128,7 +129,8 @@ function PortfoliosPage() {
         shareAmounts: level === 'full',
       })
       toast.success(level === 'none' ? 'Portfolio unshared' : 'Sharing updated')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to update sharing')
     }
   }

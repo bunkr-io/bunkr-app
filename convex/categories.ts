@@ -196,22 +196,22 @@ export const createCategory = mutation({
       .withIndex('by_userId', (q) => q.eq('userId', userId))
       .first()
 
+    if (!member) throw new Error('Not authorized')
+
     if (args.portfolioId) {
       const portfolio = await ctx.db.get('portfolios', args.portfolioId)
-      if (
-        !portfolio ||
-        !member ||
-        member.workspaceId !== portfolio.workspaceId
-      ) {
+      if (!portfolio || member.workspaceId !== portfolio.workspaceId) {
         throw new Error('Not authorized')
       }
     } else {
-      if (!member || member.role !== 'owner') {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const canCreate =
+        member.role === 'owner' ||
+        workspace?.policies?.categoryCreation === 'all_members'
+      if (!canCreate) {
         throw new Error('Only workspace owners can create workspace categories')
       }
     }
-
-    if (!member) throw new Error('Not authorized')
 
     const key = args.label
       .toLowerCase()

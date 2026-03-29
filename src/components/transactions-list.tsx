@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import type {
   ColumnDef,
   RowSelectionState,
@@ -11,20 +12,23 @@ import {
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Check,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
   Eye,
   EyeOff,
   Pencil,
   Plus,
   Search,
+  XIcon,
 } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
@@ -33,6 +37,10 @@ import {
   CreateCategoryDialog,
   useCreateCategoryDialog,
 } from '~/components/create-category-dialog'
+import {
+  CreateLabelDialog,
+  useCreateLabelDialog,
+} from '~/components/create-label-dialog'
 import type { LabelData } from '~/components/label-picker'
 import { LabelPicker } from '~/components/label-picker'
 import { AuditTimeline } from '~/components/reui/vertical-timeline'
@@ -49,12 +57,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
-import { Separator } from '~/components/ui/separator'
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from '~/components/ui/sheet'
 import { Switch } from '~/components/ui/switch'
@@ -117,16 +124,6 @@ interface TransactionsListProps {
 const PAGE_SIZE_OPTIONS = ['25', '50', '100']
 const MAX_VISIBLE_LABELS = 2
 const SELECTION_COMMAND_GROUP = 'Selection'
-const LABEL_COLORS = [
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#06b6d4',
-  '#3b82f6',
-  '#8b5cf6',
-  '#ec4899',
-]
 
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('fr-FR', {
@@ -175,6 +172,7 @@ export function TransactionsList({
     categoryKey: string
     excludeFromBudget: boolean
     customDescription: string
+    portfolioId?: string
   }>({
     open: false,
     pattern: '',
@@ -216,6 +214,7 @@ export function TransactionsList({
       categoryKey: string,
       excludeFromBudget: boolean = false,
       customDescription: string = '',
+      portfolioId?: string,
     ) => {
       setRuleDialog({
         open: true,
@@ -223,6 +222,7 @@ export function TransactionsList({
         categoryKey,
         excludeFromBudget,
         customDescription,
+        portfolioId,
       })
     },
     [],
@@ -250,7 +250,8 @@ export function TransactionsList({
               transactionId: transactionId as Id<'transactions'>,
               labelIds: latest as Array<Id<'transactionLabels'>>,
             })
-          } catch {
+          } catch (error) {
+            Sentry.captureException(error)
             toast.error('Failed to update labels')
           }
         }, 500),
@@ -413,7 +414,15 @@ export function TransactionsList({
                 transactionId={row.original._id}
                 currentCategoryKey={categoryKey}
                 wording={row.original.wording}
-                onCreateRule={handleCreateRule}
+                onCreateRule={(wording, catKey) =>
+                  handleCreateRule(
+                    wording,
+                    catKey,
+                    false,
+                    '',
+                    row.original.portfolioId,
+                  )
+                }
               />
             </div>
           )
@@ -471,7 +480,7 @@ export function TransactionsList({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    autoResetPageIndex: false,
+    autoResetPageIndex: true,
     initialState: { pagination: { pageSize: 25 } },
     globalFilterFn: (row, _columnId, filterValue: string) => {
       const wording = row.original.wording.toLowerCase()
@@ -525,7 +534,8 @@ export function TransactionsList({
             removeLabelIds: [labelId as Id<'transactionLabels'>],
           })
         }
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update labels')
       }
     },
@@ -561,7 +571,8 @@ export function TransactionsList({
         )
 
         await batchUpdateCategory({ updates })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update category')
       }
     },
@@ -575,7 +586,8 @@ export function TransactionsList({
           transactionId: transactionId as Id<'transactions'>,
           excludedFromBudget: excluded,
         })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update transaction')
       }
     },
@@ -592,7 +604,8 @@ export function TransactionsList({
           transactionIds: ids as Array<Id<'transactions'>>,
           excludedFromBudget: excluded,
         })
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update exclusion')
       }
     },
@@ -631,12 +644,19 @@ export function TransactionsList({
                 action: {
                   label: 'Create rule',
                   onClick: () =>
-                    handleCreateRule(txn.wording, '', false, customDescription),
+                    handleCreateRule(
+                      txn.wording,
+                      '',
+                      false,
+                      customDescription,
+                      txn.portfolioId,
+                    ),
                 },
               }
             : undefined,
         )
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update description')
       }
     },
@@ -674,7 +694,8 @@ export function TransactionsList({
         )
         await batchUpdateDetails({ items })
         toast.success(`Updating description for ${rows.length} transactions...`)
-      } catch {
+      } catch (error) {
+        Sentry.captureException(error)
         toast.error('Failed to update descriptions')
       }
     },
@@ -907,6 +928,7 @@ export function TransactionsList({
         defaultCategoryKey={ruleDialog.categoryKey}
         defaultExcludeFromBudget={ruleDialog.excludeFromBudget}
         defaultCustomDescription={ruleDialog.customDescription}
+        portfolioId={ruleDialog.portfolioId as Id<'portfolios'> | undefined}
         onCreated={(ruleId) => setEditingRuleId(ruleId)}
       />
 
@@ -939,29 +961,21 @@ function BulkLabelView({
   const [optimistic, setOptimistic] = React.useState<Map<string, boolean>>(
     new Map(),
   )
-  const createLabelMutation = useMutation(api.transactionLabels.createLabel)
+  const { singlePortfolioId } = usePortfolio()
+  const createLabelDialog = useCreateLabelDialog(
+    labels.length,
+    singlePortfolioId,
+  )
 
   const handleToggle = (labelId: string, checked: boolean) => {
     setOptimistic((prev) => new Map(prev).set(labelId, checked))
     onToggle(labelId, checked)
   }
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     const name = search.trim()
-    if (!name || !workspaceId) return
-
-    try {
-      const color = LABEL_COLORS[labels.length % LABEL_COLORS.length]
-      const labelId = await createLabelMutation({
-        workspaceId: workspaceId as Id<'workspaces'>,
-        name,
-        color,
-      })
-      setSearch('')
-      handleToggle(labelId, true)
-    } catch {
-      toast.error('Failed to create label')
-    }
+    if (!name) return
+    createLabelDialog.openDialog(name)
   }
 
   // Compute checked state for each label, with optimistic overrides
@@ -1056,6 +1070,20 @@ function BulkLabelView({
           </button>
         )}
       </div>
+      {workspaceId && (
+        <CreateLabelDialog
+          open={createLabelDialog.dialogOpen}
+          onOpenChange={createLabelDialog.setDialogOpen}
+          initialName={createLabelDialog.initialName}
+          initialColor={createLabelDialog.initialColor}
+          defaultPortfolioId={createLabelDialog.defaultPortfolioId}
+          workspaceId={workspaceId as Id<'workspaces'>}
+          onCreated={(labelId) => {
+            setSearch('')
+            handleToggle(labelId, true)
+          }}
+        />
+      )}
     </>
   )
 }
@@ -1254,6 +1282,8 @@ function TransactionDetailSheet({
     wording: string,
     categoryKey: string,
     excludeFromBudget?: boolean,
+    customDescription?: string,
+    portfolioId?: string,
   ) => void
   labels: Array<LabelData>
   workspaceId?: string
@@ -1264,7 +1294,12 @@ function TransactionDetailSheet({
     customDescription: string,
   ) => void
 }) {
-  const auditEntries = useQuery(
+  const { singlePortfolioId } = usePortfolio()
+  const {
+    results: auditEntries,
+    status: auditStatus,
+    loadMore,
+  } = usePaginatedQuery(
     api.auditLog.listByTransactionPublic,
     transaction?.portfolioId
       ? {
@@ -1272,6 +1307,12 @@ function TransactionDetailSheet({
           portfolioId: transaction.portfolioId as Id<'portfolios'>,
         }
       : 'skip',
+    { initialNumItems: 10 },
+  )
+
+  const createLabelDialog = useCreateLabelDialog(
+    labels.length,
+    (transaction?.portfolioId as Id<'portfolios'>) ?? singlePortfolioId,
   )
 
   if (!transaction) return null
@@ -1311,122 +1352,189 @@ function TransactionDetailSheet({
     transaction.originalValue != null
 
   return (
-    <Sheet open={!!transaction} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="overflow-y-auto sm:max-w-md">
-        <SheetHeader>
-          <EditableDescription
-            transactionId={transaction._id}
-            customDescription={transaction.customDescription}
-            wording={transaction.wording}
-            onUpdate={onDescriptionUpdate}
-          />
-          <SheetDescription>
-            {transaction.coming
-              ? 'Pending transaction'
-              : 'Completed transaction'}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="flex flex-col gap-6 px-4 pb-4">
-          <div className="flex items-center justify-between">
-            <span
-              className={cn(
-                'text-2xl font-semibold font-mono tabular-nums',
-                transaction.value > 0
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-600 dark:text-red-400',
-              )}
-            >
-              {transaction.value > 0 ? '+' : ''}
-              {formatCurrency(transaction.value, currency)}
-            </span>
+    <>
+      <Sheet open={!!transaction} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          className="overflow-y-auto sm:max-w-md gap-0"
+          showCloseButton={false}
+        >
+          {/* Header */}
+          <div className="px-4 py-6 sm:px-6">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <EditableDescription
+                  transactionId={transaction._id}
+                  customDescription={transaction.customDescription}
+                  wording={transaction.wording}
+                  onUpdate={onDescriptionUpdate}
+                />
+                <SheetDescription className="mt-1">
+                  {transaction.coming
+                    ? 'Pending transaction'
+                    : 'Completed transaction'}
+                </SheetDescription>
+              </div>
+              <div className="ml-3 flex h-7 items-center">
+                <SheetClose className="rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+                  <span className="sr-only">Close panel</span>
+                  <XIcon className="size-5" />
+                </SheetClose>
+              </div>
+            </div>
           </div>
 
-          {hasOriginalCurrency && (
-            <p className="text-sm text-muted-foreground">
-              Original:{' '}
-              {transaction.originalValue != null &&
-                transaction.originalCurrency &&
-                formatCurrency(
-                  transaction.originalValue,
-                  transaction.originalCurrency,
+          {/* Amount */}
+          <div className="group/copy px-4 sm:px-6">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'text-2xl font-bold font-mono tabular-nums',
+                  transaction.value > 0
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : 'text-red-600 dark:text-red-400',
                 )}
-            </p>
-          )}
-
-          <div>
-            <p className="mb-1 text-xs font-medium text-muted-foreground">
-              Category
-            </p>
-            <CategoryPicker
-              transactionId={transaction._id}
-              currentCategoryKey={categoryKey}
-              wording={transaction.wording}
-              onCreateRule={onCreateRule}
-              modal
-            />
-          </div>
-
-          {workspaceId && (
-            <div>
-              <p className="mb-1 text-xs font-medium text-muted-foreground">
-                Labels
-              </p>
-              <LabelPicker
-                labels={labels}
-                selectedLabelIds={transaction.labelIds ?? []}
-                workspaceId={workspaceId}
-                onToggle={(labelIds) =>
-                  onLabelToggle(transaction._id, labelIds)
-                }
+              >
+                {transaction.value > 0 ? '+' : ''}
+                {formatCurrency(transaction.value, currency)}
+              </span>
+              <CopyButton
+                value={`${transaction.value > 0 ? '+' : ''}${formatCurrency(transaction.value, currency)}`}
               />
             </div>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <EyeOff className="size-4 text-muted-foreground" />
-              <span className="text-sm">Exclude from budget</span>
-            </div>
-            <Switch
-              checked={transaction.excludedFromBudget ?? false}
-              onCheckedChange={(checked) => {
-                onExclusionToggle(transaction._id, checked)
-                if (checked) {
-                  toast.success('Excluded from budget', {
-                    action: {
-                      label: 'Create rule',
-                      onClick: () =>
-                        onCreateRule(transaction.wording, '', true),
-                    },
-                  })
-                } else {
-                  toast.success('Included in budget')
-                }
-              }}
-            />
+            {hasOriginalCurrency && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Original:{' '}
+                {transaction.originalValue != null &&
+                  transaction.originalCurrency &&
+                  formatCurrency(
+                    transaction.originalValue,
+                    transaction.originalCurrency,
+                  )}
+              </p>
+            )}
           </div>
 
-          <Separator />
-
-          <dl className="grid gap-3">
-            {details
-              .filter((d) => d.value)
-              .map((d) => (
-                <div key={d.label} className="grid grid-cols-[120px_1fr] gap-2">
-                  <dt className="text-sm text-muted-foreground">{d.label}</dt>
-                  <dd className="text-sm break-words">{d.value}</dd>
-                </div>
-              ))}
-          </dl>
-
-          {auditEntries && auditEntries.length > 0 && (
-            <>
-              <Separator />
+          {/* Actions */}
+          <div className="mt-6 px-4 sm:px-6">
+            <div className="space-y-4">
               <div>
-                <p className="mb-3 text-xs font-medium text-muted-foreground">
-                  Activity
-                </p>
+                <dt className="text-sm font-medium text-muted-foreground">
+                  Category
+                </dt>
+                <dd className="mt-1">
+                  <CategoryPicker
+                    transactionId={transaction._id}
+                    currentCategoryKey={categoryKey}
+                    wording={transaction.wording}
+                    onCreateRule={(wording, catKey) =>
+                      onCreateRule(
+                        wording,
+                        catKey,
+                        false,
+                        '',
+                        transaction.portfolioId,
+                      )
+                    }
+                    modal
+                  />
+                </dd>
+              </div>
+
+              {workspaceId && (
+                <div>
+                  <dt className="text-sm font-medium text-muted-foreground">
+                    Labels
+                  </dt>
+                  <dd className="mt-1">
+                    <LabelPicker
+                      labels={labels}
+                      selectedLabelIds={transaction.labelIds ?? []}
+                      onToggle={(labelIds) => {
+                        const prev = transaction.labelIds ?? []
+                        onLabelToggle(transaction._id, labelIds)
+                        if (labelIds.length > prev.length) {
+                          toast.success('Label added', {
+                            action: {
+                              label: 'Create rule',
+                              onClick: () =>
+                                onCreateRule(
+                                  transaction.wording,
+                                  '',
+                                  false,
+                                  '',
+                                  transaction.portfolioId,
+                                ),
+                            },
+                          })
+                        }
+                      }}
+                      onCreateLabel={(name) =>
+                        createLabelDialog.openDialog(name)
+                      }
+                    />
+                  </dd>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <EyeOff className="size-4 text-muted-foreground" />
+                  <span className="text-sm">Exclude from budget</span>
+                </div>
+                <Switch
+                  checked={transaction.excludedFromBudget ?? false}
+                  onCheckedChange={(checked) => {
+                    onExclusionToggle(transaction._id, checked)
+                    if (checked) {
+                      toast.success('Excluded from budget', {
+                        action: {
+                          label: 'Create rule',
+                          onClick: () =>
+                            onCreateRule(
+                              transaction.wording,
+                              '',
+                              true,
+                              '',
+                              transaction.portfolioId,
+                            ),
+                        },
+                      })
+                    } else {
+                      toast.success('Included in budget')
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="mt-6 px-4 pb-5 pt-5 sm:px-0 sm:pt-0">
+            <dl className="space-y-6 px-4 sm:space-y-4 sm:px-6">
+              {details
+                .filter((d) => d.value)
+                .map((d) => (
+                  <div key={d.label} className="group/copy">
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      {d.label}
+                    </dt>
+                    <dd className="mt-1 flex items-start gap-1.5 text-sm break-words">
+                      <span className="flex-1">{d.value}</span>
+                      <CopyButton value={d.value as string} />
+                    </dd>
+                  </div>
+                ))}
+            </dl>
+          </div>
+
+          {/* Activity */}
+          {auditEntries.length > 0 && (
+            <div className="mt-2 border-t px-4 pt-5 pb-6 sm:px-6">
+              <dt className="text-sm font-medium text-muted-foreground">
+                Activity
+              </dt>
+              <dd className="mt-3">
                 <AuditTimeline
                   entries={auditEntries.map((log) => ({
                     id: log._id,
@@ -1439,12 +1547,59 @@ function TransactionDetailSheet({
                     resourceType: log.resourceType,
                   }))}
                 />
-              </div>
-            </>
+                {auditStatus === 'CanLoadMore' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 w-full text-muted-foreground"
+                    onClick={() => loadMore(10)}
+                  >
+                    Load older activity
+                  </Button>
+                )}
+                {auditStatus === 'LoadingMore' && (
+                  <div className="mt-2 flex justify-center">
+                    <span className="text-sm text-muted-foreground">
+                      Loading…
+                    </span>
+                  </div>
+                )}
+              </dd>
+            </div>
           )}
-        </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+
+      {workspaceId && (
+        <CreateLabelDialog
+          open={createLabelDialog.dialogOpen}
+          onOpenChange={createLabelDialog.setDialogOpen}
+          initialName={createLabelDialog.initialName}
+          initialColor={createLabelDialog.initialColor}
+          defaultPortfolioId={createLabelDialog.defaultPortfolioId}
+          workspaceId={workspaceId as Id<'workspaces'>}
+          onCreated={(labelId) => {
+            onLabelToggle(transaction._id, [
+              ...(transaction.labelIds ?? []),
+              labelId,
+            ])
+            toast.success('Label created', {
+              action: {
+                label: 'Create rule',
+                onClick: () =>
+                  onCreateRule(
+                    transaction.wording,
+                    '',
+                    false,
+                    '',
+                    transaction.portfolioId,
+                  ),
+              },
+            })
+          }}
+        />
+      )}
+    </>
   )
 }
 
@@ -1492,6 +1647,27 @@ function BulkExclusionView({
   )
 }
 
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = React.useState(false)
+
+  function handleCopy() {
+    navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover/copy:opacity-100"
+      aria-label="Copy to clipboard"
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </button>
+  )
+}
+
 function EditableDescription({
   transactionId,
   customDescription,
@@ -1521,7 +1697,7 @@ function EditableDescription({
 
   if (editing) {
     return (
-      <div className="pr-6">
+      <div>
         <Input
           ref={inputRef}
           value={value}
@@ -1546,14 +1722,14 @@ function EditableDescription({
   }
 
   return (
-    <div className="pr-6">
+    <div>
       <button
         type="button"
         tabIndex={-1}
         className="group flex items-center gap-2 text-left"
         onClick={() => setEditing(true)}
       >
-        <SheetTitle className="text-lg">
+        <SheetTitle className="text-base">
           {customDescription || wording}
         </SheetTitle>
         <Pencil className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />

@@ -137,6 +137,9 @@ export function VaultStep({
             placeholder="At least 8 characters"
             value={passphrase}
             onChange={(e) => setPassphrase(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
           <p className="text-xs text-muted-foreground">
             There is no reset mechanism. Store your passphrase safely.
@@ -150,6 +153,9 @@ export function VaultStep({
             placeholder="Repeat passphrase"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
           {confirm && passphrase !== confirm && (
             <p className="text-sm text-destructive">Passphrases do not match</p>

@@ -1,7 +1,9 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { useAction } from 'convex/react'
 import { Loader2, Sparkles } from 'lucide-react'
 import * as React from 'react'
 import { toast } from 'sonner'
+import type { Filter } from '~/components/reui/filters'
 import {
   CommandDialog,
   CommandEmpty,
@@ -14,24 +16,36 @@ import {
 import { HotkeyDisplay } from '~/components/ui/kbd'
 import type { CommandEntry } from '~/contexts/command-context'
 import { useCommandRegistry } from '~/contexts/command-context'
-import { serializeFilterConfig } from '~/lib/filters/ai/prompt'
-import { createTransactionFilterConfig } from '~/lib/filters/transactions'
-import type { FilterCondition } from '~/lib/filters/types'
+import { createTransactionFilterFields } from '~/lib/filters/transactions'
+import { toSerializableFields } from '~/lib/filters/types'
 import { api } from '../../convex/_generated/api'
 
 // Event for passing AI-generated filters to the transactions page
 const AI_FILTER_EVENT = 'bunkr:ai-filters'
 
-export function dispatchAIFilters(conditions: Array<FilterCondition>) {
+// Registry for serializable fields so the command palette can use them
+type SerializableField = ReturnType<typeof toSerializableFields>[number]
+let registeredFields: Array<SerializableField> = []
+
+export function useRegisterFilterFields(fields: Array<SerializableField>) {
+  React.useEffect(() => {
+    registeredFields = fields
+    return () => {
+      registeredFields = []
+    }
+  }, [fields])
+}
+
+export function dispatchAIFilters(conditions: Array<Filter>) {
   window.dispatchEvent(new CustomEvent(AI_FILTER_EVENT, { detail: conditions }))
 }
 
 export function useAIFilterListener(
-  onLoadConditions: (conditions: Array<FilterCondition>) => void,
+  onLoadConditions: (conditions: Array<Filter>) => void,
 ) {
   React.useEffect(() => {
     const handler = (e: Event) => {
-      const conditions = (e as CustomEvent<Array<FilterCondition>>).detail
+      const conditions = (e as CustomEvent<Array<Filter>>).detail
       onLoadConditions(conditions)
     }
     window.addEventListener(AI_FILTER_EVENT, handler)
@@ -75,13 +89,17 @@ export function CommandPalette() {
 
     setLoading(true)
     try {
-      const config = createTransactionFilterConfig({
-        accountOptions: [],
-        categoryOptions: [],
-        labelOptions: [],
-        transactionTypeOptions: [],
-      })
-      const fields = serializeFilterConfig(config)
+      const fields =
+        registeredFields.length > 0
+          ? registeredFields
+          : toSerializableFields(
+              createTransactionFilterFields({
+                accountOptions: [],
+                categoryOptions: [],
+                labelOptions: [],
+                transactionTypeOptions: [],
+              }),
+            )
       const conditions = await askAI({ query: trimmed, fields })
 
       if (conditions.length === 0) {
@@ -93,7 +111,8 @@ export function CommandPalette() {
       setPaletteState({ open: false })
       // Dispatch after a tick so the transactions page can mount and listen
       setTimeout(() => dispatchAIFilters(conditions), 100)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to generate filters')
     } finally {
       setLoading(false)
@@ -148,6 +167,7 @@ export function CommandPalette() {
           <div className="flex items-center gap-2 border-b px-3 h-12">
             <Sparkles className="size-4 shrink-0 text-muted-foreground" />
             <input
+              autoFocus
               value={aiQuery}
               onChange={(e) => setAIQuery(e.target.value)}
               onKeyDown={(e) => {

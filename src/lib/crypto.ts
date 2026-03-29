@@ -43,9 +43,10 @@ export async function deriveKeyFromPassphrase(
   passphrase: string,
   salt: Uint8Array,
 ): Promise<CryptoKey> {
+  const normalized = passphrase.normalize('NFKC')
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(passphrase),
+    new TextEncoder().encode(normalized),
     'PBKDF2',
     false,
     ['deriveKey'],

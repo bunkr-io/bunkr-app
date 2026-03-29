@@ -17,15 +17,19 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
 import { Route as PowensCallbackRouteImport } from './routes/powens/callback'
+import { Route as ApiTunnelRouteImport } from './routes/api/tunnel'
 import { Route as AppTransactionsRouteImport } from './routes/_app/transactions'
 import { Route as AppPortfoliosRouteImport } from './routes/_app/portfolios'
 import { Route as SettingsSettingsIndexRouteImport } from './routes/_settings/settings.index'
+import { Route as AppViewsIndexRouteImport } from './routes/_app/views.index'
 import { Route as AppAccountsIndexRouteImport } from './routes/_app/accounts.index'
+import { Route as AppViewsViewIdRouteImport } from './routes/_app/views.$viewId'
 import { Route as AppAccountsAccountIdRouteImport } from './routes/_app/accounts.$accountId'
 import { Route as SettingsSettingsWorkspaceIndexRouteImport } from './routes/_settings/settings.workspace.index'
 import { Route as SettingsSettingsAccountIndexRouteImport } from './routes/_settings/settings.account.index'
 import { Route as SettingsSettingsWorkspaceTeamRouteImport } from './routes/_settings/settings.workspace.team'
 import { Route as SettingsSettingsWorkspaceRulesRouteImport } from './routes/_settings/settings.workspace.rules'
+import { Route as SettingsSettingsWorkspacePermissionsRouteImport } from './routes/_settings/settings.workspace.permissions'
 import { Route as SettingsSettingsWorkspaceMembersRouteImport } from './routes/_settings/settings.workspace.members'
 import { Route as SettingsSettingsWorkspaceLabelsRouteImport } from './routes/_settings/settings.workspace.labels'
 import { Route as SettingsSettingsWorkspaceCategoriesRouteImport } from './routes/_settings/settings.workspace.categories'
@@ -81,6 +85,11 @@ const PowensCallbackRoute = PowensCallbackRouteImport.update({
   path: '/powens/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTunnelRoute = ApiTunnelRouteImport.update({
+  id: '/api/tunnel',
+  path: '/api/tunnel',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppTransactionsRoute = AppTransactionsRouteImport.update({
   id: '/transactions',
   path: '/transactions',
@@ -96,9 +105,19 @@ const SettingsSettingsIndexRoute = SettingsSettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => SettingsRoute,
 } as any)
+const AppViewsIndexRoute = AppViewsIndexRouteImport.update({
+  id: '/views/',
+  path: '/views/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAccountsIndexRoute = AppAccountsIndexRouteImport.update({
   id: '/accounts/',
   path: '/accounts/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppViewsViewIdRoute = AppViewsViewIdRouteImport.update({
+  id: '/views/$viewId',
+  path: '/views/$viewId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAccountsAccountIdRoute = AppAccountsAccountIdRouteImport.update({
@@ -128,6 +147,12 @@ const SettingsSettingsWorkspaceRulesRoute =
   SettingsSettingsWorkspaceRulesRouteImport.update({
     id: '/settings/workspace/rules',
     path: '/settings/workspace/rules',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsSettingsWorkspacePermissionsRoute =
+  SettingsSettingsWorkspacePermissionsRouteImport.update({
+    id: '/settings/workspace/permissions',
+    path: '/settings/workspace/permissions',
     getParentRoute: () => SettingsRoute,
   } as any)
 const SettingsSettingsWorkspaceMembersRoute =
@@ -234,10 +259,13 @@ export interface FileRoutesByFullPath {
   '/waitlist': typeof WaitlistRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/views/$viewId': typeof AppViewsViewIdRoute
   '/accounts/': typeof AppAccountsIndexRoute
+  '/views/': typeof AppViewsIndexRoute
   '/settings/': typeof SettingsSettingsIndexRoute
   '/settings/account/connections': typeof SettingsSettingsAccountConnectionsRoute
   '/settings/account/encryption': typeof SettingsSettingsAccountEncryptionRoute
@@ -249,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account/': typeof SettingsSettingsAccountIndexRoute
@@ -267,10 +296,13 @@ export interface FileRoutesByTo {
   '/waitlist': typeof WaitlistRoute
   '/portfolios': typeof AppPortfoliosRoute
   '/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/views/$viewId': typeof AppViewsViewIdRoute
   '/accounts': typeof AppAccountsIndexRoute
+  '/views': typeof AppViewsIndexRoute
   '/settings': typeof SettingsSettingsIndexRoute
   '/settings/account/connections': typeof SettingsSettingsAccountConnectionsRoute
   '/settings/account/encryption': typeof SettingsSettingsAccountEncryptionRoute
@@ -281,6 +313,7 @@ export interface FileRoutesByTo {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account': typeof SettingsSettingsAccountIndexRoute
@@ -301,11 +334,14 @@ export interface FileRoutesById {
   '/waitlist': typeof WaitlistRoute
   '/_app/portfolios': typeof AppPortfoliosRoute
   '/_app/transactions': typeof AppTransactionsRoute
+  '/api/tunnel': typeof ApiTunnelRoute
   '/powens/callback': typeof PowensCallbackRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/_app/': typeof AppIndexRoute
   '/_app/accounts/$accountId': typeof AppAccountsAccountIdRoute
+  '/_app/views/$viewId': typeof AppViewsViewIdRoute
   '/_app/accounts/': typeof AppAccountsIndexRoute
+  '/_app/views/': typeof AppViewsIndexRoute
   '/_settings/settings/': typeof SettingsSettingsIndexRoute
   '/_settings/settings/account/connections': typeof SettingsSettingsAccountConnectionsRoute
   '/_settings/settings/account/encryption': typeof SettingsSettingsAccountEncryptionRoute
@@ -317,6 +353,7 @@ export interface FileRoutesById {
   '/_settings/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/_settings/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/_settings/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/_settings/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/_settings/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/_settings/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/_settings/settings/account/': typeof SettingsSettingsAccountIndexRoute
@@ -337,10 +374,13 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/portfolios'
     | '/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/accounts/$accountId'
+    | '/views/$viewId'
     | '/accounts/'
+    | '/views/'
     | '/settings/'
     | '/settings/account/connections'
     | '/settings/account/encryption'
@@ -352,6 +392,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/permissions'
     | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account/'
@@ -370,10 +411,13 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/portfolios'
     | '/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/accounts/$accountId'
+    | '/views/$viewId'
     | '/accounts'
+    | '/views'
     | '/settings'
     | '/settings/account/connections'
     | '/settings/account/encryption'
@@ -384,6 +428,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/permissions'
     | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account'
@@ -403,11 +448,14 @@ export interface FileRouteTypes {
     | '/waitlist'
     | '/_app/portfolios'
     | '/_app/transactions'
+    | '/api/tunnel'
     | '/powens/callback'
     | '/sign-in/$'
     | '/_app/'
     | '/_app/accounts/$accountId'
+    | '/_app/views/$viewId'
     | '/_app/accounts/'
+    | '/_app/views/'
     | '/_settings/settings/'
     | '/_settings/settings/account/connections'
     | '/_settings/settings/account/encryption'
@@ -419,6 +467,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/workspace/categories'
     | '/_settings/settings/workspace/labels'
     | '/_settings/settings/workspace/members'
+    | '/_settings/settings/workspace/permissions'
     | '/_settings/settings/workspace/rules'
     | '/_settings/settings/workspace/team'
     | '/_settings/settings/account/'
@@ -437,6 +486,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   OnboardingRoute: typeof OnboardingRoute
   WaitlistRoute: typeof WaitlistRoute
+  ApiTunnelRoute: typeof ApiTunnelRoute
   PowensCallbackRoute: typeof PowensCallbackRoute
   SignInSplatRoute: typeof SignInSplatRoute
 }
@@ -499,6 +549,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PowensCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tunnel': {
+      id: '/api/tunnel'
+      path: '/api/tunnel'
+      fullPath: '/api/tunnel'
+      preLoaderRoute: typeof ApiTunnelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/transactions': {
       id: '/_app/transactions'
       path: '/transactions'
@@ -520,11 +577,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsSettingsIndexRouteImport
       parentRoute: typeof SettingsRoute
     }
+    '/_app/views/': {
+      id: '/_app/views/'
+      path: '/views'
+      fullPath: '/views/'
+      preLoaderRoute: typeof AppViewsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/accounts/': {
       id: '/_app/accounts/'
       path: '/accounts'
       fullPath: '/accounts/'
       preLoaderRoute: typeof AppAccountsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/views/$viewId': {
+      id: '/_app/views/$viewId'
+      path: '/views/$viewId'
+      fullPath: '/views/$viewId'
+      preLoaderRoute: typeof AppViewsViewIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/accounts/$accountId': {
@@ -560,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/workspace/rules'
       fullPath: '/settings/workspace/rules'
       preLoaderRoute: typeof SettingsSettingsWorkspaceRulesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/_settings/settings/workspace/permissions': {
+      id: '/_settings/settings/workspace/permissions'
+      path: '/settings/workspace/permissions'
+      fullPath: '/settings/workspace/permissions'
+      preLoaderRoute: typeof SettingsSettingsWorkspacePermissionsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/_settings/settings/workspace/members': {
@@ -682,7 +760,9 @@ interface AppRouteChildren {
   AppTransactionsRoute: typeof AppTransactionsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAccountsAccountIdRoute: typeof AppAccountsAccountIdRoute
+  AppViewsViewIdRoute: typeof AppViewsViewIdRoute
   AppAccountsIndexRoute: typeof AppAccountsIndexRoute
+  AppViewsIndexRoute: typeof AppViewsIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -690,7 +770,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppTransactionsRoute: AppTransactionsRoute,
   AppIndexRoute: AppIndexRoute,
   AppAccountsAccountIdRoute: AppAccountsAccountIdRoute,
+  AppViewsViewIdRoute: AppViewsViewIdRoute,
   AppAccountsIndexRoute: AppAccountsIndexRoute,
+  AppViewsIndexRoute: AppViewsIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -737,6 +819,7 @@ interface SettingsRouteChildren {
   SettingsSettingsWorkspaceCategoriesRoute: typeof SettingsSettingsWorkspaceCategoriesRoute
   SettingsSettingsWorkspaceLabelsRoute: typeof SettingsSettingsWorkspaceLabelsRoute
   SettingsSettingsWorkspaceMembersRoute: typeof SettingsSettingsWorkspaceMembersRoute
+  SettingsSettingsWorkspacePermissionsRoute: typeof SettingsSettingsWorkspacePermissionsRoute
   SettingsSettingsWorkspaceRulesRoute: typeof SettingsSettingsWorkspaceRulesRoute
   SettingsSettingsWorkspaceTeamRoute: typeof SettingsSettingsWorkspaceTeamRoute
   SettingsSettingsAccountIndexRoute: typeof SettingsSettingsAccountIndexRoute
@@ -760,6 +843,8 @@ const SettingsRouteChildren: SettingsRouteChildren = {
     SettingsSettingsWorkspaceCategoriesRoute,
   SettingsSettingsWorkspaceLabelsRoute: SettingsSettingsWorkspaceLabelsRoute,
   SettingsSettingsWorkspaceMembersRoute: SettingsSettingsWorkspaceMembersRoute,
+  SettingsSettingsWorkspacePermissionsRoute:
+    SettingsSettingsWorkspacePermissionsRoute,
   SettingsSettingsWorkspaceRulesRoute: SettingsSettingsWorkspaceRulesRoute,
   SettingsSettingsWorkspaceTeamRoute: SettingsSettingsWorkspaceTeamRoute,
   SettingsSettingsAccountIndexRoute: SettingsSettingsAccountIndexRoute,
@@ -776,6 +861,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   OnboardingRoute: OnboardingRoute,
   WaitlistRoute: WaitlistRoute,
+  ApiTunnelRoute: ApiTunnelRoute,
   PowensCallbackRoute: PowensCallbackRoute,
   SignInSplatRoute: SignInSplatRoute,
 }

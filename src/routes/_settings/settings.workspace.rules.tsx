@@ -1,4 +1,5 @@
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { Plus, Zap } from 'lucide-react'
@@ -143,7 +144,8 @@ function RulesList() {
       await deleteRule({ ruleId: deletingRule._id })
       toast.success('Rule deleted')
       setDeletingRule(undefined)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to delete rule')
     } finally {
       setDeleting(false)
@@ -156,7 +158,8 @@ function RulesList() {
         r._id === rule._id ? { ...r, enabled } : r,
       ),
     )
-    toggleRule({ ruleId: rule._id, enabled }).catch(() => {
+    toggleRule({ ruleId: rule._id, enabled }).catch((error) => {
+      Sentry.captureException(error)
       toast.error('Failed to toggle rule')
       setLocalRules((prev) =>
         (prev ?? rules ?? []).map((r) =>
@@ -171,7 +174,8 @@ function RulesList() {
     setLocalRules(reordered)
     const orderedIds = reordered.map((r) => r._id)
     reorderRules({ orderedRuleIds: orderedIds })
-      .catch(() => {
+      .catch((error) => {
+        Sentry.captureException(error)
         toast.error('Failed to reorder rules')
         setLocalRules(rules ?? null)
       })

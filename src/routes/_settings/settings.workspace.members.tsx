@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { Ellipsis, Mail, UserX, X } from 'lucide-react'
@@ -467,6 +468,9 @@ function PassphraseDialog({
                 value={passphrase}
                 onChange={(e) => setPassphrase(e.target.value)}
                 autoFocus
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
@@ -523,7 +527,8 @@ function PendingInvitationItem({
         invitationId: invitation._id as never,
       })
       toast.success('Invitation revoked')
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to revoke invitation')
     } finally {
       setRevoking(false)
@@ -604,7 +609,8 @@ function InviteDialog({
       setEmails([])
       setEmailInput('')
       setOpen(false)
-    } catch {
+    } catch (error) {
+      Sentry.captureException(error)
       toast.error('Failed to send invitations')
     } finally {
       setSending(false)

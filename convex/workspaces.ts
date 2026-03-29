@@ -59,6 +59,49 @@ export const updateWorkspace = mutation({
   },
 })
 
+export const updateWorkspacePolicies = mutation({
+  args: {
+    categoryCreation: v.union(
+      v.literal('owners_only'),
+      v.literal('all_members'),
+    ),
+    labelCreation: v.union(v.literal('owners_only'), v.literal('all_members')),
+    ruleCreation: v.union(v.literal('owners_only'), v.literal('all_members')),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const member = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!member || member.role !== 'owner') {
+      throw new Error('Only workspace owners can update workspace policies')
+    }
+
+    const policies = {
+      categoryCreation: args.categoryCreation,
+      labelCreation: args.labelCreation,
+      ruleCreation: args.ruleCreation,
+    }
+
+    await ctx.db.patch('workspaces', member.workspaceId, { policies })
+
+    const workspace = await ctx.db.get('workspaces', member.workspaceId)
+    const identity = await ctx.auth.getUserIdentity()
+    await insertAuditLogDirect(ctx.db, {
+      workspaceId: member.workspaceId,
+      workspaceName: workspace?.name ?? '',
+      actorType: 'user',
+      ...getActorInfo(identity),
+      event: 'workspace.policies_updated',
+      resourceType: 'workspace',
+      resourceId: member.workspaceId,
+      metadata: JSON.stringify(policies),
+    })
+  },
+})
+
 export const leaveWorkspace = action({
   args: {},
   handler: async (ctx) => {

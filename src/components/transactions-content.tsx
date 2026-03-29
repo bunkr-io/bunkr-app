@@ -1,0 +1,708 @@
+import { useQuery } from 'convex/react'
+import { ArrowLeftRight, ListFilter, Sparkles } from 'lucide-react'
+import * as React from 'react'
+import type { CashFlowData } from '~/components/cash-flow-chart'
+import { CashFlowChart } from '~/components/cash-flow-chart'
+import { CategoryPieChart } from '~/components/category-pie-chart'
+import {
+  useAIFilterListener,
+  useRegisterFilterFields,
+} from '~/components/command-palette'
+import { PeriodNavigator } from '~/components/period-navigator'
+import {
+  createFilter,
+  type Filter,
+  type FilterOption,
+  Filters,
+} from '~/components/reui/filters'
+import { SankeyChart } from '~/components/sankey-chart'
+import type { TransactionRow } from '~/components/transactions-list'
+import { TransactionsList } from '~/components/transactions-list'
+import { Button } from '~/components/ui/button'
+import { Card, CardContent, CardHeader } from '~/components/ui/card'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '~/components/ui/empty'
+import { Skeleton } from '~/components/ui/skeleton'
+import { useCommandDispatch } from '~/contexts/command-context'
+import { usePortfolio } from '~/contexts/portfolio-context'
+import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
+import { useCommand } from '~/hooks/use-command'
+import { useDateRange } from '~/hooks/use-date-range'
+import { useFilters } from '~/hooks/use-filters'
+import { resolveTransactionCategoryKey, useCategories } from '~/lib/categories'
+import { createTransactionFilterFields } from '~/lib/filters/transactions'
+import { toReUIFields, toSerializableFields } from '~/lib/filters/types'
+import { api } from '../../convex/_generated/api'
+
+type DecryptedBankAccount = NonNullable<
+  NonNullable<ReturnType<typeof useQuery<typeof api.powens.listBankAccounts>>>
+>[number] & {
+  name?: string
+  number?: string
+  iban?: string
+  balance?: number
+  connectorName?: string
+  customName?: string
+}
+
+interface TransactionRecord {
+  _id: string
+  bankAccountId: string
+  portfolioId: string
+  date: string
+  rdate?: string
+  vdate?: string
+  wording: string
+  originalWording?: string
+  simplifiedWording?: string
+  category?: string
+  categoryParent?: string
+  userCategoryKey?: string
+  labelIds?: Array<string>
+  excludedFromBudget?: boolean
+  value: number
+  originalValue?: number
+  originalCurrency?: string
+  type?: string
+  coming: boolean
+  counterparty?: string
+  card?: string
+  comment?: string
+  customDescription?: string
+  encryptedData?: string
+}
+
+export interface TransactionsContentProps {
+  initialFilters?: Array<Filter>
+  onFiltersChange?: (filters: Array<Filter>) => void
+  onSaveView?: () => void
+  /** Slot rendered in the active filters bar area */
+  filtersSlot?: (props: {
+    filters: Array<Filter>
+    hasChanges: boolean
+  }) => React.ReactNode
+}
+
+export function TransactionsContent({
+  initialFilters: externalInitialFilters,
+  onFiltersChange,
+  onSaveView,
+  filtersSlot,
+}: TransactionsContentProps) {
+  const {
+    isLoading: portfolioLoading,
+    isAllPortfolios,
+    isTeamView,
+    allPortfolioIds,
+    singlePortfolioId,
+    portfolios,
+  } = usePortfolio()
+
+  const workspaceId = portfolios?.[0]?.workspaceId ?? null
+
+  const {
+    start,
+    end,
+    range,
+    activePeriod,
+    canGoNext,
+    selectPeriod,
+    setCustomRange,
+    goPrev,
+    goNext,
+  } = useDateRange()
+  const { categories, getCategory } = useCategories()
+
+  const transactionsSingle = useQuery(
+    api.transactions.listTransactionsByPortfolio,
+    singlePortfolioId
+      ? {
+          portfolioId: singlePortfolioId,
+          startDate: range.start,
+          endDate: range.end,
+        }
+      : 'skip',
+  )
+  const transactionsAll = useQuery(
+    api.transactions.listAllTransactionsByPortfolios,
+    isAllPortfolios && allPortfolioIds.length > 0
+      ? {
+          portfolioIds: allPortfolioIds,
+          startDate: range.start,
+          endDate: range.end,
+        }
+      : 'skip',
+  )
+  const transactionsTeam = useQuery(
+    api.team.listTeamTransactions,
+    isTeamView && workspaceId
+      ? {
+          workspaceId,
+          startDate: range.start,
+          endDate: range.end,
+        }
+      : 'skip',
+  )
+  const rawTransactions = isTeamView
+    ? transactionsTeam
+    : isAllPortfolios
+      ? transactionsAll
+      : transactionsSingle
+  const transactions = useCachedDecryptRecords(
+    'transactions',
+    rawTransactions as Array<TransactionRecord> | undefined,
+  )
+
+  const bankAccountsSingle = useQuery(
+    api.powens.listBankAccounts,
+    singlePortfolioId ? { portfolioId: singlePortfolioId } : 'skip',
+  )
+  const bankAccountsAll = useQuery(
+    api.powens.listAllBankAccounts,
+    isAllPortfolios && allPortfolioIds.length > 0
+      ? { portfolioIds: allPortfolioIds }
+      : 'skip',
+  )
+  const bankAccountsTeam = useQuery(
+    api.team.listTeamBankAccounts,
+    isTeamView && workspaceId ? { workspaceId } : 'skip',
+  )
+  const rawBankAccounts = isTeamView
+    ? bankAccountsTeam
+    : isAllPortfolios
+      ? bankAccountsAll
+      : bankAccountsSingle
+  const bankAccounts = useCachedDecryptRecords(
+    'bankAccounts',
+    rawBankAccounts,
+  ) as DecryptedBankAccount[] | undefined
+
+  const labelsData = useQuery(
+    api.transactionLabels.listLabels,
+    workspaceId
+      ? {
+          workspaceId,
+          portfolioId: singlePortfolioId ?? undefined,
+          includeAllPortfolios:
+            isAllPortfolios || isTeamView ? true : undefined,
+        }
+      : 'skip',
+  )
+  const labels = labelsData ?? []
+
+  const accountNameMap = React.useMemo(() => {
+    const map = new Map<string, string>()
+    if (!bankAccounts) return map
+    for (const ba of bankAccounts) {
+      const label = ba.customName
+        ? ba.customName
+        : ba.connectorName
+          ? `${ba.connectorName} – ${ba.name ?? ''}`
+          : (ba.name ?? '')
+      map.set(ba._id, label)
+    }
+    return map
+  }, [bankAccounts])
+
+  const accountNumberMap = React.useMemo(() => {
+    const map = new Map<string, string>()
+    if (!bankAccounts) return map
+    for (const ba of bankAccounts) {
+      const num = ba.iban ?? ba.number
+      if (num) map.set(ba._id, num)
+    }
+    return map
+  }, [bankAccounts])
+
+  const accountOptions = React.useMemo<Array<FilterOption<string>>>(() => {
+    if (!bankAccounts) return []
+    return bankAccounts
+      .filter((ba) => !ba.disabled && !ba.deleted)
+      .map((ba) => ({
+        value: ba._id,
+        label: accountNameMap.get(ba._id) ?? ba.name ?? '',
+      }))
+  }, [bankAccounts, accountNameMap])
+
+  const categoryOptions = React.useMemo<Array<FilterOption<string>>>(
+    () =>
+      categories.map((c) => ({
+        value: c.key,
+        label: c.label,
+        icon: (
+          <span
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: c.color }}
+          />
+        ),
+      })),
+    [categories],
+  )
+
+  const labelOptions = React.useMemo<Array<FilterOption<string>>>(
+    () =>
+      labels.map((l) => ({
+        value: l._id,
+        label: l.name,
+        icon: (
+          <span
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: l.color }}
+          />
+        ),
+      })),
+    [labels],
+  )
+
+  const transactionTypeOptions = React.useMemo<
+    Array<FilterOption<string>>
+  >(() => {
+    if (!transactions) return []
+    const types = new Set(
+      transactions.map((t) => t.type).filter(Boolean) as Array<string>,
+    )
+    return [...types].sort().map((t) => ({ value: t, label: t }))
+  }, [transactions])
+
+  const fieldDescriptors = React.useMemo(
+    () =>
+      createTransactionFilterFields({
+        accountOptions,
+        categoryOptions,
+        labelOptions,
+        transactionTypeOptions,
+      }),
+    [accountOptions, categoryOptions, labelOptions, transactionTypeOptions],
+  )
+
+  const reuiFields = React.useMemo(
+    () => toReUIFields(fieldDescriptors),
+    [fieldDescriptors],
+  )
+
+  const serializableFields = React.useMemo(
+    () => toSerializableFields(fieldDescriptors),
+    [fieldDescriptors],
+  )
+  useRegisterFilterFields(serializableFields)
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally mount-only
+  const stableInitialFilters = React.useMemo(
+    () => externalInitialFilters ?? [],
+    [],
+  )
+
+  const {
+    filters,
+    setFilters,
+    filteredData: filteredTransactions,
+    hasActiveFilters,
+  } = useFilters<TransactionRecord>(transactions, fieldDescriptors, {
+    initialFilters: stableInitialFilters,
+    onFiltersChange,
+  })
+
+  const loadFilters = React.useCallback(
+    (newFilters: Array<Filter>) => setFilters(newFilters),
+    [setFilters],
+  )
+
+  useAIFilterListener(loadFilters)
+
+  const { setPaletteState } = useCommandDispatch()
+  useCommand('ai.filter', {
+    handler: () => setPaletteState({ open: true, aiMode: true }),
+  })
+
+  const currency = 'EUR'
+
+  const cashFlowData = React.useMemo<Array<CashFlowData>>(() => {
+    if (!filteredTransactions) return []
+    const monthMap = new Map<string, { income: number; expenses: number }>()
+    for (const t of filteredTransactions) {
+      if (t.excludedFromBudget) continue
+      const month = t.date.slice(0, 7)
+      const entry = monthMap.get(month) ?? { income: 0, expenses: 0 }
+      if (t.value > 0) {
+        entry.income += t.value
+      } else {
+        entry.expenses += Math.abs(t.value)
+      }
+      monthMap.set(month, entry)
+    }
+    return [...monthMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, data]) => ({
+        month: new Date(`${month}-01`).toLocaleDateString('fr-FR', {
+          month: 'short',
+          year: '2-digit',
+        }),
+        income: Math.round(data.income * 100) / 100,
+        expenses: Math.round(data.expenses * 100) / 100,
+      }))
+  }, [filteredTransactions])
+
+  const { categoryData, totalExpenses } = React.useMemo(() => {
+    if (!filteredTransactions) return { categoryData: [], totalExpenses: 0 }
+    const categoryTotals = new Map<string, number>()
+    let expenseSum = 0
+    for (const t of filteredTransactions) {
+      if (t.excludedFromBudget) continue
+      if (t.value >= 0) continue
+      const key = resolveTransactionCategoryKey(t)
+      categoryTotals.set(
+        key,
+        (categoryTotals.get(key) ?? 0) + Math.abs(t.value),
+      )
+      expenseSum += Math.abs(t.value)
+    }
+    const data = [...categoryTotals.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .map(([key, value]) => {
+        const cat = getCategory(key)
+        return {
+          key,
+          label: cat.label,
+          value: Math.round(value * 100) / 100,
+          color: cat.color,
+        }
+      })
+    return {
+      categoryData: data,
+      totalExpenses: Math.round(expenseSum * 100) / 100,
+    }
+  }, [filteredTransactions, getCategory])
+
+  const sankeyData = React.useMemo(() => {
+    if (!filteredTransactions) return { nodes: [], links: [] }
+
+    let totalIncome = 0
+    let totalExpenses = 0
+    const categoryExpenses = new Map<string, number>()
+
+    for (const t of filteredTransactions) {
+      if (t.excludedFromBudget) continue
+      if (t.value > 0) {
+        totalIncome += t.value
+      } else {
+        const absValue = Math.abs(t.value)
+        totalExpenses += absValue
+        const key = resolveTransactionCategoryKey(t)
+        categoryExpenses.set(key, (categoryExpenses.get(key) ?? 0) + absValue)
+      }
+    }
+
+    if (totalIncome === 0 || categoryExpenses.size === 0) {
+      return { nodes: [], links: [] }
+    }
+
+    const sortedEntries = [...categoryExpenses.entries()].sort(
+      ([, a], [, b]) => b - a,
+    )
+
+    const round = (n: number) => Math.round(n * 100) / 100
+    const deficit = round(totalExpenses - totalIncome)
+    const savings = round(totalIncome - totalExpenses)
+
+    // Source nodes on the left
+    const nodes: Array<{
+      name: string
+      color: string
+      categoryKey?: string
+    }> = [{ name: 'Income', color: 'hsl(142 71% 45%)' }]
+
+    if (deficit > 0) {
+      nodes.push({ name: 'Deficit', color: 'hsl(0 84% 60%)' })
+    }
+
+    // Target nodes on the right (expense categories + optional Savings)
+    const targetOffset = nodes.length
+    for (const [key] of sortedEntries) {
+      const cat = getCategory(key)
+      nodes.push({ name: cat.label, color: cat.color, categoryKey: key })
+    }
+
+    if (savings > 0) {
+      nodes.push({ name: 'Savings', color: 'hsl(142 71% 45%)' })
+    }
+
+    const links: Array<{
+      source: number
+      target: number
+      value: number
+      stroke: string
+    }> = []
+
+    if (deficit > 0) {
+      // Expenses exceed income: split each category between Income and Deficit
+      const incomeRatio = totalIncome / totalExpenses
+      const deficitRatio = deficit / totalExpenses
+
+      for (let i = 0; i < sortedEntries.length; i++) {
+        const [key, value] = sortedEntries[i]
+        const cat = getCategory(key)
+        const targetIndex = targetOffset + i
+
+        links.push({
+          source: 0,
+          target: targetIndex,
+          value: round(value * incomeRatio),
+          stroke: cat.color,
+        })
+        links.push({
+          source: 1,
+          target: targetIndex,
+          value: round(value * deficitRatio),
+          stroke: 'hsl(0 84% 60%)',
+        })
+      }
+    } else {
+      // Income covers expenses: link each category from Income
+      for (let i = 0; i < sortedEntries.length; i++) {
+        const [key, value] = sortedEntries[i]
+        const cat = getCategory(key)
+        links.push({
+          source: 0,
+          target: targetOffset + i,
+          value: round(value),
+          stroke: cat.color,
+        })
+      }
+
+      // Surplus flows to Savings
+      if (savings > 0) {
+        links.push({
+          source: 0,
+          target: nodes.length - 1,
+          value: savings,
+          stroke: 'hsl(142 71% 45%)',
+        })
+      }
+    }
+
+    return { nodes, links }
+  }, [filteredTransactions, getCategory])
+
+  const tableData = React.useMemo<Array<TransactionRow>>(() => {
+    if (!filteredTransactions) return []
+    return filteredTransactions.map((t) => ({
+      _id: t._id,
+      bankAccountId: t.bankAccountId,
+      portfolioId: t.portfolioId,
+      date: t.date,
+      rdate: t.rdate,
+      vdate: t.vdate,
+      wording: t.wording,
+      originalWording: t.originalWording,
+      simplifiedWording: t.simplifiedWording,
+      category: t.category,
+      categoryParent: t.categoryParent,
+      userCategoryKey: t.userCategoryKey,
+      labelIds: t.labelIds,
+      excludedFromBudget: t.excludedFromBudget,
+      value: t.value,
+      originalValue: t.originalValue,
+      originalCurrency: t.originalCurrency,
+      type: t.type,
+      coming: t.coming,
+      counterparty:
+        typeof t.counterparty === 'object' && t.counterparty !== null
+          ? (((t.counterparty as Record<string, unknown>).label as string) ??
+            undefined)
+          : t.counterparty,
+      card: t.card,
+      comment: t.comment,
+      customDescription: t.customDescription,
+      accountName: accountNameMap.get(t.bankAccountId),
+      accountNumber: accountNumberMap.get(t.bankAccountId),
+    }))
+  }, [filteredTransactions, accountNameMap, accountNumberMap])
+
+  if (portfolioLoading || transactions === undefined) {
+    return (
+      <>
+        <div className="flex flex-col border-b">
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
+            <Skeleton className="h-8 w-72" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </div>
+        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+          <div className="grid gap-4 lg:grid-cols-3 md:gap-6">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-36" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-[250px] w-full" />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-4 w-28" />
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4">
+                <Skeleton className="h-[200px] w-[200px] rounded-full" />
+                <div className="w-full space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (transactions.length === 0 && !hasActiveFilters) {
+    return (
+      <>
+        <div className="flex flex-col border-b">
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 lg:px-6">
+            <PeriodNavigator
+              start={start}
+              end={end}
+              activePeriod={activePeriod}
+              canGoNext={canGoNext}
+              onSelectPeriod={selectPeriod}
+              onCustomRange={setCustomRange}
+              onPrev={goPrev}
+              onNext={goNext}
+            />
+          </div>
+        </div>
+        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+          <Empty className="border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ArrowLeftRight />
+              </EmptyMedia>
+              <EmptyTitle>No Transactions</EmptyTitle>
+              <EmptyDescription>
+                No transactions found for this period. Try selecting a different
+                date range.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div className="flex flex-col border-b">
+        <div className="px-4 py-3 lg:px-6">
+          <PeriodNavigator
+            start={start}
+            end={end}
+            activePeriod={activePeriod}
+            canGoNext={canGoNext}
+            onSelectPeriod={selectPeriod}
+            onCustomRange={setCustomRange}
+            onPrev={goPrev}
+            onNext={goNext}
+          />
+        </div>
+        <div className="border-t px-4 py-2.5 lg:px-6">
+          <div className="flex items-start gap-2.5">
+            <div className="flex-1">
+              <Filters
+                filters={filters}
+                fields={reuiFields}
+                onChange={setFilters}
+                size="sm"
+                enableShortcut
+                menuHeader={
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent"
+                    onClick={() =>
+                      setPaletteState({ open: true, aiMode: true })
+                    }
+                  >
+                    <Sparkles className="size-4 text-muted-foreground" />
+                    Ask AI
+                  </button>
+                }
+                trigger={
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <ListFilter className="size-4" />
+                  </Button>
+                }
+              />
+            </div>
+            {filters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setFilters([])}>
+                Clear
+              </Button>
+            )}
+            {onSaveView && filters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={onSaveView}>
+                Save view
+              </Button>
+            )}
+          </div>
+          {filtersSlot?.({ filters, hasChanges: false })}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <div className="grid gap-4 lg:grid-cols-3 md:gap-6">
+          <div className="lg:col-span-2">
+            <CashFlowChart
+              data={cashFlowData}
+              currency={currency}
+              isLoading={false}
+            />
+          </div>
+          <CategoryPieChart
+            data={categoryData}
+            currency={currency}
+            total={totalExpenses}
+            onCategoryClick={(categoryKey) => {
+              setFilters((prev) => [
+                ...prev,
+                createFilter('category', 'is_any_of', [categoryKey]),
+              ])
+            }}
+          />
+        </div>
+
+        {sankeyData.nodes.length > 0 && (
+          <SankeyChart
+            nodes={sankeyData.nodes}
+            links={sankeyData.links}
+            currency={currency}
+            onLabelClick={(categoryKey) => {
+              setFilters((prev) => [
+                ...prev,
+                createFilter('category', 'is_any_of', [categoryKey]),
+              ])
+            }}
+          />
+        )}
+
+        <TransactionsList
+          data={tableData}
+          currency={currency}
+          labels={labels}
+          workspaceId={workspaceId ?? undefined}
+        />
+      </div>
+    </>
+  )
+}
