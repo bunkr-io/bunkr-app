@@ -122,8 +122,6 @@ function ConvexChatProvider({
   ).withOptimisticUpdate(
     optimisticallySendMessage(api.agentChatQueries.listThreadMessages),
   )
-  const deleteThreadMutation = useMutation(api.agentChatQueries.deleteThread)
-
   const dispatch = React.useMemo<ChatDispatch>(() => {
     const openNewChat = () => {
       void createThreadMutation({}).then(({ threadId }) => {
@@ -140,27 +138,15 @@ function ConvexChatProvider({
         ...prev,
         activeThreadId: threadId,
         panelMode: 'popover',
-        minimizedThreadIds: prev.minimizedThreadIds.filter(
-          (id) => id !== threadId,
-        ),
       }))
     }
 
     const minimizeChat = () => {
-      setState((prev) => {
-        if (!prev.activeThreadId) return { ...prev, panelMode: 'closed' }
-        return {
-          ...prev,
-          panelMode: 'closed',
-          activeThreadId: null,
-          minimizedThreadIds: [
-            ...prev.minimizedThreadIds.filter(
-              (id) => id !== prev.activeThreadId,
-            ),
-            prev.activeThreadId,
-          ],
-        }
-      })
+      setState((prev) => ({
+        ...prev,
+        panelMode: 'closed',
+        activeThreadId: null,
+      }))
     }
 
     const expandChat = () => {
@@ -180,7 +166,6 @@ function ConvexChatProvider({
     }
 
     const closeThread = (threadId: string) => {
-      void deleteThreadMutation({ threadId })
       setState((prev) => ({
         ...prev,
         minimizedThreadIds: prev.minimizedThreadIds.filter(
@@ -188,6 +173,7 @@ function ConvexChatProvider({
         ),
         activeThreadId:
           prev.activeThreadId === threadId ? null : prev.activeThreadId,
+        panelMode: prev.activeThreadId === threadId ? 'closed' : prev.panelMode,
       }))
     }
 
@@ -195,6 +181,14 @@ function ConvexChatProvider({
       const threadId = state.activeThreadId
       if (!threadId) return
       void sendMessageMutation({ threadId, prompt: content })
+      // Auto-create a tab for this conversation
+      setState((prev) => {
+        if (prev.minimizedThreadIds.includes(threadId)) return prev
+        return {
+          ...prev,
+          minimizedThreadIds: [...prev.minimizedThreadIds, threadId],
+        }
+      })
     }
 
     return {
@@ -207,12 +201,7 @@ function ConvexChatProvider({
       closeThread,
       sendMessage,
     }
-  }, [
-    createThreadMutation,
-    sendMessageMutation,
-    deleteThreadMutation,
-    state.activeThreadId,
-  ])
+  }, [createThreadMutation, sendMessageMutation, state.activeThreadId])
 
   return (
     <StateContext value={state}>
