@@ -66,22 +66,21 @@ export const createLabel = mutation({
       .withIndex('by_userId', (q) => q.eq('userId', userId))
       .first()
 
+    if (!member || member.workspaceId !== args.workspaceId) {
+      throw new Error('Not authorized')
+    }
+
     if (args.portfolioId) {
       const portfolio = await ctx.db.get('portfolios', args.portfolioId)
-      if (
-        !portfolio ||
-        portfolio.workspaceId !== args.workspaceId ||
-        !member ||
-        member.workspaceId !== args.workspaceId
-      ) {
+      if (!portfolio || portfolio.workspaceId !== args.workspaceId) {
         throw new Error('Not authorized')
       }
     } else {
-      if (
-        !member ||
-        member.workspaceId !== args.workspaceId ||
-        member.role !== 'owner'
-      ) {
+      const workspace = await ctx.db.get('workspaces', member.workspaceId)
+      const canCreate =
+        member.role === 'owner' ||
+        workspace?.policies?.labelCreation === 'all_members'
+      if (!canCreate) {
         throw new Error('Only workspace owners can create workspace labels')
       }
     }

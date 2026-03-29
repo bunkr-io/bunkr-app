@@ -10,6 +10,7 @@ import {
   Palette,
   Settings,
   Shield,
+  ShieldCheck,
   SquareUserRound,
   Sticker,
   Tag,
@@ -143,6 +144,14 @@ export function SettingsSidebar({
                     <Link to="/settings/workspace/team">
                       <SquareUserRound />
                       <span>Team</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <Link to="/settings/workspace/permissions">
+                      <ShieldCheck />
+                      <span>Permissions</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

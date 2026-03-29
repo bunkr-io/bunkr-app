@@ -24,6 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '~/components/ui/tooltip'
+import { useEncryption } from '~/contexts/encryption-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -70,6 +71,9 @@ export function CreateLabelDialog({
   const [saving, setSaving] = React.useState(false)
   const createLabel = useMutation(api.transactionLabels.createLabel)
   const { portfolios } = usePortfolio()
+  const { role, workspacePolicies } = useEncryption()
+  const canCreateWorkspaceLabel =
+    role === 'owner' || workspacePolicies?.labelCreation === 'all_members'
 
   // Sync initial values when dialog opens with new props
   React.useEffect(() => {
@@ -77,9 +81,21 @@ export function CreateLabelDialog({
       setName(initialName)
       setDescription('')
       setColor(initialColor)
-      setScope(defaultPortfolioId ?? 'workspace')
+      setScope(
+        defaultPortfolioId ??
+          (canCreateWorkspaceLabel
+            ? 'workspace'
+            : (portfolios?.[0]?._id ?? 'workspace')),
+      )
     }
-  }, [open, initialName, initialColor, defaultPortfolioId])
+  }, [
+    open,
+    initialName,
+    initialColor,
+    defaultPortfolioId,
+    canCreateWorkspaceLabel,
+    portfolios,
+  ])
 
   const disabled = !name.trim() || saving
 
@@ -157,9 +173,11 @@ export function CreateLabelDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="workspace">
-                  Workspace (all portfolios)
-                </SelectItem>
+                {canCreateWorkspaceLabel && (
+                  <SelectItem value="workspace">
+                    Workspace (all portfolios)
+                  </SelectItem>
+                )}
                 {portfolios?.map((p) => (
                   <SelectItem key={p._id} value={p._id}>
                     {p.name}

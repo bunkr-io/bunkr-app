@@ -33,6 +33,18 @@ export default defineSchema({
     name: v.string(),
     createdBy: v.string(),
     encryptionEnabled: v.optional(v.boolean()),
+    policies: v.optional(
+      v.object({
+        categoryCreation: v.union(
+          v.literal('owners_only'),
+          v.literal('all_members'),
+        ),
+        labelCreation: v.union(
+          v.literal('owners_only'),
+          v.literal('all_members'),
+        ),
+      }),
+    ),
   }),
 
   workspaceMembers: defineTable({

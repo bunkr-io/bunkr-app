@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '~/components/ui/tooltip'
+import { useEncryption } from '~/contexts/encryption-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { CATEGORY_PALETTE, deriveCategoryKey } from '~/lib/categories'
 import { api } from '../../convex/_generated/api'
@@ -65,6 +66,9 @@ export function CreateCategoryDialog({
   const createCategory = useMutation(api.categories.createCategory)
   const promoteCategoryMutation = useMutation(api.categories.promoteCategory)
   const { portfolios } = usePortfolio()
+  const { role, workspacePolicies } = useEncryption()
+  const canCreateWorkspaceCategory =
+    role === 'owner' || workspacePolicies?.categoryCreation === 'all_members'
 
   const key = deriveCategoryKey(name.trim())
   const conflict = useQuery(
@@ -84,10 +88,22 @@ export function CreateCategoryDialog({
       setName(initialName)
       setDescription('')
       setColor(initialColor)
-      setScope(defaultPortfolioId ?? 'workspace')
+      setScope(
+        defaultPortfolioId ??
+          (canCreateWorkspaceCategory
+            ? 'workspace'
+            : (portfolios?.[0]?._id ?? 'workspace')),
+      )
       setShowPromote(false)
     }
-  }, [open, initialName, initialColor, defaultPortfolioId])
+  }, [
+    open,
+    initialName,
+    initialColor,
+    defaultPortfolioId,
+    canCreateWorkspaceCategory,
+    portfolios,
+  ])
 
   const disabled = !name.trim() || saving
 
@@ -217,9 +233,11 @@ export function CreateCategoryDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="workspace">
-                  Workspace (all portfolios)
-                </SelectItem>
+                {canCreateWorkspaceCategory && (
+                  <SelectItem value="workspace">
+                    Workspace (all portfolios)
+                  </SelectItem>
+                )}
                 {portfolios?.map((p) => (
                   <SelectItem key={p._id} value={p._id}>
                     {p.name}

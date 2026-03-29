@@ -32,6 +32,10 @@ interface EncryptionContextValue {
   hasWorkspaceAccess: boolean
   workspacePublicKey: string | null
   role: 'owner' | 'member' | null
+  workspacePolicies: {
+    categoryCreation: 'owners_only' | 'all_members'
+    labelCreation: 'owners_only' | 'all_members'
+  } | null
   // For granting access: the decrypted workspace private key JWK (in memory only when unlocked via passphrase)
   // Will be null after page reload (non-extractable key in IndexedDB)
   workspacePrivateKeyJwk: string | null
@@ -163,6 +167,7 @@ export function EncryptionProvider({
       hasWorkspaceAccess,
       workspacePublicKey: wsEncryption?.workspacePublicKey ?? null,
       role: wsEncryption?.role ?? null,
+      workspacePolicies: wsEncryption?.workspacePolicies ?? null,
       workspacePrivateKeyJwk,
       workerKeyJwk,
     }),

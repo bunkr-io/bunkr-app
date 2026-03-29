@@ -29,6 +29,7 @@ import { Route as SettingsSettingsWorkspaceIndexRouteImport } from './routes/_se
 import { Route as SettingsSettingsAccountIndexRouteImport } from './routes/_settings/settings.account.index'
 import { Route as SettingsSettingsWorkspaceTeamRouteImport } from './routes/_settings/settings.workspace.team'
 import { Route as SettingsSettingsWorkspaceRulesRouteImport } from './routes/_settings/settings.workspace.rules'
+import { Route as SettingsSettingsWorkspacePermissionsRouteImport } from './routes/_settings/settings.workspace.permissions'
 import { Route as SettingsSettingsWorkspaceMembersRouteImport } from './routes/_settings/settings.workspace.members'
 import { Route as SettingsSettingsWorkspaceLabelsRouteImport } from './routes/_settings/settings.workspace.labels'
 import { Route as SettingsSettingsWorkspaceCategoriesRouteImport } from './routes/_settings/settings.workspace.categories'
@@ -146,6 +147,12 @@ const SettingsSettingsWorkspaceRulesRoute =
   SettingsSettingsWorkspaceRulesRouteImport.update({
     id: '/settings/workspace/rules',
     path: '/settings/workspace/rules',
+    getParentRoute: () => SettingsRoute,
+  } as any)
+const SettingsSettingsWorkspacePermissionsRoute =
+  SettingsSettingsWorkspacePermissionsRouteImport.update({
+    id: '/settings/workspace/permissions',
+    path: '/settings/workspace/permissions',
     getParentRoute: () => SettingsRoute,
   } as any)
 const SettingsSettingsWorkspaceMembersRoute =
@@ -270,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account/': typeof SettingsSettingsAccountIndexRoute
@@ -305,6 +313,7 @@ export interface FileRoutesByTo {
   '/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/settings/account': typeof SettingsSettingsAccountIndexRoute
@@ -344,6 +353,7 @@ export interface FileRoutesById {
   '/_settings/settings/workspace/categories': typeof SettingsSettingsWorkspaceCategoriesRoute
   '/_settings/settings/workspace/labels': typeof SettingsSettingsWorkspaceLabelsRoute
   '/_settings/settings/workspace/members': typeof SettingsSettingsWorkspaceMembersRoute
+  '/_settings/settings/workspace/permissions': typeof SettingsSettingsWorkspacePermissionsRoute
   '/_settings/settings/workspace/rules': typeof SettingsSettingsWorkspaceRulesRoute
   '/_settings/settings/workspace/team': typeof SettingsSettingsWorkspaceTeamRoute
   '/_settings/settings/account/': typeof SettingsSettingsAccountIndexRoute
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/permissions'
     | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account/'
@@ -417,6 +428,7 @@ export interface FileRouteTypes {
     | '/settings/workspace/categories'
     | '/settings/workspace/labels'
     | '/settings/workspace/members'
+    | '/settings/workspace/permissions'
     | '/settings/workspace/rules'
     | '/settings/workspace/team'
     | '/settings/account'
@@ -455,6 +467,7 @@ export interface FileRouteTypes {
     | '/_settings/settings/workspace/categories'
     | '/_settings/settings/workspace/labels'
     | '/_settings/settings/workspace/members'
+    | '/_settings/settings/workspace/permissions'
     | '/_settings/settings/workspace/rules'
     | '/_settings/settings/workspace/team'
     | '/_settings/settings/account/'
@@ -618,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/workspace/rules'
       fullPath: '/settings/workspace/rules'
       preLoaderRoute: typeof SettingsSettingsWorkspaceRulesRouteImport
+      parentRoute: typeof SettingsRoute
+    }
+    '/_settings/settings/workspace/permissions': {
+      id: '/_settings/settings/workspace/permissions'
+      path: '/settings/workspace/permissions'
+      fullPath: '/settings/workspace/permissions'
+      preLoaderRoute: typeof SettingsSettingsWorkspacePermissionsRouteImport
       parentRoute: typeof SettingsRoute
     }
     '/_settings/settings/workspace/members': {
@@ -799,6 +819,7 @@ interface SettingsRouteChildren {
   SettingsSettingsWorkspaceCategoriesRoute: typeof SettingsSettingsWorkspaceCategoriesRoute
   SettingsSettingsWorkspaceLabelsRoute: typeof SettingsSettingsWorkspaceLabelsRoute
   SettingsSettingsWorkspaceMembersRoute: typeof SettingsSettingsWorkspaceMembersRoute
+  SettingsSettingsWorkspacePermissionsRoute: typeof SettingsSettingsWorkspacePermissionsRoute
   SettingsSettingsWorkspaceRulesRoute: typeof SettingsSettingsWorkspaceRulesRoute
   SettingsSettingsWorkspaceTeamRoute: typeof SettingsSettingsWorkspaceTeamRoute
   SettingsSettingsAccountIndexRoute: typeof SettingsSettingsAccountIndexRoute
@@ -822,6 +843,8 @@ const SettingsRouteChildren: SettingsRouteChildren = {
     SettingsSettingsWorkspaceCategoriesRoute,
   SettingsSettingsWorkspaceLabelsRoute: SettingsSettingsWorkspaceLabelsRoute,
   SettingsSettingsWorkspaceMembersRoute: SettingsSettingsWorkspaceMembersRoute,
+  SettingsSettingsWorkspacePermissionsRoute:
+    SettingsSettingsWorkspacePermissionsRoute,
   SettingsSettingsWorkspaceRulesRoute: SettingsSettingsWorkspaceRulesRoute,
   SettingsSettingsWorkspaceTeamRoute: SettingsSettingsWorkspaceTeamRoute,
   SettingsSettingsAccountIndexRoute: SettingsSettingsAccountIndexRoute,

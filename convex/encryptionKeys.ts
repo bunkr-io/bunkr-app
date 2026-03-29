@@ -27,6 +27,8 @@ export const getWorkspaceEncryption = query({
       )
       .first()
 
+    const workspace = await ctx.db.get('workspaces', membership.workspaceId)
+
     // When encryption is not enabled, still return role so the UI knows
     // whether the user can enable it
     if (!wsEnc) {
@@ -39,6 +41,7 @@ export const getWorkspaceEncryption = query({
         keySlot: null,
         role: membership.role,
         enabled: false as const,
+        workspacePolicies: workspace?.policies ?? null,
       }
     }
 
@@ -70,6 +73,7 @@ export const getWorkspaceEncryption = query({
         : null,
       role: membership.role,
       enabled: true as const,
+      workspacePolicies: workspace?.policies ?? null,
     }
   },
 })
