@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
+import { useTheme } from 'next-themes'
 import * as React from 'react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { AppSidebar } from '~/components/app-sidebar'
@@ -28,6 +29,7 @@ function AppCommands() {
   const { toggleSidebar } = useSidebar()
   const { lock, isUnlocked } = useEncryption()
   const { togglePrivacy } = usePrivacy()
+  const { setTheme } = useTheme()
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
   const [connectionDialogOpen, setConnectionDialogOpen] = React.useState(false)
 
@@ -56,6 +58,18 @@ function AppCommands() {
 
   useCommand('privacy.toggle', {
     handler: togglePrivacy,
+  })
+
+  useCommand('theme.light', {
+    handler: () => setTheme('light'),
+  })
+
+  useCommand('theme.dark', {
+    handler: () => setTheme('dark'),
+  })
+
+  useCommand('theme.system', {
+    handler: () => setTheme('system'),
   })
 
   useNavigationCommands()

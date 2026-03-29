@@ -8,6 +8,8 @@ import {
   Layers,
   LayoutDashboard,
   Lock,
+  Monitor,
+  Moon,
   PanelLeft,
   Pencil,
   Plus,
@@ -15,6 +17,7 @@ import {
   Sparkles,
   Star,
   Sticker,
+  Sun,
   Tag,
   Trash2,
 } from 'lucide-react'
@@ -176,6 +179,27 @@ export const COMMAND_DEFINITIONS: Record<string, CommandDefinition> = {
     icon: Keyboard,
     hotkey: { keys: '?', scope: 'global' },
     hidden: true,
+  },
+  'theme.light': {
+    id: 'theme.light',
+    label: 'Switch to light theme',
+    group: 'Theme',
+    icon: Sun,
+    keywords: ['theme', 'appearance', 'light', 'mode'],
+  },
+  'theme.dark': {
+    id: 'theme.dark',
+    label: 'Switch to dark theme',
+    group: 'Theme',
+    icon: Moon,
+    keywords: ['theme', 'appearance', 'dark', 'mode'],
+  },
+  'theme.system': {
+    id: 'theme.system',
+    label: 'Switch to system theme',
+    group: 'Theme',
+    icon: Monitor,
+    keywords: ['theme', 'appearance', 'system', 'mode', 'auto'],
   },
 }
 
