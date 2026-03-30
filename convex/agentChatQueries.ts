@@ -350,6 +350,16 @@ export const listSnapshotsByPortfolios = internalQuery({
   },
 })
 
+export const listRulesByWorkspace = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, { workspaceId }) => {
+    return ctx.db
+      .query('transactionRules')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+      .collect()
+  },
+})
+
 // --- Thread cleanup ---
 
 export const purgeExpiredThreads = internalMutation({

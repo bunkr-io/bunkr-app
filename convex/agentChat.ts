@@ -15,6 +15,7 @@ import {
   getCashFlow,
   getRecurringExpenses,
   getSpendingSummary,
+  getTransactionRules,
   listAccounts,
   listInvestments,
   listUncategorizedTransactions,
@@ -52,6 +53,7 @@ You have access to tools that can query the user's real financial data. Use them
 - Call getRecurringExpenses to identify subscriptions and recurring charges
 - Call findSavingsOpportunities to identify where the user could reduce spending
 - Call listUncategorizedTransactions to find transactions missing categories and suggest how to categorize them
+- Call getTransactionRules to audit existing auto-categorization rules, spot overlaps, or provide context before suggesting new rules
 - After presenting analysis results, call viewTransactions to offer the user a clickable link to see the matching transactions with pre-filled filters. Do NOT add any text about clicking the button — the UI renders it automatically.
 
 Always use YYYY-MM-DD format for dates.`
@@ -73,6 +75,7 @@ const baseTools = {
   findSavingsOpportunities,
   getRecurringExpenses,
   listUncategorizedTransactions,
+  getTransactionRules,
   searchTransactions,
   viewTransactions,
   searchCategories,

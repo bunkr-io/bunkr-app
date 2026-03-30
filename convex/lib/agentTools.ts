@@ -1951,3 +1951,112 @@ export const listUncategorizedTransactions = createTool({
     }
   },
 })
+
+export const getTransactionRules = createTool({
+  title: 'Get Transaction Rules',
+  description:
+    'List all auto-categorization and labeling rules in the workspace. Returns rule patterns, match types, assigned categories/labels, and impact counts. Useful for auditing rules, spotting overlaps or conflicts, and providing context before suggesting new rules.',
+  inputSchema: z.object({
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID to filter rules. If omitted, returns all workspace rules.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<{
+    rules: Array<{
+      pattern: string
+      matchType: 'contains' | 'regex'
+      categoryKey: string | null
+      categoryLabel: string | null
+      labels: string[]
+      customDescription: string | null
+      excludeFromBudget: boolean
+      enabled: boolean
+      impactedTransactions: number
+      sortOrder: number
+    }>
+    totalRules: number
+  }> => {
+    const threadCtx = await resolveContext(ctx)
+
+    const allRules = await ctx.runQuery(
+      internal.agentChatQueries.listRulesByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+
+    // Load categories and labels for name resolution
+    const wsCategories = await ctx.runQuery(
+      internal.agentChatQueries.listCategoriesByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+    const categoryLabelMap = new Map<string, string>(
+      wsCategories.map((c: { key: string; label: string }) => [c.key, c.label]),
+    )
+
+    const wsLabels = await ctx.runQuery(
+      internal.agentChatQueries.listLabelsByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+    const labelNameMap = new Map<string, string>(
+      wsLabels.map((l: { _id: string; name: string }) => [l._id, l.name]),
+    )
+
+    // Filter by portfolio if specified
+    const filtered = allRules.filter(
+      (r: { portfolioId?: string; enabled?: boolean }) => {
+        if (input.portfolioId) {
+          return !r.portfolioId || r.portfolioId === input.portfolioId
+        }
+        return true
+      },
+    )
+
+    // Sort by sortOrder
+    const sorted = filtered.sort(
+      (
+        a: { sortOrder?: number; createdAt: number },
+        b: { sortOrder?: number; createdAt: number },
+      ) => (a.sortOrder ?? a.createdAt) - (b.sortOrder ?? b.createdAt),
+    )
+
+    const rules = sorted.map(
+      (r: {
+        pattern: string
+        matchType: 'contains' | 'regex'
+        categoryKey?: string
+        labelIds?: string[]
+        customDescription?: string
+        excludeFromBudget?: boolean
+        enabled?: boolean
+        impactedTransactionCount?: number
+        sortOrder?: number
+        createdAt: number
+      }) => ({
+        pattern: r.pattern,
+        matchType: r.matchType,
+        categoryKey: r.categoryKey ?? null,
+        categoryLabel: r.categoryKey
+          ? (categoryLabelMap.get(r.categoryKey) ?? r.categoryKey)
+          : null,
+        labels: (r.labelIds ?? [])
+          .map((id: string) => labelNameMap.get(id) ?? id)
+          .filter(Boolean),
+        customDescription: r.customDescription ?? null,
+        excludeFromBudget: r.excludeFromBudget ?? false,
+        enabled: r.enabled !== false,
+        impactedTransactions: r.impactedTransactionCount ?? 0,
+        sortOrder: r.sortOrder ?? 0,
+      }),
+    )
+
+    return {
+      rules,
+      totalRules: rules.length,
+    }
+  },
+})

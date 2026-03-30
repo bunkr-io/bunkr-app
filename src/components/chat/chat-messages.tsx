@@ -42,6 +42,7 @@ const TOOL_LABELS: Record<string, string> = {
   findAnomalies: 'Detecting anomalies',
   getRecurringExpenses: 'Finding recurring expenses',
   listUncategorizedTransactions: 'Finding uncategorized transactions',
+  getTransactionRules: 'Loading transaction rules',
   findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }
