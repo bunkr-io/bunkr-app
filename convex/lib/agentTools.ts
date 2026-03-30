@@ -10,11 +10,18 @@ import { decryptFieldGroups, decryptForProfile } from './serverCrypto'
 
 // --- Helpers ---
 
-/** Resolve workspace and portfolio context from thread metadata. */
-async function resolveContext(ctx: ActionCtx & { threadId?: string }): Promise<{
+type PortfolioScope = 'portfolio' | 'all' | 'team'
+
+interface ThreadContext {
   workspaceId: Id<'workspaces'>
   portfolioId: Id<'portfolios'> | null
-}> {
+  portfolioScope: PortfolioScope
+}
+
+/** Resolve workspace and portfolio context from thread metadata. */
+async function resolveContext(
+  ctx: ActionCtx & { threadId?: string },
+): Promise<ThreadContext> {
   if (!ctx.threadId) throw new Error('No threadId in tool context')
 
   const metadata = await ctx.runQuery(
@@ -26,26 +33,32 @@ async function resolveContext(ctx: ActionCtx & { threadId?: string }): Promise<{
   return {
     workspaceId: metadata.workspaceId,
     portfolioId: metadata.portfolioId ?? null,
+    portfolioScope: (metadata.portfolioScope as PortfolioScope) ?? 'all',
   }
 }
 
-/** Get portfolio IDs to query — either the specific portfolio or all in workspace. */
+/**
+ * Resolve portfolio IDs based on scope:
+ * - 'portfolio' → single portfolio
+ * - 'all' → all user's portfolios (via workspace membership)
+ * - 'team' → all portfolios in workspace (including shared)
+ */
 async function resolvePortfolioIds(
   ctx: ActionCtx,
-  workspaceId: Id<'workspaces'>,
-  portfolioId: Id<'portfolios'> | null,
+  threadCtx: ThreadContext,
   explicitPortfolioId?: string,
 ): Promise<Array<Id<'portfolios'>>> {
   if (explicitPortfolioId) {
     return [explicitPortfolioId as Id<'portfolios'>]
   }
-  if (portfolioId) {
-    return [portfolioId]
+  if (threadCtx.portfolioScope === 'portfolio' && threadCtx.portfolioId) {
+    return [threadCtx.portfolioId]
   }
-  // All portfolios in workspace
+  // Both 'all' and 'team' fetch all workspace portfolios
+  // (listPortfoliosByWorkspace returns all portfolios in the workspace)
   const portfolios = await ctx.runQuery(
     internal.agentChatQueries.listPortfoliosByWorkspace,
-    { workspaceId },
+    { workspaceId: threadCtx.workspaceId },
   )
   return portfolios.map((p: { _id: Id<'portfolios'> }) => p._id)
 }
@@ -75,20 +88,19 @@ export const getSpendingSummary = createTool({
       ),
   }),
   execute: async (ctx, input) => {
-    const { workspaceId, portfolioId } = await resolveContext(ctx)
-    const wsKey = await getWorkspaceDecryptionKey(ctx, workspaceId)
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
     if (!wsKey) return { error: 'Unable to access encrypted data' }
 
     const portfolioIds = await resolvePortfolioIds(
       ctx,
-      workspaceId,
-      portfolioId,
+      threadCtx,
       input.portfolioId,
     )
     // Load workspace categories for label resolution
     const wsCategories = await ctx.runQuery(
       internal.agentChatQueries.listCategoriesByWorkspace,
-      { workspaceId },
+      { workspaceId: threadCtx.workspaceId },
     )
     const categoryLabelMap = new Map(
       wsCategories.map((c: { key: string; label: string }) => [c.key, c.label]),
@@ -230,14 +242,13 @@ export const searchTransactions = createTool({
       .describe('Max number of transactions to return (default 20, max 50).'),
   }),
   execute: async (ctx, input) => {
-    const { workspaceId, portfolioId } = await resolveContext(ctx)
-    const wsKey = await getWorkspaceDecryptionKey(ctx, workspaceId)
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
     if (!wsKey) return { error: 'Unable to access encrypted data' }
 
     const portfolioIds = await resolvePortfolioIds(
       ctx,
-      workspaceId,
-      portfolioId,
+      threadCtx,
       input.portfolioId,
     )
 
@@ -338,12 +349,13 @@ export const searchTransactions = createTool({
 export const searchCategories = createTool({
   title: 'Search Categories',
   description:
-    'Search for transaction categories by name. Returns matching categories with their keys. You MUST call this before using categoryFilter in getSpendingSummary or searchTransactions to find the correct category key.',
+    'Search for transaction categories by name, or list all categories when no query is provided. You MUST call this before using categoryFilter in getSpendingSummary or searchTransactions to find the correct category key. Categories are workspace-wide resources.',
   inputSchema: z.object({
     query: z
       .string()
+      .optional()
       .describe(
-        'Search term to match against category labels and keys (e.g. "restaurant", "transport", "grocery").',
+        'Optional search term to match against category labels and keys (e.g. "restaurant", "transport"). Omit to list all categories.',
       ),
   }),
   execute: async (
@@ -352,26 +364,40 @@ export const searchCategories = createTool({
   ): Promise<{
     categories: Array<{ key: string; label: string; parentKey: string | null }>
   }> => {
-    const { workspaceId } = await resolveContext(ctx)
+    const threadCtx = await resolveContext(ctx)
 
     const allCategories = await ctx.runQuery(
       internal.agentChatQueries.listCategoriesByWorkspace,
-      { workspaceId },
+      { workspaceId: threadCtx.workspaceId },
     )
 
-    const q = input.query.toLowerCase()
-    const matches = allCategories.filter(
-      (c: { key: string; label: string; parentKey?: string }) => {
-        const key = c.key.toLowerCase()
-        const label = c.label.toLowerCase()
-        return (
-          key.includes(q) ||
-          q.includes(key) ||
-          label.includes(q) ||
-          q.includes(label)
-        )
+    // Filter by portfolio scope: workspace-level categories + active portfolio's categories
+    const scopedCategories = allCategories.filter(
+      (c: { portfolioId?: string }) => {
+        if (!c.portfolioId) return true // workspace-level
+        if (threadCtx.portfolioScope === 'portfolio' && threadCtx.portfolioId) {
+          return c.portfolioId === threadCtx.portfolioId
+        }
+        // 'all' and 'team' scopes see all categories
+        return true
       },
     )
+
+    const matches = input.query
+      ? scopedCategories.filter(
+          (c: { key: string; label: string; parentKey?: string }) => {
+            const q = input.query!.toLowerCase()
+            const key = c.key.toLowerCase()
+            const label = c.label.toLowerCase()
+            return (
+              key.includes(q) ||
+              q.includes(key) ||
+              label.includes(q) ||
+              q.includes(label)
+            )
+          },
+        )
+      : scopedCategories
 
     return {
       categories: matches.map(
@@ -379,6 +405,72 @@ export const searchCategories = createTool({
           key: c.key,
           label: c.label,
           parentKey: c.parentKey ?? null,
+        }),
+      ),
+    }
+  },
+})
+
+export const searchLabels = createTool({
+  title: 'Search Labels',
+  description:
+    'Search for transaction labels by name, or list all labels when no query is provided. Returns labels with their IDs. Labels are workspace-wide resources.',
+  inputSchema: z.object({
+    query: z
+      .string()
+      .optional()
+      .describe(
+        'Optional search term to filter labels by name (e.g. "commute", "vacation"). Omit to list all labels.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<{
+    labels: Array<{
+      id: string
+      name: string
+      color: string
+      description: string | null
+    }>
+  }> => {
+    const threadCtx = await resolveContext(ctx)
+
+    const allLabels = await ctx.runQuery(
+      internal.agentChatQueries.listLabelsByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+
+    // Filter by portfolio scope: workspace-level labels + active portfolio's labels
+    const scopedLabels = allLabels.filter((l: { portfolioId?: string }) => {
+      if (!l.portfolioId) return true // workspace-level
+      if (threadCtx.portfolioScope === 'portfolio' && threadCtx.portfolioId) {
+        return l.portfolioId === threadCtx.portfolioId
+      }
+      return true
+    })
+
+    const matches = input.query
+      ? scopedLabels.filter((l: { name: string; description?: string }) => {
+          const q = input.query!.toLowerCase()
+          const name = l.name.toLowerCase()
+          const desc = (l.description ?? '').toLowerCase()
+          return name.includes(q) || q.includes(name) || desc.includes(q)
+        })
+      : scopedLabels
+
+    return {
+      labels: matches.map(
+        (l: {
+          _id: string
+          name: string
+          color: string
+          description?: string
+        }) => ({
+          id: l._id,
+          name: l.name,
+          color: l.color,
+          description: l.description ?? null,
         }),
       ),
     }
@@ -412,14 +504,13 @@ export const listAccounts = createTool({
       }
     | { error: string }
   > => {
-    const { workspaceId, portfolioId } = await resolveContext(ctx)
-    const wsKey = await getWorkspaceDecryptionKey(ctx, workspaceId)
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
     if (!wsKey) return { error: 'Unable to access encrypted data' }
 
     const portfolioIds = await resolvePortfolioIds(
       ctx,
-      workspaceId,
-      portfolioId,
+      threadCtx,
       input.portfolioId,
     )
 

@@ -12,6 +12,7 @@ import {
   getSpendingSummary,
   listAccounts,
   searchCategories,
+  searchLabels,
   searchTransactions,
 } from './lib/agentTools'
 import {
@@ -52,6 +53,7 @@ const baseTools = {
   getSpendingSummary,
   searchTransactions,
   searchCategories,
+  searchLabels,
   listAccounts,
 }
 
@@ -88,7 +90,8 @@ export const streamResponse = action({
         internal.agentChatQueries.getThreadMetadata,
         { threadId },
       )
-      if (threadMeta?.portfolioId) {
+      const scope = threadMeta?.portfolioScope ?? 'all'
+      if (scope === 'portfolio' && threadMeta?.portfolioId) {
         const portfolios = await ctx.runQuery(
           internal.agentChatQueries.listPortfoliosByWorkspace,
           { workspaceId },
@@ -102,9 +105,13 @@ export const streamResponse = action({
             `\n\n## Portfolio Context\n\nYou are scoped to the portfolio "${portfolio.name}". All tool queries default to this portfolio unless the user specifies otherwise.`,
           )
         }
+      } else if (scope === 'team') {
+        systemParts.push(
+          '\n\n## Portfolio Context\n\nYou have access to all portfolios in the workspace, including shared team portfolios.',
+        )
       } else {
         systemParts.push(
-          '\n\n## Portfolio Context\n\nYou have access to all portfolios in the workspace.',
+          "\n\n## Portfolio Context\n\nYou have access to all the user's portfolios.",
         )
       }
 

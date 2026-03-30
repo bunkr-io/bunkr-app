@@ -295,6 +295,9 @@ export default defineSchema({
     workspaceId: v.id('workspaces'),
     threadId: v.string(),
     portfolioId: v.optional(v.id('portfolios')),
+    portfolioScope: v.optional(
+      v.union(v.literal('portfolio'), v.literal('all'), v.literal('team')),
+    ),
     createdAt: v.number(),
   })
     .index('by_threadId', ['threadId'])

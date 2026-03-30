@@ -117,7 +117,7 @@ function ConvexChatProvider({
     ...initialState,
   })
 
-  const { singlePortfolioId } = usePortfolio()
+  const { singlePortfolioId, activePortfolioId } = usePortfolio()
   const createThreadMutation = useMutation(api.agentChatQueries.createThread)
   const sendMessageMutation = useMutation(
     api.agentChatQueries.sendMessage,
@@ -126,8 +126,14 @@ function ConvexChatProvider({
   )
   const dispatch = React.useMemo<ChatDispatch>(() => {
     const openNewChat = () => {
+      const portfolioScope = singlePortfolioId
+        ? ('portfolio' as const)
+        : activePortfolioId === 'team'
+          ? ('team' as const)
+          : ('all' as const)
       void createThreadMutation({
         portfolioId: singlePortfolioId ?? undefined,
+        portfolioScope,
       }).then(({ threadId }) => {
         setState((prev) => ({
           ...prev,
@@ -213,6 +219,7 @@ function ConvexChatProvider({
     sendMessageMutation,
     state.activeThreadId,
     singlePortfolioId,
+    activePortfolioId,
   ])
 
   return (
@@ -418,7 +425,12 @@ export function useChatDispatch(): ChatDispatch {
 // --- Convex-dependent hooks ---
 // These use a context flag to provide values without calling useQuery in mock mode.
 
-type ActiveThreadValue = { threadId: string; title: string | null } | null
+type ActiveThreadValue = {
+  threadId: string
+  title: string | null
+  portfolioScope: string | null
+  portfolioId: string | null
+} | null
 type MinimizedThreadsValue = Array<{ threadId: string; title: string | null }>
 
 const ActiveThreadContext = React.createContext<ActiveThreadValue>(null)
@@ -433,7 +445,12 @@ function ConvexThreadDataProvider({ children }: { children: React.ReactNode }) {
     activeThreadId ? { threadId: activeThreadId } : 'skip',
   )
   const activeThread: ActiveThreadValue = activeThreadId
-    ? (thread ?? { threadId: activeThreadId, title: null })
+    ? (thread ?? {
+        threadId: activeThreadId,
+        title: null,
+        portfolioScope: null,
+        portfolioId: null,
+      })
     : null
 
   const allThreads = useQuery(api.agentChatQueries.listThreads)

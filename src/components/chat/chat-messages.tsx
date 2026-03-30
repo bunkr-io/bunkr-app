@@ -30,6 +30,7 @@ const TOOL_LABELS: Record<string, string> = {
   getSpendingSummary: 'Analyzing spending',
   searchTransactions: 'Searching transactions',
   searchCategories: 'Searching categories',
+  searchLabels: 'Searching labels',
   listAccounts: 'Loading accounts',
   web_search: 'Searching the web',
 }

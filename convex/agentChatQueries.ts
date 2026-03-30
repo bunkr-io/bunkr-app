@@ -61,7 +61,17 @@ export const getThread = query({
       threadId,
     })
 
-    return { threadId, title: thread?.title ?? null }
+    const metadata = await ctx.db
+      .query('agentThreadMetadata')
+      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .first()
+
+    return {
+      threadId,
+      title: thread?.title ?? null,
+      portfolioScope: metadata?.portfolioScope ?? null,
+      portfolioId: metadata?.portfolioId ?? null,
+    }
   },
 })
 
@@ -106,8 +116,11 @@ export const listThreadMessages = query({
 export const createThread = mutation({
   args: {
     portfolioId: v.optional(v.id('portfolios')),
+    portfolioScope: v.optional(
+      v.union(v.literal('portfolio'), v.literal('all'), v.literal('team')),
+    ),
   },
-  handler: async (ctx, { portfolioId }) => {
+  handler: async (ctx, { portfolioId, portfolioScope }) => {
     const userId = await requireAuthUserId(ctx)
 
     const membership = await ctx.db
@@ -130,6 +143,7 @@ export const createThread = mutation({
       workspaceId: membership.workspaceId,
       threadId: thread._id,
       portfolioId,
+      portfolioScope,
       createdAt: Date.now(),
     })
 
@@ -272,6 +286,16 @@ export const listCategoriesByWorkspace = internalQuery({
   handler: async (ctx, { workspaceId }) => {
     return ctx.db
       .query('transactionCategories')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+      .collect()
+  },
+})
+
+export const listLabelsByWorkspace = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, { workspaceId }) => {
+    return ctx.db
+      .query('transactionLabels')
       .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
       .collect()
   },
