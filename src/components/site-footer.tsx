@@ -44,23 +44,38 @@ export function SiteFooter() {
 
   return (
     <>
-      <footer className="sticky bottom-0 z-30 flex h-(--header-height) shrink-0 items-center border-t bg-background md:rounded-b-xl">
-        <div className="flex w-full items-center justify-end gap-1 px-4 lg:gap-2 lg:px-6">
-          {minimized.map((thread) => (
-            <ChatConversationTab
-              key={thread.threadId}
-              conversation={{
-                id: thread.threadId,
-                title: thread.title ?? 'New chat',
-              }}
-              onOpen={() => dispatch.openThread(thread.threadId)}
-              onClose={() => dispatch.closeThread(thread.threadId)}
-            />
-          ))}
-          <Button variant="ghost" size="sm" onClick={handleAskBunkr}>
-            <BotMessageSquare className="size-4" />
-            Ask Bunkr...
-          </Button>
+      <footer className="sticky bottom-0 z-30 flex h-(--header-height) shrink-0 items-center overflow-hidden border-t bg-background md:rounded-b-xl">
+        <div className="flex w-full min-w-0 items-center justify-end gap-1 px-4 lg:gap-2 lg:px-6">
+          {minimized.length > 0 && (
+            <div className="flex min-w-0 items-center justify-end gap-1">
+              {minimized.map((thread) => (
+                <ChatConversationTab
+                  key={thread.threadId}
+                  conversation={{
+                    id: thread.threadId,
+                    title: thread.title ?? 'New chat',
+                  }}
+                  onOpen={() => dispatch.openThread(thread.threadId)}
+                  onClose={() => dispatch.closeThread(thread.threadId)}
+                />
+              ))}
+            </div>
+          )}
+          {minimized.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleAskBunkr}
+              title="Ask Bunkr..."
+            >
+              <BotMessageSquare className="size-4" />
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={handleAskBunkr}>
+              <BotMessageSquare className="size-4" />
+              Ask Bunkr...
+            </Button>
+          )}
           {isEnabled && !mockState && (
             <ChatHistoryPopover onOpenThread={dispatch.openThread} />
           )}

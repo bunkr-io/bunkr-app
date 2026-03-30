@@ -13,11 +13,17 @@ export function ChatConversationTab({
   onClose,
 }: ChatConversationTabProps) {
   return (
-    <div className="group flex h-8 items-center gap-1 rounded-md bg-secondary px-2.5 text-secondary-foreground">
+    <div className="group flex h-8 max-w-40 min-w-16 shrink items-center gap-1 rounded-md bg-secondary px-2.5 text-secondary-foreground">
       <button
         type="button"
         title={conversation.title}
-        className="max-w-40 cursor-pointer truncate"
+        className="min-w-0 shrink cursor-pointer overflow-hidden whitespace-nowrap text-sm"
+        style={{
+          maskImage:
+            'linear-gradient(to right, black calc(100% - 1.5rem), transparent)',
+          WebkitMaskImage:
+            'linear-gradient(to right, black calc(100% - 1.5rem), transparent)',
+        }}
         onClick={onOpen}
       >
         {conversation.title}
@@ -26,10 +32,10 @@ export function ChatConversationTab({
         variant="ghost"
         size="icon-sm"
         aria-label="Close"
-        className="size-5 opacity-0 transition-opacity group-hover:opacity-100"
+        className="size-5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
         onClick={onClose}
       >
-        <X className="size-4" />
+        <X />
       </Button>
     </div>
   )
