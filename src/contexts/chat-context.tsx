@@ -2,6 +2,7 @@ import { optimisticallySendMessage } from '@convex-dev/agent/react'
 import { useMutation, useQuery } from 'convex/react'
 import * as React from 'react'
 import { api } from '../../convex/_generated/api'
+import { usePortfolio } from './portfolio-context'
 
 // --- Types ---
 
@@ -116,6 +117,7 @@ function ConvexChatProvider({
     ...initialState,
   })
 
+  const { singlePortfolioId } = usePortfolio()
   const createThreadMutation = useMutation(api.agentChatQueries.createThread)
   const sendMessageMutation = useMutation(
     api.agentChatQueries.sendMessage,
@@ -124,7 +126,9 @@ function ConvexChatProvider({
   )
   const dispatch = React.useMemo<ChatDispatch>(() => {
     const openNewChat = () => {
-      void createThreadMutation({}).then(({ threadId }) => {
+      void createThreadMutation({
+        portfolioId: singlePortfolioId ?? undefined,
+      }).then(({ threadId }) => {
         setState((prev) => ({
           ...prev,
           activeThreadId: threadId,
@@ -204,11 +208,18 @@ function ConvexChatProvider({
       closeThread,
       sendMessage,
     }
-  }, [createThreadMutation, sendMessageMutation, state.activeThreadId])
+  }, [
+    createThreadMutation,
+    sendMessageMutation,
+    state.activeThreadId,
+    singlePortfolioId,
+  ])
 
   return (
     <StateContext value={state}>
-      <DispatchContext value={dispatch}>{children}</DispatchContext>
+      <DispatchContext value={dispatch}>
+        <ConvexThreadDataProvider>{children}</ConvexThreadDataProvider>
+      </DispatchContext>
     </StateContext>
   )
 }
@@ -404,34 +415,59 @@ export function useChatDispatch(): ChatDispatch {
   return ctx
 }
 
-/** Get active thread metadata (title) from Convex. Returns null if no active thread. */
-export function useActiveThread(): {
-  threadId: string
-  title: string | null
-} | null {
-  const { activeThreadId } = useChatState()
+// --- Convex-dependent hooks ---
+// These use a context flag to provide values without calling useQuery in mock mode.
+
+type ActiveThreadValue = { threadId: string; title: string | null } | null
+type MinimizedThreadsValue = Array<{ threadId: string; title: string | null }>
+
+const ActiveThreadContext = React.createContext<ActiveThreadValue>(null)
+const MinimizedThreadsContext = React.createContext<MinimizedThreadsValue>([])
+
+/** Provides Convex query results for active thread and minimized threads. */
+function ConvexThreadDataProvider({ children }: { children: React.ReactNode }) {
+  const { activeThreadId, minimizedThreadIds } = useChatState()
+
   const thread = useQuery(
     api.agentChatQueries.getThread,
     activeThreadId ? { threadId: activeThreadId } : 'skip',
   )
-  if (!activeThreadId) return null
-  return thread ?? { threadId: activeThreadId, title: null }
+  const activeThread: ActiveThreadValue = activeThreadId
+    ? (thread ?? { threadId: activeThreadId, title: null })
+    : null
+
+  const allThreads = useQuery(api.agentChatQueries.listThreads)
+  const minimizedThreads: MinimizedThreadsValue = allThreads
+    ? minimizedThreadIds
+        .map((id) => allThreads.find((t) => t.threadId === id))
+        .filter(
+          (
+            t,
+          ): t is {
+            threadId: string
+            title: string | null
+            createdAt: number
+          } => t !== undefined,
+        )
+    : []
+
+  return (
+    <ActiveThreadContext value={activeThread}>
+      <MinimizedThreadsContext value={minimizedThreads}>
+        {children}
+      </MinimizedThreadsContext>
+    </ActiveThreadContext>
+  )
 }
 
-/** Get minimized threads metadata from Convex. */
-export function useMinimizedThreads(): Array<{
-  threadId: string
-  title: string | null
-}> {
-  const { minimizedThreadIds } = useChatState()
-  const threads = useQuery(api.agentChatQueries.listThreads)
-  if (!threads) return []
-  return minimizedThreadIds
-    .map((id) => threads.find((t) => t.threadId === id))
-    .filter(
-      (t): t is { threadId: string; title: string | null; createdAt: number } =>
-        t !== undefined,
-    )
+/** Get active thread metadata (title). */
+export function useActiveThread(): ActiveThreadValue {
+  return React.useContext(ActiveThreadContext)
+}
+
+/** Get minimized threads metadata. */
+export function useMinimizedThreads(): MinimizedThreadsValue {
+  return React.useContext(MinimizedThreadsContext)
 }
 
 // --- Mock hooks (for Storybook) ---

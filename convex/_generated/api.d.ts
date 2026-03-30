@@ -25,6 +25,8 @@ import type * as filterViews from "../filterViews.js";
 import type * as http from "../http.js";
 import type * as investments from "../investments.js";
 import type * as lib_accountCategories from "../lib/accountCategories.js";
+import type * as lib_agentDecrypt from "../lib/agentDecrypt.js";
+import type * as lib_agentTools from "../lib/agentTools.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_billing from "../lib/billing.js";
@@ -66,6 +68,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   investments: typeof investments;
   "lib/accountCategories": typeof lib_accountCategories;
+  "lib/agentDecrypt": typeof lib_agentDecrypt;
+  "lib/agentTools": typeof lib_agentTools;
   "lib/aiModels": typeof lib_aiModels;
   "lib/auth": typeof lib_auth;
   "lib/billing": typeof lib_billing;

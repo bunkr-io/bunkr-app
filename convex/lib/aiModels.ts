@@ -1,9 +1,10 @@
+import { anthropic } from '@ai-sdk/anthropic'
 import { google } from '@ai-sdk/google'
 import type { ProviderOptions } from '@ai-sdk/provider-utils'
 
 // Centralized model configuration — change here to swap models for all agents.
 
-export const chatModel = () => google('gemini-2.5-flash-lite')
+export const chatModel = () => anthropic('claude-opus-4-6')
 
 export const titleModel = () => google('gemini-2.5-flash-lite')
 

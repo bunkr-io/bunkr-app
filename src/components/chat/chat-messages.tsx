@@ -3,6 +3,7 @@ import {
   useSmoothText,
   useUIMessages,
 } from '@convex-dev/agent/react'
+import { isToolUIPart } from 'ai'
 import { Check, Copy, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { ChatEmptyState } from '~/components/chat/chat-empty-state'
@@ -21,7 +22,16 @@ import {
 } from '~/components/ui/message'
 import { ScrollButton } from '~/components/ui/scroll-button'
 import { SystemMessage } from '~/components/ui/system-message'
+import { Tool, type ToolPart } from '~/components/ui/tool'
 import { api } from '../../../convex/_generated/api'
+
+/** Map tool names to human-readable labels. */
+const TOOL_LABELS: Record<string, string> = {
+  getSpendingSummary: 'Analyzing spending',
+  searchTransactions: 'Searching transactions',
+  searchCategories: 'Searching categories',
+  listAccounts: 'Loading accounts',
+}
 
 interface ChatMessagesProps {
   threadId: string
@@ -48,7 +58,7 @@ export function ChatMessages({
 
   // Show "Thinking..." when waiting for assistant response:
   // - Last message is from the user (assistant hasn't started yet)
-  // - Last message is assistant but has no text yet (pending/early streaming)
+  // - Last message is assistant but has no text yet (even if tool parts exist — agent is still working)
   const lastMessage = messages.at(-1)
   const isWaitingForReply =
     lastMessage?.role === 'user' ||
@@ -90,8 +100,12 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
     startStreaming: message.status === 'streaming',
   })
 
+  // Extract tool parts from message
+  const toolParts = (message.parts ?? []).filter(isToolUIPart)
+  const hasToolParts = toolParts.length > 0
+
   // Skip empty assistant messages (pending before any text arrives)
-  if (!isUser && !visibleText) return null
+  if (!isUser && !visibleText && !hasToolParts) return null
 
   if (isUser) {
     return (
@@ -108,12 +122,53 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
   return (
     <Message className="group/message">
       <div className="flex w-full flex-col gap-2">
-        <MessageContent
-          markdown
-          className="max-w-[80%] bg-muted text-foreground"
-        >
-          {visibleText}
-        </MessageContent>
+        {hasToolParts && (
+          <div className="flex flex-col gap-1">
+            {toolParts.map((part) => {
+              const toolName =
+                'toolName' in part
+                  ? (part.toolName as string)
+                  : part.type.replace('tool-', '')
+              return (
+                <Tool
+                  key={
+                    'toolCallId' in part
+                      ? (part.toolCallId as string)
+                      : toolName
+                  }
+                  toolPart={{
+                    type: TOOL_LABELS[toolName] ?? toolName,
+                    state: part.state as ToolPart['state'],
+                    input:
+                      'input' in part
+                        ? (part.input as Record<string, unknown>)
+                        : undefined,
+                    output:
+                      'output' in part
+                        ? (part.output as Record<string, unknown>)
+                        : undefined,
+                    toolCallId:
+                      'toolCallId' in part
+                        ? (part.toolCallId as string)
+                        : undefined,
+                    errorText:
+                      'errorText' in part
+                        ? (part.errorText as string)
+                        : undefined,
+                  }}
+                />
+              )
+            })}
+          </div>
+        )}
+        {visibleText && (
+          <MessageContent
+            markdown
+            className="max-w-[80%] bg-muted text-foreground"
+          >
+            {visibleText}
+          </MessageContent>
+        )}
         {showActions && (
           <MessageActions className="opacity-0 transition-opacity group-hover/message:opacity-100">
             <CopyAction text={message.text} />

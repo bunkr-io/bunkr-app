@@ -43,7 +43,7 @@ export function SiteFooter() {
 
   return (
     <>
-      <footer className="flex h-(--header-height) shrink-0 items-center border-t">
+      <footer className="sticky bottom-0 z-30 flex h-(--header-height) shrink-0 items-center border-t bg-background md:rounded-b-xl">
         <div className="flex w-full items-center justify-end gap-1 px-4 lg:gap-2 lg:px-6">
           {minimized.map((thread) => (
             <ChatConversationTab

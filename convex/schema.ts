@@ -294,6 +294,7 @@ export default defineSchema({
   agentThreadMetadata: defineTable({
     workspaceId: v.id('workspaces'),
     threadId: v.string(),
+    portfolioId: v.optional(v.id('portfolios')),
     createdAt: v.number(),
   })
     .index('by_threadId', ['threadId'])

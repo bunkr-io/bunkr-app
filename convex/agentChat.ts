@@ -6,31 +6,50 @@ import { components, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 import { action, internalAction } from './_generated/server'
+import { getWorkspaceDecryptionKey } from './lib/agentDecrypt'
+import {
+  getSpendingSummary,
+  listAccounts,
+  searchCategories,
+  searchTransactions,
+} from './lib/agentTools'
 import {
   chatModel,
   titleModel,
   titleModelProviderOptions,
 } from './lib/aiModels'
-import {
-  decryptAgentPrivateKey,
-  decryptForProfile,
-  decryptKeySlot,
-  jwkToPrivateKeyBytes,
-} from './lib/serverCrypto'
+import { decryptForProfile } from './lib/serverCrypto'
 
 // --- Agent definitions ---
 
-const BASE_INSTRUCTIONS = `You are Bunkr, a personal finance assistant. You help users understand their finances, spending patterns, net worth, and investments.
+function buildBaseInstructions(): string {
+  const today = new Date().toISOString().slice(0, 10)
+  return `You are Bunkr, a personal finance assistant. You help users understand their finances, spending patterns, net worth, and investments.
 
-Be concise and helpful. Format currency amounts with the appropriate symbol. If you don't have access to specific data yet, say so clearly rather than making up numbers.
+Today's date is ${today}. Always use this to resolve relative dates like "last month", "this week", etc.
 
-You are currently in an early beta — you can have general conversations about personal finance, but you don't yet have access to the user's actual financial data. That capability is coming soon.`
+Be concise and helpful. Format currency amounts with the appropriate symbol. When presenting financial data, use tables or lists for clarity.
+
+You have access to tools that can query the user's real financial data. Use them proactively:
+- ALWAYS call searchCategories FIRST before using getSpendingSummary or searchTransactions with a category filter. Pass the user's term (e.g. "restaurants") to find matching category keys (e.g. "food_and_restaurants"). Use the returned key for filtering.
+- Call getSpendingSummary for spending/income questions with date ranges
+- Call searchTransactions to find specific transactions by text or category
+- Call listAccounts to see bank account names and balances
+
+Always use YYYY-MM-DD format for dates.`
+}
 
 const chatAgent = new Agent(components.agent, {
   name: 'bunkr-assistant',
   languageModel: chatModel(),
-  instructions: BASE_INSTRUCTIONS,
-  maxSteps: 1,
+  instructions: buildBaseInstructions(),
+  tools: {
+    getSpendingSummary,
+    searchTransactions,
+    searchCategories,
+    listAccounts,
+  },
+  maxSteps: 5,
 })
 
 const titleAgent = new Agent(components.agent, {
@@ -56,9 +75,36 @@ export const streamResponse = action({
     workspaceId: v.optional(v.id('workspaces')),
   },
   handler: async (ctx, { threadId, promptMessageId, workspaceId }) => {
-    // Build system prompt with optional custom instructions
-    let system: string | undefined
+    // Build system prompt with portfolio context and custom instructions
+    const systemParts: string[] = [buildBaseInstructions()]
+
     if (workspaceId) {
+      // Add portfolio context
+      const threadMeta = await ctx.runQuery(
+        internal.agentChatQueries.getThreadMetadata,
+        { threadId },
+      )
+      if (threadMeta?.portfolioId) {
+        const portfolios = await ctx.runQuery(
+          internal.agentChatQueries.listPortfoliosByWorkspace,
+          { workspaceId },
+        )
+        const portfolio = portfolios.find(
+          (p: { _id: string; name: string }) =>
+            p._id === threadMeta.portfolioId,
+        )
+        if (portfolio) {
+          systemParts.push(
+            `\n\n## Portfolio Context\n\nYou are scoped to the portfolio "${portfolio.name}". All tool queries default to this portfolio unless the user specifies otherwise.`,
+          )
+        }
+      } else {
+        systemParts.push(
+          '\n\n## Portfolio Context\n\nYou have access to all portfolios in the workspace.',
+        )
+      }
+
+      // Add custom instructions
       const settings = await ctx.runQuery(
         internal.agent.getAgentSettingsInternal,
         { workspaceId },
@@ -71,13 +117,17 @@ export const streamResponse = action({
             settings.encryptedInstructions,
           )
           if (customInstructions) {
-            system = `${BASE_INSTRUCTIONS}\n\n## Custom Instructions\n\n${customInstructions}`
+            systemParts.push(
+              `\n\n## Custom Instructions\n\n${customInstructions}`,
+            )
           }
         } catch {
-          // If decryption fails, use base instructions only
+          // If decryption fails, skip custom instructions
         }
       }
     }
+
+    const system = systemParts.length > 1 ? systemParts.join('') : undefined
 
     const { thread } = await chatAgent.continueThread(ctx, { threadId })
 
@@ -90,42 +140,18 @@ export const streamResponse = action({
   },
 })
 
-/** Decrypt custom instructions using the agent key chain. */
+/** Decrypt custom instructions using the shared agent key chain. */
 async function decryptInstructions(
   ctx: ActionCtx,
   workspaceId: Id<'workspaces'>,
   encryptedInstructions: string,
 ): Promise<string | null> {
-  const agentId = `bunkr-agent:${workspaceId}`
-  const secret = process.env.AGENT_KEY_SECRET
-  if (!secret) return null
-
-  const agentKey = await ctx.runQuery(internal.agent.getAgentEncryptionKey, {
-    agentUserId: agentId,
-  })
-  if (!agentKey) return null
-
-  const agentPrivateKeyBytes = decryptAgentPrivateKey(
-    agentKey.encryptedPrivateKey,
-    secret,
-    agentKey.publicKey,
-  )
-
-  const keySlot = await ctx.runQuery(internal.agent.getAgentKeySlot, {
-    workspaceId,
-    agentUserId: agentId,
-  })
-  if (!keySlot) return null
-
-  const wsPrivateKeyJwk = await decryptKeySlot(
-    keySlot.encryptedPrivateKey,
-    agentPrivateKeyBytes,
-  )
-  const wsPrivateKeyBytes = jwkToPrivateKeyBytes(wsPrivateKeyJwk)
+  const wsKey = await getWorkspaceDecryptionKey(ctx, workspaceId)
+  if (!wsKey) return null
 
   const data = await decryptForProfile(
     encryptedInstructions,
-    wsPrivateKeyBytes,
+    wsKey,
     'agent-instructions',
   )
 

@@ -3,7 +3,7 @@ import { vStreamArgs } from '@convex-dev/agent/validators'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
-import { mutation, query } from './_generated/server'
+import { internalQuery, mutation, query } from './_generated/server'
 import { chatModel } from './lib/aiModels'
 import { requireAuthUserId } from './lib/auth'
 
@@ -104,8 +104,10 @@ export const listThreadMessages = query({
 // --- Mutations ---
 
 export const createThread = mutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    portfolioId: v.optional(v.id('portfolios')),
+  },
+  handler: async (ctx, { portfolioId }) => {
     const userId = await requireAuthUserId(ctx)
 
     const membership = await ctx.db
@@ -127,6 +129,7 @@ export const createThread = mutation({
     await ctx.db.insert('agentThreadMetadata', {
       workspaceId: membership.workspaceId,
       threadId: thread._id,
+      portfolioId,
       createdAt: Date.now(),
     })
 
@@ -202,5 +205,74 @@ export const deleteThread = mutation({
     await ctx.runMutation(components.agent.threads.deleteAllForThreadIdAsync, {
       threadId,
     })
+  },
+})
+
+// --- Internal queries (used by agent tools) ---
+
+export const getThreadMetadata = internalQuery({
+  args: { threadId: v.string() },
+  handler: async (ctx, { threadId }) => {
+    return ctx.db
+      .query('agentThreadMetadata')
+      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .first()
+  },
+})
+
+export const listPortfoliosByWorkspace = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, { workspaceId }) => {
+    return ctx.db
+      .query('portfolios')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+      .collect()
+  },
+})
+
+export const listTransactionsByDateRange = internalQuery({
+  args: {
+    portfolioId: v.id('portfolios'),
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  handler: async (ctx, { portfolioId, startDate, endDate }) => {
+    const results = await ctx.db
+      .query('transactions')
+      .withIndex('by_portfolioId_date', (q) =>
+        q
+          .eq('portfolioId', portfolioId)
+          .gte('date', startDate)
+          .lte('date', endDate),
+      )
+      .collect()
+    return results.filter((t) => !t.deleted)
+  },
+})
+
+export const listBankAccountsByPortfolios = internalQuery({
+  args: {
+    portfolioIds: v.array(v.id('portfolios')),
+  },
+  handler: async (ctx, { portfolioIds }) => {
+    const results = await Promise.all(
+      portfolioIds.map((portfolioId) =>
+        ctx.db
+          .query('bankAccounts')
+          .withIndex('by_portfolioId', (q) => q.eq('portfolioId', portfolioId))
+          .collect(),
+      ),
+    )
+    return results.flat().filter((a) => !a.deleted && !a.disabled)
+  },
+})
+
+export const listCategoriesByWorkspace = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, { workspaceId }) => {
+    return ctx.db
+      .query('transactionCategories')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+      .collect()
   },
 })
