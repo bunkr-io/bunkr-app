@@ -35,6 +35,8 @@ const TOOL_LABELS: Record<string, string> = {
   listAccounts: 'Loading accounts',
   listInvestments: 'Loading investments',
   getBalanceHistory: 'Loading balance history',
+  findAnomalies: 'Detecting anomalies',
+  getRecurringExpenses: 'Finding recurring expenses',
   web_search: 'Searching the web',
 }
 
@@ -61,7 +63,7 @@ export function ChatMessages({
     )
   }
 
-  // Show "Thinking..." when waiting for assistant response:
+  // Show "Thinking" when waiting for assistant response:
   // - Last message is from the user (assistant hasn't started yet)
   // - Last message is assistant but has no text yet (even if tool parts exist — agent is still working)
   const lastMessage = messages.at(-1)
@@ -87,7 +89,7 @@ export function ChatMessages({
         ))}
         {isWaitingForReply && (
           <div className="flex items-center gap-2 px-1">
-            <Loader variant="text-shimmer" text="Thinking..." />
+            <Loader variant="text-shimmer" text="Thinking" />
           </div>
         )}
         <ChatContainerScrollAnchor />

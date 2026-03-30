@@ -9,8 +9,10 @@ import type { ActionCtx } from './_generated/server'
 import { action, internalAction } from './_generated/server'
 import { getWorkspaceDecryptionKey } from './lib/agentDecrypt'
 import {
+  findAnomalies,
   getBalanceHistory,
   getCashFlow,
+  getRecurringExpenses,
   getSpendingSummary,
   listAccounts,
   listInvestments,
@@ -43,6 +45,8 @@ You have access to tools that can query the user's real financial data. Use them
 - Call listAccounts to see bank account names and balances
 - Call listInvestments to see investment holdings and performance
 - Call getBalanceHistory for net worth trends over time
+- Call findAnomalies to detect unusual spending compared to recent history
+- Call getRecurringExpenses to identify subscriptions and recurring charges
 
 Always use YYYY-MM-DD format for dates.`
 }
@@ -59,6 +63,8 @@ const baseTools = {
   getSpendingSummary,
   getCashFlow,
   getBalanceHistory,
+  findAnomalies,
+  getRecurringExpenses,
   searchTransactions,
   searchCategories,
   searchLabels,

@@ -968,3 +968,426 @@ export const getBalanceHistory = createTool({
     }
   },
 })
+
+export const findAnomalies = createTool({
+  title: 'Find Anomalies',
+  description:
+    'Detect unusual spending patterns by comparing a target month against the previous 3 months average per category. Flags categories where spending deviates significantly from the baseline. Also flags individual large transactions.',
+  inputSchema: z.object({
+    month: z
+      .string()
+      .describe('Target month in YYYY-MM format to analyze (e.g. "2026-03").'),
+    threshold: z
+      .number()
+      .optional()
+      .default(50)
+      .describe(
+        'Percentage above average to flag as anomaly (default 50, meaning 50% above average).',
+      ),
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID. If omitted, uses active portfolio context or all.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<
+    | {
+        month: string
+        baselineMonths: string[]
+        categoryAnomalies: Array<{
+          category: string
+          label: string
+          currentAmount: number
+          averageAmount: number
+          percentAbove: number
+        }>
+        largeTransactions: Array<{
+          date: string
+          description: string
+          amount: number
+          category: string
+        }>
+      }
+    | { error: string }
+  > => {
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
+    if (!wsKey) return { error: 'Unable to access encrypted data' }
+
+    const portfolioIds = await resolvePortfolioIds(
+      ctx,
+      threadCtx,
+      input.portfolioId,
+    )
+
+    // Load workspace categories for label resolution
+    const wsCategories = await ctx.runQuery(
+      internal.agentChatQueries.listCategoriesByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+    const categoryLabelMap = new Map<string, string>(
+      wsCategories.map((c: { key: string; label: string }) => [c.key, c.label]),
+    )
+
+    // Target month date range
+    const targetYear = Number.parseInt(input.month.slice(0, 4))
+    const targetMonth = Number.parseInt(input.month.slice(5, 7))
+    const targetEndDate = new Date(targetYear, targetMonth, 0)
+    const targetEnd = targetEndDate.toISOString().slice(0, 10)
+
+    // Baseline: 3 months before target
+    const baselineMonths: string[] = []
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(targetYear, targetMonth - 1 - i, 1)
+      baselineMonths.push(
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+      )
+    }
+    const baselineStart = `${baselineMonths[baselineMonths.length - 1]}-01`
+
+    // Query all transactions for baseline + target period
+    const allTransactions = await Promise.all(
+      portfolioIds.map((pid) =>
+        ctx.runQuery(internal.agentChatQueries.listTransactionsByDateRange, {
+          portfolioId: pid,
+          startDate: baselineStart,
+          endDate: targetEnd,
+        }),
+      ),
+    )
+    const transactions = allTransactions.flat()
+
+    // Decrypt and bucket by month + category
+    const spendingByMonthCategory = new Map<string, Map<string, number>>()
+    const targetTransactions: Array<{
+      date: string
+      description: string
+      amount: number
+      category: string
+    }> = []
+
+    for (const tx of transactions) {
+      const financials = await decryptForProfile(
+        tx.encryptedFinancials,
+        wsKey,
+        tx._id,
+        'encryptedFinancials',
+      )
+      const categories = await decryptForProfile(
+        tx.encryptedCategories,
+        wsKey,
+        tx._id,
+        'encryptedCategories',
+      )
+
+      const value = Number(financials.value) || 0
+      if (value >= 0) continue // Only analyze expenses
+
+      const resolvedKey = (
+        (categories.userCategoryKey as string) ||
+        (categories.categoryParent as string) ||
+        (categories.category as string) ||
+        'others'
+      ).toLowerCase()
+
+      const txMonth = tx.date.slice(0, 7)
+
+      if (!spendingByMonthCategory.has(txMonth)) {
+        spendingByMonthCategory.set(txMonth, new Map())
+      }
+      const monthMap = spendingByMonthCategory.get(txMonth)!
+      monthMap.set(resolvedKey, (monthMap.get(resolvedKey) ?? 0) + value)
+
+      // Collect target month transactions for large transaction detection
+      if (txMonth === input.month) {
+        const details = await decryptForProfile(
+          tx.encryptedDetails,
+          wsKey,
+          tx._id,
+          'encryptedDetails',
+        )
+        targetTransactions.push({
+          date: tx.date,
+          description:
+            (details.customDescription as string) ||
+            (details.simplifiedWording as string) ||
+            (details.wording as string) ||
+            'Unknown',
+          amount: Math.round(value * 100) / 100,
+          category: resolvedKey,
+        })
+      }
+    }
+
+    // Calculate baseline averages per category
+    const baselineAvg = new Map<string, number>()
+    const allCategories = new Set<string>()
+    for (const month of baselineMonths) {
+      const monthMap = spendingByMonthCategory.get(month)
+      if (!monthMap) continue
+      for (const [cat, amount] of monthMap) {
+        allCategories.add(cat)
+        baselineAvg.set(cat, (baselineAvg.get(cat) ?? 0) + amount)
+      }
+    }
+    const baselineMonthCount = baselineMonths.filter((m) =>
+      spendingByMonthCategory.has(m),
+    ).length
+    if (baselineMonthCount > 0) {
+      for (const [cat, total] of baselineAvg) {
+        baselineAvg.set(cat, total / baselineMonthCount)
+      }
+    }
+
+    // Compare target month against baseline
+    const targetMap = spendingByMonthCategory.get(input.month) ?? new Map()
+    const thresholdPct = input.threshold ?? 50
+    const categoryAnomalies: Array<{
+      category: string
+      label: string
+      currentAmount: number
+      averageAmount: number
+      percentAbove: number
+    }> = []
+
+    for (const cat of allCategories) {
+      const current = Math.abs(targetMap.get(cat) ?? 0)
+      const avg = Math.abs(baselineAvg.get(cat) ?? 0)
+      if (avg === 0) {
+        // New category spending — flag if significant
+        if (current > 50) {
+          categoryAnomalies.push({
+            category: cat,
+            label: categoryLabelMap.get(cat) ?? cat,
+            currentAmount: Math.round(current * 100) / 100,
+            averageAmount: 0,
+            percentAbove: 100,
+          })
+        }
+        continue
+      }
+      const percentAbove = ((current - avg) / avg) * 100
+      if (percentAbove >= thresholdPct) {
+        categoryAnomalies.push({
+          category: cat,
+          label: categoryLabelMap.get(cat) ?? cat,
+          currentAmount: Math.round(current * 100) / 100,
+          averageAmount: Math.round(avg * 100) / 100,
+          percentAbove: Math.round(percentAbove),
+        })
+      }
+    }
+
+    // Sort anomalies by percent above descending
+    categoryAnomalies.sort((a, b) => b.percentAbove - a.percentAbove)
+
+    // Find large individual transactions (top 5 by absolute amount)
+    const largeTransactions = targetTransactions
+      .sort((a, b) => a.amount - b.amount) // most negative first
+      .slice(0, 5)
+
+    return {
+      month: input.month,
+      baselineMonths: baselineMonths.reverse(),
+      categoryAnomalies,
+      largeTransactions,
+    }
+  },
+})
+
+export const getRecurringExpenses = createTool({
+  title: 'Get Recurring Expenses',
+  description:
+    'Identify recurring expenses (subscriptions, rent, memberships) by analyzing transaction patterns over several months. Groups transactions by counterparty/description that appear consistently.',
+  inputSchema: z.object({
+    months: z
+      .number()
+      .optional()
+      .default(3)
+      .describe(
+        'Number of months to scan for recurring patterns (default 3, max 6).',
+      ),
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID. If omitted, uses active portfolio context or all.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<
+    | {
+        scanPeriod: { startDate: string; endDate: string; months: number }
+        recurring: Array<{
+          description: string
+          averageAmount: number
+          currency: string
+          frequency: string
+          occurrences: number
+          lastDate: string
+          category: string
+        }>
+        totalMonthly: number
+      }
+    | { error: string }
+  > => {
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
+    if (!wsKey) return { error: 'Unable to access encrypted data' }
+
+    const portfolioIds = await resolvePortfolioIds(
+      ctx,
+      threadCtx,
+      input.portfolioId,
+    )
+
+    const scanMonths = Math.min(input.months ?? 3, 6)
+    const now = new Date()
+    const endDate = now.toISOString().slice(0, 10)
+    const startDate = new Date(
+      now.getFullYear(),
+      now.getMonth() - scanMonths,
+      1,
+    )
+      .toISOString()
+      .slice(0, 10)
+
+    const allTransactions = await Promise.all(
+      portfolioIds.map((pid) =>
+        ctx.runQuery(internal.agentChatQueries.listTransactionsByDateRange, {
+          portfolioId: pid,
+          startDate,
+          endDate,
+        }),
+      ),
+    )
+    const transactions = allTransactions.flat()
+
+    // Decrypt and group by normalized counterparty/description
+    const groups = new Map<
+      string,
+      Array<{
+        date: string
+        amount: number
+        month: string
+        category: string
+        rawDescription: string
+      }>
+    >()
+
+    for (const tx of transactions) {
+      const financials = await decryptForProfile(
+        tx.encryptedFinancials,
+        wsKey,
+        tx._id,
+        'encryptedFinancials',
+      )
+      const value = Number(financials.value) || 0
+      if (value >= 0) continue // Only expenses
+
+      const details = await decryptForProfile(
+        tx.encryptedDetails,
+        wsKey,
+        tx._id,
+        'encryptedDetails',
+      )
+      const categories = await decryptForProfile(
+        tx.encryptedCategories,
+        wsKey,
+        tx._id,
+        'encryptedCategories',
+      )
+
+      const description =
+        (details.simplifiedWording as string) ||
+        (details.counterparty as string) ||
+        (details.wording as string) ||
+        ''
+      if (!description) continue
+
+      // Normalize: lowercase, trim, collapse whitespace
+      const key = description.toLowerCase().trim().replace(/\s+/g, ' ')
+
+      const category = (
+        (categories.userCategoryKey as string) ||
+        (categories.categoryParent as string) ||
+        (categories.category as string) ||
+        'others'
+      ).toLowerCase()
+
+      if (!groups.has(key)) {
+        groups.set(key, [])
+      }
+      groups.get(key)!.push({
+        date: tx.date,
+        amount: value,
+        month: tx.date.slice(0, 7),
+        category,
+        rawDescription: description,
+      })
+    }
+
+    // Identify recurring: appears in at least 2 distinct months
+    const recurring: Array<{
+      description: string
+      averageAmount: number
+      currency: string
+      frequency: string
+      occurrences: number
+      lastDate: string
+      category: string
+    }> = []
+
+    for (const [, entries] of groups) {
+      const distinctMonths = new Set(entries.map((e) => e.month))
+      if (distinctMonths.size < 2) continue
+
+      const totalAmount = entries.reduce((sum, e) => sum + e.amount, 0)
+      const avgAmount = totalAmount / distinctMonths.size
+
+      // Determine frequency
+      let frequency: string
+      if (distinctMonths.size >= scanMonths) {
+        frequency = 'monthly'
+      } else if (distinctMonths.size >= scanMonths / 2) {
+        frequency = 'bi-monthly'
+      } else {
+        frequency = 'occasional'
+      }
+
+      const sorted = entries.sort((a, b) => b.date.localeCompare(a.date))
+
+      recurring.push({
+        description: sorted[0].rawDescription,
+        averageAmount: Math.round(Math.abs(avgAmount) * 100) / 100,
+        currency: 'EUR',
+        frequency,
+        occurrences: entries.length,
+        lastDate: sorted[0].date,
+        category: sorted[0].category,
+      })
+    }
+
+    // Sort by average amount descending
+    recurring.sort((a, b) => b.averageAmount - a.averageAmount)
+
+    // Cap at 20 results
+    const top = recurring.slice(0, 20)
+
+    const totalMonthly = top
+      .filter((r) => r.frequency === 'monthly')
+      .reduce((sum, r) => sum + r.averageAmount, 0)
+
+    return {
+      scanPeriod: { startDate, endDate, months: scanMonths },
+      recurring: top,
+      totalMonthly: Math.round(totalMonthly * 100) / 100,
+    }
+  },
+})

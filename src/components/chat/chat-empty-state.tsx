@@ -10,9 +10,10 @@ import {
 } from '~/components/ui/empty'
 
 const SUGGESTIONS = [
-  "What's my net worth?",
-  'Summarize my spending',
-  'How are my investments?',
+  'Any unusual spending this month?',
+  'What are my recurring expenses?',
+  "What's my savings rate?",
+  'Where do I spend the most?',
 ]
 
 interface ChatEmptyStateProps {
