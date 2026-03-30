@@ -171,7 +171,7 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
         {visibleText && (
           <MessageContent
             markdown
-            className="max-w-[80%] bg-muted text-foreground prose prose-sm dark:prose-invert"
+            className="max-w-[80%] bg-muted text-foreground prose prose-sm dark:prose-invert overflow-x-auto"
           >
             {visibleText}
           </MessageContent>
