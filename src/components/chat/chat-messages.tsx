@@ -41,6 +41,7 @@ const TOOL_LABELS: Record<string, string> = {
   getBalanceHistory: 'Loading balance history',
   findAnomalies: 'Detecting anomalies',
   getRecurringExpenses: 'Finding recurring expenses',
+  listUncategorizedTransactions: 'Finding uncategorized transactions',
   findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }
@@ -141,7 +142,8 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
     return <ChatBubble variant="user">{visibleText}</ChatBubble>
   }
 
-  const showActions = visibleText && message.status !== 'streaming'
+  const isFailed = message.status === 'failed'
+  const showActions = visibleText && message.status !== 'streaming' && !isFailed
 
   function handleViewTransactions(output: Record<string, unknown>) {
     const filters = output.filters as Array<Filter>
@@ -206,8 +208,12 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
         )}
         {visibleText && (
           <MessageContent
-            markdown
-            className="bg-background text-foreground prose dark:prose-invert max-w-[80%] overflow-x-auto"
+            markdown={!isFailed}
+            className={
+              isFailed
+                ? 'bg-destructive/10 text-destructive border border-destructive/20 max-w-full'
+                : 'bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto'
+            }
           >
             {visibleText}
           </MessageContent>

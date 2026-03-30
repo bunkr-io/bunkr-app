@@ -4,7 +4,13 @@ import { useTheme } from 'next-themes'
 import * as React from 'react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { AppSidebar } from '~/components/app-sidebar'
-import { ChatPanel } from '~/components/chat/chat-panel'
+
+const ChatPanel = React.lazy(() =>
+  import('~/components/chat/chat-panel').then((m) => ({
+    default: m.ChatPanel,
+  })),
+)
+
 import { CommandPalette } from '~/components/command-palette'
 import { ConnectionAlertBanner } from '~/components/connection-alert-banner'
 import { ShortcutsDrawer } from '~/components/shortcuts-drawer'
@@ -128,8 +134,18 @@ function AppMainContent() {
 
   return (
     <>
-      {panelMode === 'expanded' ? <ChatPanel /> : <Outlet />}
-      {panelMode === 'popover' && <ChatPanel />}
+      {panelMode === 'expanded' ? (
+        <React.Suspense>
+          <ChatPanel />
+        </React.Suspense>
+      ) : (
+        <Outlet />
+      )}
+      {panelMode === 'popover' && (
+        <React.Suspense>
+          <ChatPanel />
+        </React.Suspense>
+      )}
     </>
   )
 }

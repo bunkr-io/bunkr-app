@@ -20,7 +20,7 @@ export function ChatBubble({ variant, children }: ChatBubbleProps) {
     <Message>
       <MessageContent
         markdown
-        className="bg-muted text-foreground prose prose-sm dark:prose-invert max-w-full overflow-x-auto"
+        className="bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto"
       >
         {children}
       </MessageContent>

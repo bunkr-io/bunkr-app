@@ -1778,3 +1778,176 @@ export const findSavingsOpportunities = createTool({
     }
   },
 })
+
+export const listUncategorizedTransactions = createTool({
+  title: 'List Uncategorized Transactions',
+  description:
+    'Find transactions that are missing a user-assigned category within a date range. Returns transactions grouped by similar description patterns to help batch-categorize them. Useful for "help me clean up my data" workflows.',
+  inputSchema: z.object({
+    startDate: z
+      .string()
+      .describe('Start date in YYYY-MM-DD format (inclusive)'),
+    endDate: z.string().describe('End date in YYYY-MM-DD format (inclusive)'),
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID. If omitted, uses active portfolio context or all.',
+      ),
+    limit: z
+      .number()
+      .optional()
+      .default(30)
+      .describe('Max number of transactions to return (default 30, max 50).'),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<
+    | {
+        uncategorized: Array<{
+          date: string
+          description: string
+          counterparty: string
+          amount: number
+          currency: string
+          currentCategory: string
+        }>
+        totalUncategorized: number
+        patterns: Array<{
+          description: string
+          count: number
+          totalAmount: number
+          suggestedCategory: string
+        }>
+      }
+    | { error: string }
+  > => {
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
+    if (!wsKey) return { error: 'Unable to access encrypted data' }
+
+    const portfolioIds = await resolvePortfolioIds(
+      ctx,
+      threadCtx,
+      input.portfolioId,
+    )
+
+    const allTransactions = await Promise.all(
+      portfolioIds.map((pid) =>
+        ctx.runQuery(internal.agentChatQueries.listTransactionsByDateRange, {
+          portfolioId: pid,
+          startDate: input.startDate,
+          endDate: input.endDate,
+        }),
+      ),
+    )
+    const transactions = allTransactions.flat()
+
+    // Decrypt and find uncategorized transactions
+    const uncategorized: Array<{
+      date: string
+      description: string
+      counterparty: string
+      amount: number
+      currency: string
+      currentCategory: string
+    }> = []
+
+    // Track patterns by normalized description
+    const patternMap = new Map<
+      string,
+      {
+        description: string
+        count: number
+        totalAmount: number
+        parentCategory: string
+      }
+    >()
+
+    for (const tx of transactions) {
+      const decrypted = await decryptFieldGroups(
+        {
+          encryptedDetails: tx.encryptedDetails,
+          encryptedFinancials: tx.encryptedFinancials,
+          encryptedCategories: tx.encryptedCategories,
+        },
+        wsKey,
+        tx._id,
+      )
+
+      // A transaction is "uncategorized" if it has no user-assigned category
+      const userCategoryKey = decrypted.userCategoryKey as string | undefined
+      if (userCategoryKey) continue
+
+      // Also check if the Powens auto-category resolved to "others" or is empty
+      const rawCategory = (decrypted.category as string) || ''
+      const rawParent = (decrypted.categoryParent as string) || ''
+      const resolvedKey = (rawParent || rawCategory || 'others').toLowerCase()
+
+      // Consider it uncategorized if it falls into "others" or has no category
+      if (resolvedKey !== 'others' && rawCategory) continue
+
+      const description =
+        (decrypted.simplifiedWording as string) ||
+        (decrypted.wording as string) ||
+        'Unknown'
+      const counterparty = (decrypted.counterparty as string) || ''
+      const amount = Number(decrypted.value) || 0
+
+      // Track pattern by normalized counterparty or description
+      const patternKey = (counterparty || description)
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ')
+
+      if (patternKey) {
+        const existing = patternMap.get(patternKey)
+        if (existing) {
+          existing.count++
+          existing.totalAmount += amount
+        } else {
+          patternMap.set(patternKey, {
+            description: counterparty || description,
+            count: 1,
+            totalAmount: amount,
+            parentCategory: resolvedKey,
+          })
+        }
+      }
+
+      if (uncategorized.length < Math.min(input.limit ?? 30, 50)) {
+        uncategorized.push({
+          date: tx.date,
+          description,
+          counterparty,
+          amount: Math.round(amount * 100) / 100,
+          currency: tx.originalCurrency ?? 'EUR',
+          currentCategory: resolvedKey,
+        })
+      }
+    }
+
+    // Sort patterns by count descending — most frequent first
+    const patterns = [...patternMap.values()]
+      .filter((p) => p.count >= 2)
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+      .map((p) => ({
+        description: p.description,
+        count: p.count,
+        totalAmount: Math.round(Math.abs(p.totalAmount) * 100) / 100,
+        suggestedCategory:
+          'Suggest a category based on the description pattern',
+      }))
+
+    return {
+      uncategorized,
+      totalUncategorized:
+        uncategorized.length >= Math.min(input.limit ?? 30, 50)
+          ? -1 // indicates there are more
+          : uncategorized.length,
+      patterns,
+    }
+  },
+})

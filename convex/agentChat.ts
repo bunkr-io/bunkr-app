@@ -17,6 +17,7 @@ import {
   getSpendingSummary,
   listAccounts,
   listInvestments,
+  listUncategorizedTransactions,
   searchCategories,
   searchLabels,
   searchTransactions,
@@ -50,6 +51,7 @@ You have access to tools that can query the user's real financial data. Use them
 - Call findAnomalies to detect unusual spending compared to recent history
 - Call getRecurringExpenses to identify subscriptions and recurring charges
 - Call findSavingsOpportunities to identify where the user could reduce spending
+- Call listUncategorizedTransactions to find transactions missing categories and suggest how to categorize them
 - After presenting analysis results, call viewTransactions to offer the user a clickable link to see the matching transactions with pre-filled filters. Do NOT add any text about clicking the button — the UI renders it automatically.
 
 Always use YYYY-MM-DD format for dates.`
@@ -70,6 +72,7 @@ const baseTools = {
   findAnomalies,
   findSavingsOpportunities,
   getRecurringExpenses,
+  listUncategorizedTransactions,
   searchTransactions,
   viewTransactions,
   searchCategories,
@@ -171,16 +174,41 @@ export const streamResponse = action({
         }
       : baseTools
 
-    const result = await thread.streamText(
-      {
-        promptMessageId,
-        ...(system ? { system } : {}),
-        tools: tools as typeof baseTools,
-      },
-      { saveStreamDeltas: { chunking: 'word', throttleMs: 100 } },
-    )
+    try {
+      const result = await thread.streamText(
+        {
+          promptMessageId,
+          ...(system ? { system } : {}),
+          tools: tools as typeof baseTools,
+        },
+        { saveStreamDeltas: { chunking: 'word', throttleMs: 100 } },
+      )
 
-    await result.consumeStream()
+      await result.consumeStream()
+    } catch (error) {
+      // Save an error message so the UI displays it instead of hanging
+      const errorMsg =
+        error instanceof Error ? error.message : 'An unexpected error occurred'
+      const isOverloaded =
+        errorMsg.includes('overloaded') ||
+        errorMsg.includes('529') ||
+        errorMsg.includes('rate')
+      const userFacingMessage = isOverloaded
+        ? 'The AI model is currently overloaded. Please try again in a moment.'
+        : 'Something went wrong while generating a response. Please try again.'
+      await ctx.runMutation(components.agent.messages.addMessages, {
+        threadId,
+        messages: [
+          {
+            message: {
+              role: 'assistant' as const,
+              content: userFacingMessage,
+            },
+            error: errorMsg,
+          },
+        ],
+      })
+    }
   },
 })
 
@@ -214,11 +242,14 @@ export const generateTitle = internalAction({
     const existing = await thread.getMetadata()
     if (existing.title) return
 
-    const { text } = await thread.generateText(
-      { prompt, providerOptions: titleModelProviderOptions },
-      { storageOptions: { saveMessages: 'none' } },
-    )
-
-    await thread.updateMetadata({ title: text.trim() })
+    try {
+      const { text } = await thread.generateText(
+        { prompt, providerOptions: titleModelProviderOptions },
+        { storageOptions: { saveMessages: 'none' } },
+      )
+      await thread.updateMetadata({ title: text.trim() })
+    } catch {
+      // Title generation is non-critical — silently ignore errors
+    }
   },
 })
