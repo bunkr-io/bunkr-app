@@ -65,6 +65,73 @@ async function resolvePortfolioIds(
 
 // --- Tools ---
 
+export const viewTransactions = createTool({
+  title: 'View Transactions',
+  description:
+    'Generate a link the user can click to view matching transactions in the transaction listing with pre-filled filters and date range. Call this AFTER presenting analysis results to let the user explore the underlying data. Returns filter conditions that the UI renders as a clickable button.',
+  inputSchema: z.object({
+    startDate: z
+      .string()
+      .optional()
+      .describe(
+        'Start date in YYYY-MM-DD format for the period selector. If omitted, keeps current period.',
+      ),
+    endDate: z
+      .string()
+      .optional()
+      .describe(
+        'End date in YYYY-MM-DD format for the period selector. If omitted, keeps current period.',
+      ),
+    filters: z
+      .array(
+        z.object({
+          field: z
+            .string()
+            .describe(
+              'Filter field: "category", "amount", "flow", "wording", "counterparty", "labels". Do NOT use "date" — use startDate/endDate instead.',
+            ),
+          operator: z
+            .string()
+            .describe(
+              'Operator: "is_any_of", "between", "gt", "lt", "contains", "is"',
+            ),
+          values: z
+            .array(z.unknown())
+            .describe(
+              'Filter values. For category "is_any_of": ["category_key"]. For flow: ["income"] or ["expense"]. For amount: [number].',
+            ),
+        }),
+      )
+      .describe(
+        'Array of filter conditions. Do NOT include date filters — use startDate/endDate params instead.',
+      ),
+    label: z
+      .string()
+      .optional()
+      .describe(
+        'Human-readable label for the button (e.g. "View restaurant expenses", "See March transactions").',
+      ),
+  }),
+  execute: async (_ctx, input) => {
+    // This tool doesn't query data — it returns filter conditions + date range
+    // that the UI renders as a clickable "View transactions" button
+    return {
+      type: 'transaction_filters' as const,
+      filters: input.filters
+        .filter((f) => f.field !== 'date')
+        .map((f, i) => ({
+          id: `agent-filter-${i}`,
+          field: f.field,
+          operator: f.operator,
+          values: f.values,
+        })),
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+      label: input.label ?? 'View transactions',
+    }
+  },
+})
+
 export const getSpendingSummary = createTool({
   title: 'Get Spending Summary',
   description:
@@ -383,17 +450,17 @@ export const searchCategories = createTool({
       },
     )
 
-    const matches = input.query
+    const queryLower = input.query?.toLowerCase()
+    const matches = queryLower
       ? scopedCategories.filter(
           (c: { key: string; label: string; parentKey?: string }) => {
-            const q = input.query!.toLowerCase()
             const key = c.key.toLowerCase()
             const label = c.label.toLowerCase()
             return (
-              key.includes(q) ||
-              q.includes(key) ||
-              label.includes(q) ||
-              q.includes(label)
+              key.includes(queryLower) ||
+              queryLower.includes(key) ||
+              label.includes(queryLower) ||
+              queryLower.includes(label)
             )
           },
         )
@@ -450,12 +517,16 @@ export const searchLabels = createTool({
       return true
     })
 
-    const matches = input.query
+    const labelQueryLower = input.query?.toLowerCase()
+    const matches = labelQueryLower
       ? scopedLabels.filter((l: { name: string; description?: string }) => {
-          const q = input.query!.toLowerCase()
           const name = l.name.toLowerCase()
           const desc = (l.description ?? '').toLowerCase()
-          return name.includes(q) || q.includes(name) || desc.includes(q)
+          return (
+            name.includes(labelQueryLower) ||
+            labelQueryLower.includes(name) ||
+            desc.includes(labelQueryLower)
+          )
         })
       : scopedLabels
 
@@ -865,7 +936,7 @@ export const getBalanceHistory = createTool({
       if (!byAccount.has(accountId)) {
         byAccount.set(accountId, [])
       }
-      byAccount.get(accountId)!.push({
+      byAccount.get(accountId)?.push({
         date: snap.date,
         balance: Number(data.balance) || 0,
       })
@@ -1034,8 +1105,8 @@ export const findAnomalies = createTool({
     )
 
     // Target month date range
-    const targetYear = Number.parseInt(input.month.slice(0, 4))
-    const targetMonth = Number.parseInt(input.month.slice(5, 7))
+    const targetYear = Number.parseInt(input.month.slice(0, 4), 10)
+    const targetMonth = Number.parseInt(input.month.slice(5, 7), 10)
     const targetEndDate = new Date(targetYear, targetMonth, 0)
     const targetEnd = targetEndDate.toISOString().slice(0, 10)
 
@@ -1324,7 +1395,7 @@ export const getRecurringExpenses = createTool({
       if (!groups.has(key)) {
         groups.set(key, [])
       }
-      groups.get(key)!.push({
+      groups.get(key)?.push({
         date: tx.date,
         amount: value,
         month: tx.date.slice(0, 7),
@@ -1388,6 +1459,322 @@ export const getRecurringExpenses = createTool({
       scanPeriod: { startDate, endDate, months: scanMonths },
       recurring: top,
       totalMonthly: Math.round(totalMonthly * 100) / 100,
+    }
+  },
+})
+
+export const findSavingsOpportunities = createTool({
+  title: 'Find Savings Opportunities',
+  description:
+    'Identify where the user could reduce spending by analyzing category trends over recent months. Highlights categories with growing spending, new recurring expenses, and discretionary categories with high spend.',
+  inputSchema: z.object({
+    months: z
+      .number()
+      .optional()
+      .default(3)
+      .describe('Number of months to analyze (default 3, max 6).'),
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID. If omitted, uses active portfolio context or all.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<
+    | {
+        period: { startDate: string; endDate: string; months: number }
+        opportunities: Array<{
+          category: string
+          label: string
+          type: 'growing' | 'high_discretionary' | 'new_expense'
+          reason: string
+          currentMonthly: number
+          previousMonthly: number
+          potentialSavings: number
+        }>
+        recurringIncreases: Array<{
+          description: string
+          previousAmount: number
+          currentAmount: number
+          increase: number
+        }>
+        summary: {
+          totalDiscretionary: number
+          totalGrowth: number
+          estimatedMonthlySavings: number
+        }
+      }
+    | { error: string }
+  > => {
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
+    if (!wsKey) return { error: 'Unable to access encrypted data' }
+
+    const portfolioIds = await resolvePortfolioIds(
+      ctx,
+      threadCtx,
+      input.portfolioId,
+    )
+
+    // Load workspace categories for label resolution
+    const wsCategories = await ctx.runQuery(
+      internal.agentChatQueries.listCategoriesByWorkspace,
+      { workspaceId: threadCtx.workspaceId },
+    )
+    const categoryLabelMap = new Map<string, string>(
+      wsCategories.map((c: { key: string; label: string }) => [c.key, c.label]),
+    )
+
+    const scanMonths = Math.min(input.months ?? 3, 6)
+    const now = new Date()
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    const endDate = now.toISOString().slice(0, 10)
+    const startDate = new Date(
+      now.getFullYear(),
+      now.getMonth() - scanMonths,
+      1,
+    )
+      .toISOString()
+      .slice(0, 10)
+
+    const allTransactions = await Promise.all(
+      portfolioIds.map((pid) =>
+        ctx.runQuery(internal.agentChatQueries.listTransactionsByDateRange, {
+          portfolioId: pid,
+          startDate,
+          endDate,
+        }),
+      ),
+    )
+    const transactions = allTransactions.flat()
+
+    // Decrypt and bucket spending by month + category
+    // Also track recurring expenses by counterparty
+    const spendingByMonthCategory = new Map<string, Map<string, number>>()
+    const recurringByCounterparty = new Map<
+      string,
+      Map<string, { amount: number; description: string }>
+    >()
+
+    for (const tx of transactions) {
+      const financials = await decryptForProfile(
+        tx.encryptedFinancials,
+        wsKey,
+        tx._id,
+        'encryptedFinancials',
+      )
+      const value = Number(financials.value) || 0
+      if (value >= 0) continue
+
+      const categories = await decryptForProfile(
+        tx.encryptedCategories,
+        wsKey,
+        tx._id,
+        'encryptedCategories',
+      )
+      const details = await decryptForProfile(
+        tx.encryptedDetails,
+        wsKey,
+        tx._id,
+        'encryptedDetails',
+      )
+
+      const resolvedKey = (
+        (categories.userCategoryKey as string) ||
+        (categories.categoryParent as string) ||
+        (categories.category as string) ||
+        'others'
+      ).toLowerCase()
+
+      const txMonth = tx.date.slice(0, 7)
+
+      // Category spending by month
+      if (!spendingByMonthCategory.has(txMonth)) {
+        spendingByMonthCategory.set(txMonth, new Map())
+      }
+      const monthMap = spendingByMonthCategory.get(txMonth)!
+      monthMap.set(resolvedKey, (monthMap.get(resolvedKey) ?? 0) + value)
+
+      // Recurring tracking by counterparty
+      const counterparty = (
+        (details.simplifiedWording as string) ||
+        (details.counterparty as string) ||
+        ''
+      )
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, ' ')
+      if (counterparty) {
+        if (!recurringByCounterparty.has(counterparty)) {
+          recurringByCounterparty.set(counterparty, new Map())
+        }
+        recurringByCounterparty.get(counterparty)?.set(txMonth, {
+          amount: Math.abs(value),
+          description:
+            (details.simplifiedWording as string) ||
+            (details.counterparty as string) ||
+            '',
+        })
+      }
+    }
+
+    // Build sorted months list
+    const months = [...spendingByMonthCategory.keys()].sort()
+    const recentMonth = months[months.length - 1] ?? currentMonth
+    const olderMonths = months.slice(0, -1)
+
+    // Discretionary categories (non-essential)
+    const essentialCategories = new Set([
+      'housing',
+      'taxes_and_admin',
+      'banks_and_insurance',
+      'loans',
+      'healthcare',
+    ])
+
+    // Analyze category trends
+    const opportunities: Array<{
+      category: string
+      label: string
+      type: 'growing' | 'high_discretionary' | 'new_expense'
+      reason: string
+      currentMonthly: number
+      previousMonthly: number
+      potentialSavings: number
+    }> = []
+
+    const allCategories = new Set<string>()
+    for (const monthMap of spendingByMonthCategory.values()) {
+      for (const cat of monthMap.keys()) {
+        allCategories.add(cat)
+      }
+    }
+
+    let totalDiscretionary = 0
+    let totalGrowth = 0
+
+    for (const cat of allCategories) {
+      const recentSpend = Math.abs(
+        spendingByMonthCategory.get(recentMonth)?.get(cat) ?? 0,
+      )
+
+      // Calculate average of older months
+      let olderTotal = 0
+      let olderCount = 0
+      for (const m of olderMonths) {
+        const val = spendingByMonthCategory.get(m)?.get(cat)
+        if (val !== undefined) {
+          olderTotal += Math.abs(val)
+          olderCount++
+        }
+      }
+      const olderAvg = olderCount > 0 ? olderTotal / olderCount : 0
+      const label = categoryLabelMap.get(cat) ?? cat
+      const isDiscretionary = !essentialCategories.has(cat)
+
+      // Growing category (spending increased 30%+ vs average)
+      if (olderAvg > 0 && recentSpend > olderAvg * 1.3) {
+        const growth = recentSpend - olderAvg
+        totalGrowth += growth
+        opportunities.push({
+          category: cat,
+          label,
+          type: 'growing',
+          reason: `Up ${Math.round(((recentSpend - olderAvg) / olderAvg) * 100)}% vs previous months average`,
+          currentMonthly: Math.round(recentSpend * 100) / 100,
+          previousMonthly: Math.round(olderAvg * 100) / 100,
+          potentialSavings: Math.round(growth * 100) / 100,
+        })
+      }
+
+      // New expense (no history, significant amount)
+      if (olderAvg === 0 && recentSpend > 30) {
+        opportunities.push({
+          category: cat,
+          label,
+          type: 'new_expense',
+          reason: 'New spending category with no prior history',
+          currentMonthly: Math.round(recentSpend * 100) / 100,
+          previousMonthly: 0,
+          potentialSavings: Math.round(recentSpend * 100) / 100,
+        })
+      }
+
+      // High discretionary (non-essential with significant spend)
+      if (isDiscretionary && recentSpend > 100) {
+        totalDiscretionary += recentSpend
+        // Only flag if not already flagged as growing
+        if (!(olderAvg > 0 && recentSpend > olderAvg * 1.3)) {
+          opportunities.push({
+            category: cat,
+            label,
+            type: 'high_discretionary',
+            reason: `Discretionary spending of €${Math.round(recentSpend)} this month`,
+            currentMonthly: Math.round(recentSpend * 100) / 100,
+            previousMonthly: Math.round(olderAvg * 100) / 100,
+            potentialSavings: Math.round(recentSpend * 0.2 * 100) / 100, // estimate 20% reducible
+          })
+        }
+      }
+    }
+
+    // Sort by potential savings descending
+    opportunities.sort((a, b) => b.potentialSavings - a.potentialSavings)
+
+    // Find recurring expenses that increased
+    const recurringIncreases: Array<{
+      description: string
+      previousAmount: number
+      currentAmount: number
+      increase: number
+    }> = []
+
+    for (const [, monthData] of recurringByCounterparty) {
+      if (monthData.size < 2) continue
+      const recent = monthData.get(recentMonth)
+      if (!recent) continue
+
+      let olderSum = 0
+      let olderCnt = 0
+      for (const [m, data] of monthData) {
+        if (m !== recentMonth) {
+          olderSum += data.amount
+          olderCnt++
+        }
+      }
+      if (olderCnt === 0) continue
+      const olderAvg = olderSum / olderCnt
+
+      if (recent.amount > olderAvg * 1.15 && recent.amount - olderAvg > 5) {
+        recurringIncreases.push({
+          description: recent.description,
+          previousAmount: Math.round(olderAvg * 100) / 100,
+          currentAmount: Math.round(recent.amount * 100) / 100,
+          increase: Math.round((recent.amount - olderAvg) * 100) / 100,
+        })
+      }
+    }
+
+    recurringIncreases.sort((a, b) => b.increase - a.increase)
+
+    const estimatedMonthlySavings = opportunities.reduce(
+      (sum, o) => sum + o.potentialSavings,
+      0,
+    )
+
+    return {
+      period: { startDate, endDate, months: scanMonths },
+      opportunities: opportunities.slice(0, 10),
+      recurringIncreases: recurringIncreases.slice(0, 5),
+      summary: {
+        totalDiscretionary: Math.round(totalDiscretionary * 100) / 100,
+        totalGrowth: Math.round(totalGrowth * 100) / 100,
+        estimatedMonthlySavings:
+          Math.round(estimatedMonthlySavings * 100) / 100,
+      },
     }
   },
 })

@@ -10,6 +10,7 @@ import { action, internalAction } from './_generated/server'
 import { getWorkspaceDecryptionKey } from './lib/agentDecrypt'
 import {
   findAnomalies,
+  findSavingsOpportunities,
   getBalanceHistory,
   getCashFlow,
   getRecurringExpenses,
@@ -19,6 +20,7 @@ import {
   searchCategories,
   searchLabels,
   searchTransactions,
+  viewTransactions,
 } from './lib/agentTools'
 import {
   chatModel,
@@ -47,6 +49,8 @@ You have access to tools that can query the user's real financial data. Use them
 - Call getBalanceHistory for net worth trends over time
 - Call findAnomalies to detect unusual spending compared to recent history
 - Call getRecurringExpenses to identify subscriptions and recurring charges
+- Call findSavingsOpportunities to identify where the user could reduce spending
+- After presenting analysis results, call viewTransactions to offer the user a clickable link to see the matching transactions with pre-filled filters. Do NOT add any text about clicking the button — the UI renders it automatically.
 
 Always use YYYY-MM-DD format for dates.`
 }
@@ -64,8 +68,10 @@ const baseTools = {
   getCashFlow,
   getBalanceHistory,
   findAnomalies,
+  findSavingsOpportunities,
   getRecurringExpenses,
   searchTransactions,
+  viewTransactions,
   searchCategories,
   searchLabels,
   listAccounts,

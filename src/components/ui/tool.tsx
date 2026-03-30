@@ -139,14 +139,16 @@ const Tool = ({ toolPart, defaultOpen = false, className }: ToolProps) => {
             variant="ghost"
             className="bg-background h-auto w-full justify-between rounded-b-none px-3 py-2 font-normal"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {getStateIcon()}
-              <span className="font-mono text-sm font-medium">
+              <span className="truncate font-mono text-sm font-medium">
                 {toolPart.type}
               </span>
               {getStateBadge()}
             </div>
-            <ChevronDown className={cn('h-4 w-4', isOpen && 'rotate-180')} />
+            <ChevronDown
+              className={cn('h-4 w-4 shrink-0', isOpen && 'rotate-180')}
+            />
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent

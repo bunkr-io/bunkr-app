@@ -3,10 +3,13 @@ import {
   useSmoothText,
   useUIMessages,
 } from '@convex-dev/agent/react'
+import { useNavigate } from '@tanstack/react-router'
 import { isToolUIPart } from 'ai'
-import { Check, Copy, ShieldAlert } from 'lucide-react'
+import { ArrowRight, Check, Copy, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { ChatEmptyState } from '~/components/chat/chat-empty-state'
+import { dispatchAIFilters } from '~/components/command-palette'
+import type { Filter } from '~/components/reui/filters'
 import { Button } from '~/components/ui/button'
 import {
   ChatContainerContent,
@@ -37,6 +40,7 @@ const TOOL_LABELS: Record<string, string> = {
   getBalanceHistory: 'Loading balance history',
   findAnomalies: 'Detecting anomalies',
   getRecurringExpenses: 'Finding recurring expenses',
+  findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }
 
@@ -102,14 +106,32 @@ export function ChatMessages({
 }
 
 function ChatMessageBubble({ message }: { message: UIMessage }) {
+  const navigate = useNavigate()
   const isUser = message.role === 'user'
   const [visibleText] = useSmoothText(message.text, {
     startStreaming: message.status === 'streaming',
   })
 
   // Extract tool parts from message
-  const toolParts = (message.parts ?? []).filter(isToolUIPart)
-  const hasToolParts = toolParts.length > 0
+  const allToolParts = (message.parts ?? []).filter(isToolUIPart)
+
+  // Separate viewTransactions results from regular tool parts
+  const viewTransactionsParts = allToolParts.filter((part) => {
+    const name =
+      'toolName' in part
+        ? (part.toolName as string)
+        : part.type.replace('tool-', '')
+    return name === 'viewTransactions' && part.state === 'output-available'
+  })
+  const regularToolParts = allToolParts.filter((part) => {
+    const name =
+      'toolName' in part
+        ? (part.toolName as string)
+        : part.type.replace('tool-', '')
+    return name !== 'viewTransactions'
+  })
+
+  const hasToolParts = allToolParts.length > 0
 
   // Skip empty assistant messages (pending before any text arrives)
   if (!isUser && !visibleText && !hasToolParts) return null
@@ -126,12 +148,31 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
 
   const showActions = visibleText && message.status !== 'streaming'
 
+  function handleViewTransactions(output: Record<string, unknown>) {
+    const filters = output.filters as Array<Filter>
+    const startDate = output.startDate as string | null
+    const endDate = output.endDate as string | null
+
+    // Set date range in localStorage so the period navigator picks it up on mount
+    if (startDate && endDate) {
+      localStorage.setItem(
+        'bunkr:period:transactions',
+        JSON.stringify({ mode: 'custom', start: startDate, end: endDate }),
+      )
+    }
+
+    void navigate({ to: '/transactions' }).then(() => {
+      // Dispatch filters after navigation so the transactions page listener is mounted
+      setTimeout(() => dispatchAIFilters(filters), 100)
+    })
+  }
+
   return (
     <Message className="group/message">
       <div className="flex w-full flex-col gap-2">
-        {hasToolParts && (
+        {regularToolParts.length > 0 && (
           <div className="flex flex-col gap-1">
-            {toolParts.map((part) => {
+            {regularToolParts.map((part) => {
               const toolName =
                 'toolName' in part
                   ? (part.toolName as string)
@@ -171,11 +212,30 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
         {visibleText && (
           <MessageContent
             markdown
-            className="max-w-[80%] bg-muted text-foreground prose prose-sm dark:prose-invert overflow-x-auto"
+            className="bg-muted text-foreground prose prose-sm dark:prose-invert max-w-full overflow-x-auto"
           >
             {visibleText}
           </MessageContent>
         )}
+        {viewTransactionsParts.map((part) => {
+          const output =
+            'output' in part ? (part.output as Record<string, unknown>) : null
+          if (!output) return null
+          return (
+            <Button
+              key={
+                'toolCallId' in part ? (part.toolCallId as string) : 'view-tx'
+              }
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => handleViewTransactions(output)}
+            >
+              {(output.label as string) ?? 'View transactions'}
+              <ArrowRight className="size-3.5" />
+            </Button>
+          )
+        })}
         {showActions && (
           <MessageActions className="opacity-0 transition-opacity group-hover/message:opacity-100">
             <CopyAction text={message.text} />
