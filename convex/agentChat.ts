@@ -6,7 +6,11 @@ import { components, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import type { ActionCtx } from './_generated/server'
 import { action, internalAction } from './_generated/server'
-import { chatModel, titleModel } from './lib/aiModels'
+import {
+  chatModel,
+  titleModel,
+  titleModelProviderOptions,
+} from './lib/aiModels'
 import {
   decryptAgentPrivateKey,
   decryptForProfile,
@@ -141,7 +145,7 @@ export const generateTitle = internalAction({
     if (existing.title) return
 
     const { text } = await thread.generateText(
-      { prompt },
+      { prompt, providerOptions: titleModelProviderOptions },
       { storageOptions: { saveMessages: 'none' } },
     )
 
