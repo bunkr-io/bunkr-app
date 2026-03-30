@@ -686,3 +686,116 @@ export const getCashFlow = createTool({
     }
   },
 })
+
+export const listInvestments = createTool({
+  title: 'List Investments',
+  description:
+    'List investment holdings with performance data. Returns top holdings by valuation with totals. Only queries investment accounts (market, PEA, PEE).',
+  inputSchema: z.object({
+    portfolioId: z
+      .string()
+      .optional()
+      .describe(
+        'Specific portfolio ID. If omitted, uses active portfolio context or all.',
+      ),
+    limit: z
+      .number()
+      .optional()
+      .default(15)
+      .describe(
+        'Max number of holdings to return, sorted by valuation (default 15).',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<
+    | {
+        holdings: Array<{
+          label: string
+          code: string
+          valuation: number
+          currency: string
+          diff: number
+          diffPercent: number
+          accountName: string
+        }>
+        totalValuation: number
+        totalCount: number
+      }
+    | { error: string }
+  > => {
+    const threadCtx = await resolveContext(ctx)
+    const wsKey = await getWorkspaceDecryptionKey(ctx, threadCtx.workspaceId)
+    if (!wsKey) return { error: 'Unable to access encrypted data' }
+
+    const portfolioIds = await resolvePortfolioIds(
+      ctx,
+      threadCtx,
+      input.portfolioId,
+    )
+
+    const investments = await ctx.runQuery(
+      internal.agentChatQueries.listInvestmentsByPortfolios,
+      { portfolioIds },
+    )
+
+    // Decrypt all investments
+    const decrypted = await Promise.all(
+      investments.map(
+        async (inv: {
+          _id: string
+          bankAccountId: string
+          encryptedIdentity: string
+          encryptedValuation: string
+          originalCurrency?: string
+        }) => {
+          const identity = await decryptForProfile(
+            inv.encryptedIdentity,
+            wsKey,
+            inv._id,
+            'encryptedIdentity',
+          )
+          const valuation = await decryptForProfile(
+            inv.encryptedValuation,
+            wsKey,
+            inv._id,
+            'encryptedValuation',
+          )
+          return {
+            label:
+              (identity.label as string) ||
+              (identity.code as string) ||
+              'Unknown',
+            code: (identity.code as string) || '',
+            valuation: Number(valuation.valuation) || 0,
+            currency: inv.originalCurrency ?? 'EUR',
+            diff: Number(valuation.diff) || 0,
+            diffPercent: Number(valuation.diffPercent) || 0,
+            bankAccountId: inv.bankAccountId,
+          }
+        },
+      ),
+    )
+
+    // Sort by valuation descending, take top N
+    const sorted = decrypted.sort((a, b) => b.valuation - a.valuation)
+    const totalValuation = sorted.reduce((sum, h) => sum + h.valuation, 0)
+    const maxResults = Math.min(input.limit ?? 15, 50)
+    const top = sorted.slice(0, maxResults)
+
+    return {
+      holdings: top.map((h) => ({
+        label: h.label,
+        code: h.code,
+        valuation: Math.round(h.valuation * 100) / 100,
+        currency: h.currency,
+        diff: Math.round(h.diff * 100) / 100,
+        diffPercent: Math.round(h.diffPercent * 100) / 100,
+        accountName: '',
+      })),
+      totalValuation: Math.round(totalValuation * 100) / 100,
+      totalCount: decrypted.length,
+    }
+  },
+})

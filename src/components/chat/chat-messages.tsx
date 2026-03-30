@@ -33,6 +33,7 @@ const TOOL_LABELS: Record<string, string> = {
   searchCategories: 'Searching categories',
   searchLabels: 'Searching labels',
   listAccounts: 'Loading accounts',
+  listInvestments: 'Loading investments',
   web_search: 'Searching the web',
 }
 

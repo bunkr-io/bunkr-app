@@ -12,6 +12,7 @@ import {
   getCashFlow,
   getSpendingSummary,
   listAccounts,
+  listInvestments,
   searchCategories,
   searchLabels,
   searchTransactions,
@@ -39,6 +40,7 @@ You have access to tools that can query the user's real financial data. Use them
 - Call getCashFlow for income vs expenses, savings rate, and monthly cash flow breakdown
 - Call searchTransactions to find specific transactions by text or category
 - Call listAccounts to see bank account names and balances
+- Call listInvestments to see investment holdings and performance
 
 Always use YYYY-MM-DD format for dates.`
 }
@@ -58,6 +60,7 @@ const baseTools = {
   searchCategories,
   searchLabels,
   listAccounts,
+  listInvestments,
 }
 
 const titleAgent = new Agent(components.agent, {

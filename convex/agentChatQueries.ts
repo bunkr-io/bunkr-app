@@ -302,3 +302,20 @@ export const listLabelsByWorkspace = internalQuery({
       .collect()
   },
 })
+
+export const listInvestmentsByPortfolios = internalQuery({
+  args: {
+    portfolioIds: v.array(v.id('portfolios')),
+  },
+  handler: async (ctx, { portfolioIds }) => {
+    const results = await Promise.all(
+      portfolioIds.map((portfolioId) =>
+        ctx.db
+          .query('investments')
+          .withIndex('by_portfolioId', (q) => q.eq('portfolioId', portfolioId))
+          .collect(),
+      ),
+    )
+    return results.flat().filter((inv) => !inv.deleted)
+  },
+})
