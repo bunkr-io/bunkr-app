@@ -15,6 +15,13 @@ import {
 import { RequireOwner } from '~/components/require-owner'
 import { Badge } from '~/components/ui/badge'
 import { PageHeader } from '~/components/ui/page-header'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Switch } from '~/components/ui/switch'
 import { Textarea } from '~/components/ui/textarea'
@@ -175,6 +182,47 @@ function AgentSettings() {
                     checked={settings.webSearchEnabled}
                     onCheckedChange={handleToggleWebSearch}
                   />
+                </ItemCardItemAction>
+              </ItemCardItem>
+            </ItemCardItems>
+          </ItemCard>
+
+          <ItemCard>
+            <ItemCardItems>
+              <ItemCardItem>
+                <ItemCardItemContent>
+                  <ItemCardItemTitle>
+                    Conversation history retention
+                  </ItemCardItemTitle>
+                  <ItemCardItemDescription>
+                    Automatically delete conversations older than this period
+                  </ItemCardItemDescription>
+                </ItemCardItemContent>
+                <ItemCardItemAction>
+                  <Select
+                    value={String(settings.threadRetentionDays)}
+                    onValueChange={async (v) => {
+                      try {
+                        await updateSettings({
+                          threadRetentionDays: Number(v),
+                        })
+                        toast.success('Settings updated')
+                      } catch {
+                        toast.error('Failed to update settings')
+                      }
+                    }}
+                  >
+                    <SelectTrigger size="sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 day</SelectItem>
+                      <SelectItem value="3">3 days</SelectItem>
+                      <SelectItem value="7">7 days</SelectItem>
+                      <SelectItem value="14">14 days</SelectItem>
+                      <SelectItem value="30">30 days</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </ItemCardItemAction>
               </ItemCardItem>
             </ItemCardItems>

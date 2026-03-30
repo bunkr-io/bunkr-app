@@ -1,4 +1,5 @@
-import { BotMessageSquare, ShieldAlert, User } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
+import { ChatBubble } from '~/components/chat/chat-bubble'
 import { ChatEmptyState } from '~/components/chat/chat-empty-state'
 import {
   ChatContainerContent,
@@ -6,11 +7,9 @@ import {
   ChatContainerScrollAnchor,
 } from '~/components/ui/chat-container'
 import { Loader } from '~/components/ui/loader'
-import { Message, MessageContent } from '~/components/ui/message'
 import { ScrollButton } from '~/components/ui/scroll-button'
 import { SystemMessage } from '~/components/ui/system-message'
 import type { MockChatMessage } from '~/contexts/chat-context'
-import { cn } from '~/lib/utils'
 
 interface MockChatMessagesProps {
   messages: MockChatMessage[]
@@ -40,42 +39,14 @@ export function MockChatMessages({
         >
           Conversations are stored unencrypted on our servers.
         </SystemMessage>
-        {messages.map((message) => {
-          const isUser = message.role === 'user'
-          return (
-            <Message
-              key={message.id}
-              className={cn(isUser && 'flex-row-reverse')}
-            >
-              <div
-                className={cn(
-                  'flex size-6 shrink-0 items-center justify-center rounded-full',
-                  isUser ? 'bg-primary text-primary-foreground' : 'bg-muted',
-                )}
-              >
-                {isUser ? (
-                  <User className="size-3.5" />
-                ) : (
-                  <BotMessageSquare className="size-3.5" />
-                )}
-              </div>
-              <MessageContent
-                markdown={!isUser}
-                className={cn(
-                  'max-w-[80%] text-sm',
-                  isUser
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground',
-                )}
-              >
-                {message.content}
-              </MessageContent>
-            </Message>
-          )
-        })}
+        {messages.map((message) => (
+          <ChatBubble key={message.id} variant={message.role}>
+            {message.content}
+          </ChatBubble>
+        ))}
         {isThinking && (
           <div className="flex items-center gap-2 px-1">
-            <Loader variant="text-shimmer" text="Thinking..." />
+            <Loader variant="text-shimmer" text="Thinking" />
           </div>
         )}
         <ChatContainerScrollAnchor />

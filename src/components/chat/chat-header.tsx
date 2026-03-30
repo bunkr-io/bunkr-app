@@ -1,7 +1,13 @@
-import { Maximize2, Minimize2, Minus, X } from 'lucide-react'
+import { Maximize2, Minimize2, Minus, MoreHorizontal, X } from 'lucide-react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu'
 import { Kbd } from '~/components/ui/kbd'
 import {
   Tooltip,
@@ -19,6 +25,7 @@ interface ChatHeaderProps {
   onExpand: () => void
   onCollapse: () => void
   onClose: () => void
+  onDelete?: () => void
 }
 
 export function ChatHeader({
@@ -28,6 +35,7 @@ export function ChatHeader({
   onExpand,
   onCollapse,
   onClose,
+  onDelete,
 }: ChatHeaderProps) {
   useHotkeys('escape', onMinimize, {
     enableOnFormTags: true,
@@ -46,6 +54,23 @@ export function ChatHeader({
       <span className="flex-1 truncate text-sm font-medium">{title}</span>
       <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-0.5">
+          {onDelete && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon-sm">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={onDelete}
+                >
+                  Delete conversation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="ghost" size="icon-sm" onClick={onMinimize}>

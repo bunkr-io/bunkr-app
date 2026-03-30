@@ -7,6 +7,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { isToolUIPart } from 'ai'
 import { ArrowRight, Check, Copy, ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
+import { ChatBubble } from '~/components/chat/chat-bubble'
 import { ChatEmptyState } from '~/components/chat/chat-empty-state'
 import { dispatchAIFilters } from '~/components/command-palette'
 import type { Filter } from '~/components/reui/filters'
@@ -137,13 +138,7 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
   if (!isUser && !visibleText && !hasToolParts) return null
 
   if (isUser) {
-    return (
-      <Message className="flex-row-reverse">
-        <MessageContent className="max-w-[80%] bg-primary text-primary-foreground">
-          {visibleText}
-        </MessageContent>
-      </Message>
-    )
+    return <ChatBubble variant="user">{visibleText}</ChatBubble>
   }
 
   const showActions = visibleText && message.status !== 'streaming'
@@ -212,7 +207,7 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
         {visibleText && (
           <MessageContent
             markdown
-            className="bg-muted text-foreground prose prose-sm dark:prose-invert max-w-full overflow-x-auto"
+            className="bg-background text-foreground prose dark:prose-invert max-w-[80%] overflow-x-auto"
           >
             {visibleText}
           </MessageContent>

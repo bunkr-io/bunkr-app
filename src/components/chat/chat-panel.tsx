@@ -50,6 +50,7 @@ export function ChatPanel() {
           onExpand={dispatch.expandChat}
           onCollapse={dispatch.collapseChat}
           onClose={dispatch.closeChat}
+          onDelete={activeThreadId ? dispatch.deleteChat : undefined}
         />
         {loadingContent ? (
           <ChatPanelSkeleton />
@@ -87,6 +88,7 @@ export function ChatPanel() {
         onExpand={dispatch.expandChat}
         onCollapse={dispatch.collapseChat}
         onClose={dispatch.closeChat}
+        onDelete={activeThreadId ? dispatch.deleteChat : undefined}
       />
       {loadingContent ? (
         <ChatPanelSkeleton />

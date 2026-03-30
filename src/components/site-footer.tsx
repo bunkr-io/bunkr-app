@@ -3,6 +3,7 @@ import { BotMessageSquare } from 'lucide-react'
 import { useState } from 'react'
 import { ActivateAgentDialog } from '~/components/activate-agent-dialog'
 import { ChatConversationTab } from '~/components/chat/chat-conversation-tab'
+import { ChatHistoryPopover } from '~/components/chat/chat-history-popover'
 import { Button } from '~/components/ui/button'
 import {
   useChatDispatch,
@@ -60,6 +61,9 @@ export function SiteFooter() {
             <BotMessageSquare className="size-4" />
             Ask Bunkr...
           </Button>
+          {isEnabled && !mockState && (
+            <ChatHistoryPopover onOpenThread={dispatch.openThread} />
+          )}
         </div>
       </footer>
       {!isEnabled && (

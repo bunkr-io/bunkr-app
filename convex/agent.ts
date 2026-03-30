@@ -301,6 +301,7 @@ export const getAgentSettings = query({
       agentEnabled: workspace.agentEnabled === true,
       webSearchEnabled: settings?.webSearchEnabled ?? false,
       encryptedInstructions: settings?.encryptedInstructions ?? null,
+      threadRetentionDays: settings?.threadRetentionDays ?? 7,
       hasKeySlot: !!keySlot,
     }
   },
@@ -310,6 +311,7 @@ export const updateAgentSettings = mutation({
   args: {
     webSearchEnabled: v.optional(v.boolean()),
     encryptedInstructions: v.optional(v.string()),
+    threadRetentionDays: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -336,12 +338,16 @@ export const updateAgentSettings = mutation({
     const patch: {
       webSearchEnabled?: boolean
       encryptedInstructions?: string
+      threadRetentionDays?: number
     } = {}
     if (args.webSearchEnabled !== undefined) {
       patch.webSearchEnabled = args.webSearchEnabled
     }
     if (args.encryptedInstructions !== undefined) {
       patch.encryptedInstructions = args.encryptedInstructions
+    }
+    if (args.threadRetentionDays !== undefined) {
+      patch.threadRetentionDays = args.threadRetentionDays
     }
 
     if (existing) {
@@ -351,6 +357,7 @@ export const updateAgentSettings = mutation({
         workspaceId: membership.workspaceId,
         webSearchEnabled: args.webSearchEnabled ?? false,
         encryptedInstructions: args.encryptedInstructions,
+        threadRetentionDays: args.threadRetentionDays,
       })
     }
 

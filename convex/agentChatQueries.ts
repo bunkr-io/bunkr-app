@@ -3,7 +3,13 @@ import { vStreamArgs } from '@convex-dev/agent/validators'
 import { paginationOptsValidator } from 'convex/server'
 import { v } from 'convex/values'
 import { api, components, internal } from './_generated/api'
-import { internalQuery, mutation, query } from './_generated/server'
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server'
 import { chatModel } from './lib/aiModels'
 import { requireAuthUserId } from './lib/auth'
 
@@ -341,5 +347,74 @@ export const listSnapshotsByPortfolios = internalQuery({
       ),
     )
     return results.flat()
+  },
+})
+
+// --- Thread cleanup ---
+
+export const purgeExpiredThreads = internalMutation({
+  args: {
+    workspaceId: v.id('workspaces'),
+    retentionDays: v.number(),
+  },
+  handler: async (ctx, { workspaceId, retentionDays }) => {
+    const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000
+    const expired = await ctx.db
+      .query('agentThreadMetadata')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+      .collect()
+
+    let deleted = 0
+    for (const meta of expired) {
+      if (meta.createdAt < cutoff) {
+        await ctx.db.delete(meta._id)
+        await ctx.runMutation(
+          components.agent.threads.deleteAllForThreadIdAsync,
+          { threadId: meta.threadId },
+        )
+        deleted++
+      }
+    }
+    return { deleted }
+  },
+})
+
+export const purgeExpiredThreadsForAllWorkspaces = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const workspaces = await ctx.runQuery(
+      internal.agentChatQueries.listWorkspacesWithAgent,
+    )
+    for (const ws of workspaces) {
+      await ctx.runMutation(internal.agentChatQueries.purgeExpiredThreads, {
+        workspaceId: ws.workspaceId,
+        retentionDays: ws.retentionDays,
+      })
+    }
+  },
+})
+
+export const listWorkspacesWithAgent = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const workspaces = await ctx.db.query('workspaces').collect()
+
+    const results: Array<{
+      workspaceId: (typeof workspaces)[0]['_id']
+      retentionDays: number
+    }> = []
+
+    for (const ws of workspaces) {
+      if (!ws.agentEnabled) continue
+      const settings = await ctx.db
+        .query('agentSettings')
+        .withIndex('by_workspaceId', (q) => q.eq('workspaceId', ws._id))
+        .first()
+      results.push({
+        workspaceId: ws._id,
+        retentionDays: settings?.threadRetentionDays ?? 7,
+      })
+    }
+    return results
   },
 })

@@ -289,6 +289,7 @@ export default defineSchema({
     workspaceId: v.id('workspaces'),
     webSearchEnabled: v.boolean(),
     encryptedInstructions: v.optional(v.string()),
+    threadRetentionDays: v.optional(v.number()),
   }).index('by_workspaceId', ['workspaceId']),
 
   agentThreadMetadata: defineTable({

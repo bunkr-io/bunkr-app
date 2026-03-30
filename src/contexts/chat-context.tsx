@@ -23,6 +23,7 @@ interface ChatDispatch {
   collapseChat: () => void
   closeChat: () => void
   closeThread: (threadId: string) => void
+  deleteChat: () => void
   sendMessage: (content: string) => void
 }
 
@@ -107,6 +108,38 @@ export function ChatProvider({
 
 // --- Convex Provider (production) ---
 
+const CHAT_STORAGE_KEY = 'bunkr:chat-state'
+
+function loadChatState(): Partial<ChatState> {
+  try {
+    const stored = localStorage.getItem(CHAT_STORAGE_KEY)
+    if (!stored) return {}
+    const parsed = JSON.parse(stored)
+    return {
+      activeThreadId: parsed.activeThreadId ?? null,
+      panelMode: parsed.panelMode ?? 'closed',
+      minimizedThreadIds: parsed.minimizedThreadIds ?? [],
+    }
+  } catch {
+    return {}
+  }
+}
+
+function saveChatState(state: ChatState) {
+  try {
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({
+        activeThreadId: state.activeThreadId,
+        panelMode: state.panelMode,
+        minimizedThreadIds: state.minimizedThreadIds,
+      }),
+    )
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
 function ConvexChatProvider({
   children,
   initialState,
@@ -114,13 +147,20 @@ function ConvexChatProvider({
   children: React.ReactNode
   initialState?: Partial<ChatState>
 }) {
-  const [state, setState] = React.useState<ChatState>({
+  const [state, setState] = React.useState<ChatState>(() => ({
     ...DEFAULT_STATE,
+    ...loadChatState(),
     ...initialState,
-  })
+  }))
+
+  // Persist to localStorage on state changes
+  React.useEffect(() => {
+    saveChatState(state)
+  }, [state])
 
   const { singlePortfolioId, activePortfolioId } = usePortfolio()
   const createThreadMutation = useMutation(api.agentChatQueries.createThread)
+  const deleteThreadMutation = useMutation(api.agentChatQueries.deleteThread)
   const sendMessageMutation = useMutation(
     api.agentChatQueries.sendMessage,
   ).withOptimisticUpdate(
@@ -155,6 +195,9 @@ function ConvexChatProvider({
         ...prev,
         activeThreadId: threadId,
         panelMode: 'popover',
+        minimizedThreadIds: prev.minimizedThreadIds.includes(threadId)
+          ? prev.minimizedThreadIds
+          : [...prev.minimizedThreadIds, threadId],
       }))
     }
 
@@ -197,6 +240,20 @@ function ConvexChatProvider({
       }))
     }
 
+    const deleteChat = () => {
+      const threadId = state.activeThreadId
+      if (!threadId) return
+      void deleteThreadMutation({ threadId })
+      setState((prev) => ({
+        ...prev,
+        panelMode: 'closed',
+        activeThreadId: null,
+        minimizedThreadIds: prev.minimizedThreadIds.filter(
+          (id) => id !== threadId,
+        ),
+      }))
+    }
+
     const sendMessage = (content: string) => {
       const threadId = state.activeThreadId
       if (!threadId) return
@@ -219,10 +276,12 @@ function ConvexChatProvider({
       collapseChat,
       closeChat,
       closeThread,
+      deleteChat,
       sendMessage,
     }
   }, [
     createThreadMutation,
+    deleteThreadMutation,
     sendMessageMutation,
     state.activeThreadId,
     singlePortfolioId,
@@ -403,6 +462,7 @@ function MockChatProvider({
       collapseChat,
       closeChat,
       closeThread,
+      deleteChat: () => {},
       sendMessage,
     }
   }, [])
