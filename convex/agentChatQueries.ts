@@ -228,6 +228,71 @@ export const deleteThread = mutation({
   },
 })
 
+// --- Tool approval ---
+
+export const submitApproval = mutation({
+  args: {
+    threadId: v.string(),
+    approvalId: v.string(),
+    approved: v.boolean(),
+    reason: v.optional(v.string()),
+  },
+  returns: v.object({ messageId: v.string() }),
+  handler: async (ctx, { threadId, approvalId, approved, reason }) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const metadata = await ctx.db
+      .query('agentThreadMetadata')
+      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .first()
+    if (!metadata) throw new Error('Thread not found')
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership || membership.workspaceId !== metadata.workspaceId) {
+      throw new Error('Access denied')
+    }
+
+    const { messageId } = approved
+      ? await chatAgent.approveToolCall(ctx, { threadId, approvalId, reason })
+      : await chatAgent.denyToolCall(ctx, { threadId, approvalId, reason })
+
+    return { messageId }
+  },
+})
+
+export const triggerContinuation = mutation({
+  args: {
+    threadId: v.string(),
+    lastApprovalMessageId: v.string(),
+  },
+  handler: async (ctx, { threadId, lastApprovalMessageId }) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const metadata = await ctx.db
+      .query('agentThreadMetadata')
+      .withIndex('by_threadId', (q) => q.eq('threadId', threadId))
+      .first()
+    if (!metadata) throw new Error('Thread not found')
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership || membership.workspaceId !== metadata.workspaceId) {
+      throw new Error('Access denied')
+    }
+
+    await ctx.scheduler.runAfter(0, api.agentChat.streamResponse, {
+      threadId,
+      promptMessageId: lastApprovalMessageId,
+      workspaceId: metadata.workspaceId,
+    })
+  },
+})
+
 // --- Internal queries (used by agent tools) ---
 
 export const getThreadMetadata = internalQuery({

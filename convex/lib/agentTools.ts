@@ -2267,3 +2267,78 @@ export const comparePeriodSpending = createTool({
     }
   },
 })
+
+export const createTransactionRule = createTool({
+  title: 'Create Transaction Rule',
+  description:
+    'Create an auto-categorization or labeling rule. When a transaction matches the pattern, it will automatically be categorized, labeled, or have a custom description applied. ALWAYS call searchCategories first to resolve the correct category key. ALWAYS call getTransactionRules first to check for existing rules that might overlap.',
+  needsApproval: true,
+  inputSchema: z.object({
+    pattern: z
+      .string()
+      .describe(
+        'Text pattern to match against transaction descriptions (e.g. "Netflix", "UBER").',
+      ),
+    matchType: z
+      .enum(['contains', 'regex'])
+      .describe(
+        '"contains" for simple text matching, "regex" for advanced patterns.',
+      ),
+    categoryKey: z
+      .string()
+      .optional()
+      .describe(
+        'Category key to auto-assign (from searchCategories). At least one action is required.',
+      ),
+    labelIds: z
+      .array(z.string())
+      .optional()
+      .describe('Label IDs to auto-apply (from searchLabels).'),
+    customDescription: z
+      .string()
+      .optional()
+      .describe('Custom description to set on matching transactions.'),
+    excludeFromBudget: z
+      .boolean()
+      .optional()
+      .describe('Whether to exclude matching transactions from budget.'),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<{ ruleId: string; summary: string } | { error: string }> => {
+    const threadCtx = await resolveContext(ctx)
+    const userId = ctx.userId ?? 'agent'
+
+    try {
+      const ruleId = (await ctx.runMutation(
+        internal.transactionRules.createRuleInternal,
+        {
+          workspaceId: threadCtx.workspaceId,
+          createdBy: userId,
+          pattern: input.pattern,
+          matchType: input.matchType,
+          categoryKey: input.categoryKey,
+          excludeFromBudget: input.excludeFromBudget,
+          customDescription: input.customDescription,
+        },
+      )) as string
+
+      const actions: string[] = []
+      if (input.categoryKey)
+        actions.push(`categorize as "${input.categoryKey}"`)
+      if (input.customDescription)
+        actions.push(`set description "${input.customDescription}"`)
+      if (input.excludeFromBudget) actions.push('exclude from budget')
+
+      return {
+        ruleId,
+        summary: `Rule created: when transaction ${input.matchType === 'contains' ? 'contains' : 'matches'} "${input.pattern}" → ${actions.join(', ')}. This rule applies to newly synced transactions only — existing transactions are not retroactively updated.`,
+      }
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : 'Failed to create rule',
+      }
+    }
+  },
+})

@@ -10,6 +10,7 @@ import { action, internalAction } from './_generated/server'
 import { getWorkspaceDecryptionKey } from './lib/agentDecrypt'
 import {
   comparePeriodSpending,
+  createTransactionRule,
   findAnomalies,
   findSavingsOpportunities,
   getBalanceHistory,
@@ -56,16 +57,17 @@ You have access to tools that can query the user's real financial data. Use them
 - Call listUncategorizedTransactions to find transactions missing categories and suggest how to categorize them
 - Call getTransactionRules to audit existing auto-categorization rules, spot overlaps, or provide context before suggesting new rules
 - Call comparePeriodSpending to compare spending between two periods side-by-side with category-level deltas
+- Call createTransactionRule to create auto-categorization rules. This tool has a built-in approval UI — call it IMMEDIATELY when the user asks to create a rule. Do NOT ask for confirmation in text first. The user will approve or reject via the UI.
 - After presenting analysis results, call viewTransactions to offer the user a clickable link to see the matching transactions with pre-filled filters. Do NOT add any text about clicking the button — the UI renders it automatically.
 
-Always use YYYY-MM-DD format for dates.`
+Always use YYYY-MM-DD format for dates. For write tools with approval, call the tool directly — do NOT ask "shall I proceed?" or similar. The approval UI handles confirmation.`
 }
 
 const chatAgent = new Agent(components.agent, {
   name: 'bunkr-assistant',
   languageModel: chatModel(),
   instructions: buildBaseInstructions(),
-  maxSteps: 5,
+  maxSteps: 12,
 })
 
 /** Base tools always available to the agent. */
@@ -79,6 +81,7 @@ const baseTools = {
   listUncategorizedTransactions,
   getTransactionRules,
   comparePeriodSpending,
+  createTransactionRule,
   searchTransactions,
   viewTransactions,
   searchCategories,

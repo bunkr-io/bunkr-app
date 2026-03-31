@@ -1,14 +1,13 @@
-import {
-  type UIMessage,
-  useSmoothText,
-  useUIMessages,
-} from '@convex-dev/agent/react'
+import { type UIMessage, useUIMessages } from '@convex-dev/agent/react'
 import { useNavigate } from '@tanstack/react-router'
-import { isToolUIPart } from 'ai'
-import { ArrowRight, Check, Copy, ShieldAlert } from 'lucide-react'
-import { useState } from 'react'
+import { isToolUIPart, type ToolUIPart as ToolUIPartType } from 'ai'
+import { useMutation } from 'convex/react'
+import { ArrowRight, Check, Copy } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChatBubble } from '~/components/chat/chat-bubble'
+import { ChatDisclaimer } from '~/components/chat/chat-disclaimer'
 import { ChatEmptyState } from '~/components/chat/chat-empty-state'
+import { ToolApproval } from '~/components/chat/tool-approval'
 import { dispatchAIFilters } from '~/components/command-palette'
 import type { Filter } from '~/components/reui/filters'
 import { Button } from '~/components/ui/button'
@@ -25,7 +24,6 @@ import {
   MessageContent,
 } from '~/components/ui/message'
 import { ScrollButton } from '~/components/ui/scroll-button'
-import { SystemMessage } from '~/components/ui/system-message'
 import { Tool, type ToolPart } from '~/components/ui/tool'
 import { api } from '../../../convex/_generated/api'
 
@@ -44,6 +42,7 @@ const TOOL_LABELS: Record<string, string> = {
   listUncategorizedTransactions: 'Finding uncategorized transactions',
   getTransactionRules: 'Loading transaction rules',
   comparePeriodSpending: 'Comparing spending periods',
+  createTransactionRule: 'Creating transaction rule',
   findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }
@@ -63,6 +62,42 @@ export function ChatMessages({
     { initialNumItems: 50, stream: true },
   )
 
+  const triggerContinuation = useMutation(
+    api.agentChatQueries.triggerContinuation,
+  )
+  const lastApprovalMessageIdRef = useRef<string | null>(null)
+
+  // Detect pending approvals across all messages
+  const hasPendingApprovals = messages.some((m) =>
+    (m.parts ?? []).some(
+      (p) =>
+        isToolUIPart(p) && (p as ToolUIPartType).state === 'approval-requested',
+    ),
+  )
+
+  // When all approvals are resolved, trigger continuation
+  useEffect(() => {
+    console.log(
+      '[ChatMessages] hasPendingApprovals:',
+      hasPendingApprovals,
+      'ref:',
+      lastApprovalMessageIdRef.current,
+    )
+    if (!hasPendingApprovals && lastApprovalMessageIdRef.current) {
+      const messageId = lastApprovalMessageIdRef.current
+      lastApprovalMessageIdRef.current = null
+      console.log(
+        '[ChatMessages] triggering continuation with messageId:',
+        messageId,
+      )
+      void triggerContinuation({ threadId, lastApprovalMessageId: messageId })
+    }
+  }, [hasPendingApprovals, threadId, triggerContinuation])
+
+  const handleApprovalSubmitted = useCallback((messageId: string) => {
+    lastApprovalMessageIdRef.current = messageId
+  }, [])
+
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
@@ -74,26 +109,31 @@ export function ChatMessages({
   // Show "Thinking" when waiting for assistant response:
   // - Last message is from the user (assistant hasn't started yet)
   // - Last message is assistant but has no text yet (even if tool parts exist — agent is still working)
+  // - BUT NOT when waiting for user approval (approval-requested state)
   const lastMessage = messages.at(-1)
+  const lastHasApprovalPending =
+    lastMessage?.role === 'assistant' &&
+    (lastMessage.parts ?? []).some(
+      (p) => isToolUIPart(p) && p.state === 'approval-requested',
+    )
   const isWaitingForReply =
-    lastMessage?.role === 'user' ||
-    (lastMessage?.role === 'assistant' &&
-      !lastMessage.text &&
-      lastMessage.status !== 'failed')
+    !lastHasApprovalPending &&
+    (lastMessage?.role === 'user' ||
+      (lastMessage?.role === 'assistant' &&
+        !lastMessage.text &&
+        lastMessage.status !== 'failed'))
 
   return (
     <ChatContainerRoot className="relative flex-1">
       <ChatContainerContent className="gap-4 p-4">
-        <SystemMessage
-          variant="warning"
-          icon={<ShieldAlert className="size-4" />}
-        >
-          Conversations are stored unencrypted on our servers. Responses may
-          contain mistakes and are for informational purposes only — not
-          financial advice.
-        </SystemMessage>
+        <ChatDisclaimer />
         {messages.map((msg) => (
-          <ChatMessageBubble key={msg.key} message={msg} />
+          <ChatMessageBubble
+            key={msg.key}
+            message={msg}
+            threadId={threadId}
+            onApprovalSubmitted={handleApprovalSubmitted}
+          />
         ))}
         {isWaitingForReply && (
           <div className="flex items-center gap-2 px-1">
@@ -109,50 +149,42 @@ export function ChatMessages({
   )
 }
 
-function ChatMessageBubble({ message }: { message: UIMessage }) {
+function getToolName(part: { type: string; toolName?: string }): string {
+  return part.toolName ?? part.type.replace('tool-', '')
+}
+
+function ChatMessageBubble({
+  message,
+  threadId,
+  onApprovalSubmitted,
+}: {
+  message: UIMessage
+  threadId: string
+  onApprovalSubmitted: (messageId: string) => void
+}) {
   const navigate = useNavigate()
   const isUser = message.role === 'user'
-  const [visibleText] = useSmoothText(message.text, {
-    startStreaming: message.status === 'streaming',
-  })
-
-  // Extract tool parts from message
-  const allToolParts = (message.parts ?? []).filter(isToolUIPart)
-
-  // Separate viewTransactions results from regular tool parts
-  const viewTransactionsParts = allToolParts.filter((part) => {
-    const name =
-      'toolName' in part
-        ? (part.toolName as string)
-        : part.type.replace('tool-', '')
-    return name === 'viewTransactions' && part.state === 'output-available'
-  })
-  const regularToolParts = allToolParts.filter((part) => {
-    const name =
-      'toolName' in part
-        ? (part.toolName as string)
-        : part.type.replace('tool-', '')
-    return name !== 'viewTransactions'
-  })
-
-  const hasToolParts = allToolParts.length > 0
+  const parts = message.parts ?? []
+  const hasToolParts = parts.some(isToolUIPart)
+  const hasAnyText = parts.some(
+    (p) => p.type === 'text' && 'text' in p && (p.text as string),
+  )
 
   // Skip empty assistant messages (pending before any text arrives)
-  if (!isUser && !visibleText && !hasToolParts) return null
+  if (!isUser && !hasAnyText && !hasToolParts) return null
 
   if (isUser) {
-    return <ChatBubble variant="user">{visibleText}</ChatBubble>
+    return <ChatBubble variant="user">{message.text}</ChatBubble>
   }
 
   const isFailed = message.status === 'failed'
-  const showActions = visibleText && message.status !== 'streaming' && !isFailed
+  const showActions = hasAnyText && message.status !== 'streaming' && !isFailed
 
   function handleViewTransactions(output: Record<string, unknown>) {
     const filters = output.filters as Array<Filter>
     const startDate = output.startDate as string | null
     const endDate = output.endDate as string | null
 
-    // Set date range in localStorage so the period navigator picks it up on mount
     if (startDate && endDate) {
       localStorage.setItem(
         'bunkr:period:transactions',
@@ -161,84 +193,135 @@ function ChatMessageBubble({ message }: { message: UIMessage }) {
     }
 
     void navigate({ to: '/transactions' }).then(() => {
-      // Dispatch filters after navigation so the transactions page listener is mounted
       setTimeout(() => dispatchAIFilters(filters), 100)
     })
+  }
+
+  // Debug: log parts structure
+  if (!isUser && parts.length > 0) {
+    console.log(
+      '[ChatMessageBubble] parts:',
+      JSON.stringify(
+        parts.map((p, i) => ({
+          i,
+          type: p.type,
+          ...(p.type === 'text' && 'text' in p
+            ? { text: (p.text as string).slice(0, 80) }
+            : {}),
+          ...('state' in p ? { state: p.state } : {}),
+          ...('toolName' in p ? { toolName: p.toolName } : {}),
+        })),
+        null,
+        2,
+      ),
+    )
+  }
+
+  // Render parts in chronological order
+  const renderedParts: React.ReactNode[] = []
+  let textPartIndex = 0
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+
+    if (part.type === 'text') {
+      textPartIndex++
+      const text = 'text' in part ? (part.text as string) : ''
+      if (!text) continue
+      renderedParts.push(
+        <MessageContent
+          key={`text-${textPartIndex}`}
+          markdown={!isFailed}
+          className={
+            isFailed
+              ? 'bg-destructive/10 text-destructive border border-destructive/20 max-w-full'
+              : 'bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto'
+          }
+        >
+          {text}
+        </MessageContent>,
+      )
+      continue
+    }
+
+    if (!isToolUIPart(part)) continue
+
+    const toolName = getToolName(part as Parameters<typeof getToolName>[0])
+
+    // Approval-requested → render approval card
+    if (part.state === 'approval-requested') {
+      const approval =
+        'approval' in part ? (part.approval as { id: string }) : null
+      if (approval) {
+        renderedParts.push(
+          <ToolApproval
+            key={approval.id}
+            toolName={toolName}
+            input={
+              'input' in part ? (part.input as Record<string, unknown>) : {}
+            }
+            approvalId={approval.id}
+            threadId={threadId}
+            onApprovalSubmitted={onApprovalSubmitted}
+          />,
+        )
+      }
+      continue
+    }
+
+    // viewTransactions → render button
+    if (toolName === 'viewTransactions' && part.state === 'output-available') {
+      const output =
+        'output' in part ? (part.output as Record<string, unknown>) : null
+      if (output) {
+        renderedParts.push(
+          <Button
+            key={
+              'toolCallId' in part
+                ? (part.toolCallId as string)
+                : `view-tx-${i}`
+            }
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={() => handleViewTransactions(output)}
+          >
+            {(output.label as string) ?? 'View transactions'}
+            <ArrowRight className="size-3.5" />
+          </Button>,
+        )
+      }
+      continue
+    }
+
+    // Regular tool → render Tool card
+    renderedParts.push(
+      <Tool
+        key={'toolCallId' in part ? (part.toolCallId as string) : `tool-${i}`}
+        toolPart={{
+          type: TOOL_LABELS[toolName] ?? toolName,
+          state: part.state as ToolPart['state'],
+          input:
+            'input' in part
+              ? (part.input as Record<string, unknown>)
+              : undefined,
+          output:
+            'output' in part
+              ? (part.output as Record<string, unknown>)
+              : undefined,
+          toolCallId:
+            'toolCallId' in part ? (part.toolCallId as string) : undefined,
+          errorText:
+            'errorText' in part ? (part.errorText as string) : undefined,
+        }}
+      />,
+    )
   }
 
   return (
     <Message className="group/message">
       <div className="flex w-full flex-col gap-2">
-        {regularToolParts.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {regularToolParts.map((part) => {
-              const toolName =
-                'toolName' in part
-                  ? (part.toolName as string)
-                  : part.type.replace('tool-', '')
-              return (
-                <Tool
-                  key={
-                    'toolCallId' in part
-                      ? (part.toolCallId as string)
-                      : toolName
-                  }
-                  toolPart={{
-                    type: TOOL_LABELS[toolName] ?? toolName,
-                    state: part.state as ToolPart['state'],
-                    input:
-                      'input' in part
-                        ? (part.input as Record<string, unknown>)
-                        : undefined,
-                    output:
-                      'output' in part
-                        ? (part.output as Record<string, unknown>)
-                        : undefined,
-                    toolCallId:
-                      'toolCallId' in part
-                        ? (part.toolCallId as string)
-                        : undefined,
-                    errorText:
-                      'errorText' in part
-                        ? (part.errorText as string)
-                        : undefined,
-                  }}
-                />
-              )
-            })}
-          </div>
-        )}
-        {visibleText && (
-          <MessageContent
-            markdown={!isFailed}
-            className={
-              isFailed
-                ? 'bg-destructive/10 text-destructive border border-destructive/20 max-w-full'
-                : 'bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto'
-            }
-          >
-            {visibleText}
-          </MessageContent>
-        )}
-        {viewTransactionsParts.map((part) => {
-          const output =
-            'output' in part ? (part.output as Record<string, unknown>) : null
-          if (!output) return null
-          return (
-            <Button
-              key={
-                'toolCallId' in part ? (part.toolCallId as string) : 'view-tx'
-              }
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => handleViewTransactions(output)}
-            >
-              {(output.label as string) ?? 'View transactions'}
-              <ArrowRight className="size-3.5" />
-            </Button>
-          )
-        })}
+        {renderedParts}
         {showActions && (
           <MessageActions className="opacity-0 transition-opacity group-hover/message:opacity-100">
             <CopyAction text={message.text} />

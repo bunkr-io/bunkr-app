@@ -47,6 +47,55 @@ export const listRules = query({
   },
 })
 
+export const createRuleInternal = internalMutation({
+  args: {
+    workspaceId: v.id('workspaces'),
+    createdBy: v.string(),
+    pattern: v.string(),
+    matchType: v.union(v.literal('contains'), v.literal('regex')),
+    categoryKey: v.optional(v.string()),
+    excludeFromBudget: v.optional(v.boolean()),
+    labelIds: v.optional(v.array(v.id('transactionLabels'))),
+    customDescription: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (
+      !args.categoryKey &&
+      !args.excludeFromBudget &&
+      !args.customDescription &&
+      (!args.labelIds || args.labelIds.length === 0)
+    ) {
+      throw new Error('At least one action is required')
+    }
+
+    const allRules = await ctx.db
+      .query('transactionRules')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
+      .collect()
+    const scopeRules = allRules.filter((r) => !r.portfolioId)
+    const maxOrder = scopeRules.reduce(
+      (max, r) => Math.max(max, r.sortOrder ?? 0),
+      0,
+    )
+
+    const ruleId = await ctx.db.insert('transactionRules', {
+      workspaceId: args.workspaceId,
+      pattern: args.pattern,
+      matchType: args.matchType,
+      categoryKey: args.categoryKey,
+      excludeFromBudget: args.excludeFromBudget,
+      labelIds: args.labelIds,
+      customDescription: args.customDescription,
+      enabled: true,
+      sortOrder: scopeRules.length === 0 ? 0 : maxOrder + 1,
+      createdBy: args.createdBy,
+      createdAt: Date.now(),
+    })
+
+    return ruleId
+  },
+})
+
 export const createRule = mutation({
   args: {
     pattern: v.string(),
