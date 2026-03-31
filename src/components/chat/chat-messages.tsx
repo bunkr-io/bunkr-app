@@ -1,4 +1,8 @@
-import { type UIMessage, useUIMessages } from '@convex-dev/agent/react'
+import {
+  SmoothText,
+  type UIMessage,
+  useUIMessages,
+} from '@convex-dev/agent/react'
 import { useNavigate } from '@tanstack/react-router'
 import { isToolUIPart, type ToolUIPart as ToolUIPartType } from 'ai'
 import { useMutation } from 'convex/react'
@@ -25,6 +29,7 @@ import {
 } from '~/components/ui/message'
 import { ScrollButton } from '~/components/ui/scroll-button'
 import { Tool, type ToolPart } from '~/components/ui/tool'
+import { cn } from '~/lib/utils'
 import { api } from '../../../convex/_generated/api'
 
 /** Map tool names to human-readable labels. */
@@ -227,19 +232,27 @@ function ChatMessageBubble({
     if (part.type === 'text') {
       textPartIndex++
       const text = 'text' in part ? (part.text as string) : ''
-      if (!text) continue
+      const isStreamingPart = 'state' in part && part.state !== 'done'
+      if (!text && !isStreamingPart) continue
+      const contentClass = isFailed
+        ? 'bg-destructive/10 text-destructive border border-destructive/20 max-w-full'
+        : 'bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto'
       renderedParts.push(
-        <MessageContent
-          key={`text-${textPartIndex}`}
-          markdown={!isFailed}
-          className={
-            isFailed
-              ? 'bg-destructive/10 text-destructive border border-destructive/20 max-w-full'
-              : 'bg-background text-foreground prose dark:prose-invert max-w-full overflow-x-auto'
-          }
-        >
-          {text}
-        </MessageContent>,
+        isStreamingPart ? (
+          <SmoothTextBubble
+            key={`text-${textPartIndex}`}
+            text={text}
+            className={contentClass}
+          />
+        ) : (
+          <MessageContent
+            key={`text-${textPartIndex}`}
+            markdown={!isFailed}
+            className={contentClass}
+          >
+            {text}
+          </MessageContent>
+        ),
       )
       continue
     }
@@ -329,6 +342,22 @@ function ChatMessageBubble({
         )}
       </div>
     </Message>
+  )
+}
+
+function SmoothTextBubble({
+  text,
+  className,
+}: {
+  text: string
+  className: string
+}) {
+  return (
+    <div
+      className={cn('rounded-lg p-2 break-words whitespace-normal', className)}
+    >
+      <SmoothText text={text} />
+    </div>
   )
 }
 
