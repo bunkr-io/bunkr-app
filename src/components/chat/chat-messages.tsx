@@ -50,6 +50,7 @@ const TOOL_LABELS: Record<string, string> = {
   createTransactionRule: 'Creating transaction rule',
   updateTransactionCategory: 'Updating transaction categories',
   updateTransactionLabels: 'Updating transaction labels',
+  createLabel: 'Creating label',
   findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }

@@ -475,6 +475,26 @@ export const updateTransactionLabelsInternal = internalMutation({
   },
 })
 
+export const createLabelInternal = internalMutation({
+  args: {
+    workspaceId: v.id('workspaces'),
+    portfolioId: v.optional(v.id('portfolios')),
+    name: v.string(),
+    description: v.optional(v.string()),
+    color: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return ctx.db.insert('transactionLabels', {
+      workspaceId: args.workspaceId,
+      portfolioId: args.portfolioId,
+      name: args.name,
+      description: args.description,
+      color: args.color,
+      createdAt: Date.now(),
+    })
+  },
+})
+
 // --- Thread cleanup ---
 
 export const purgeExpiredThreads = internalMutation({

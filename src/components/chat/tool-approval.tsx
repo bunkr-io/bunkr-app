@@ -42,6 +42,12 @@ function formatLabelSummary(input: Record<string, unknown>): string {
   return `${parts.join(', ')} on ${count} transaction${count !== 1 ? 's' : ''}`
 }
 
+function formatCreateLabelSummary(input: Record<string, unknown>): string {
+  const name = input.name as string | undefined
+  const scope = input.scope as string | undefined
+  return `Create label "${name ?? 'unknown'}"${scope ? ` (${scope})` : ''}`
+}
+
 const TOOL_SUMMARIES: Record<
   string,
   (input: Record<string, unknown>) => string
@@ -49,6 +55,7 @@ const TOOL_SUMMARIES: Record<
   createTransactionRule: formatRuleSummary,
   updateTransactionCategory: formatCategorySummary,
   updateTransactionLabels: formatLabelSummary,
+  createLabel: formatCreateLabelSummary,
 }
 
 interface ToolApprovalProps {

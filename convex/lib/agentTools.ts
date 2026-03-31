@@ -2528,3 +2528,74 @@ export const updateTransactionLabels = createTool({
     }
   },
 })
+
+export const createLabel = createTool({
+  title: 'Create Label',
+  description:
+    'Create a new transaction label. Use searchLabels first to check if a similar label already exists. The label is scoped based on the active portfolio context: if a specific portfolio is selected it is created for that portfolio, otherwise it is created at workspace level. The user can override this by saying "workspace label" or "for my portfolio".',
+  needsApproval: true,
+  inputSchema: z.object({
+    name: z
+      .string()
+      .describe('Label name (e.g. "tax deductible", "vacation").'),
+    description: z
+      .string()
+      .optional()
+      .describe('Optional description of what this label is for.'),
+    color: z
+      .string()
+      .optional()
+      .describe(
+        'Hex color for the label (e.g. "#10b981"). If omitted, a default is chosen.',
+      ),
+    scope: z
+      .enum(['portfolio', 'workspace'])
+      .optional()
+      .describe(
+        'Where to create the label. Defaults to "portfolio" when a specific portfolio is active, otherwise "workspace". User can override explicitly.',
+      ),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<{ labelId: string; summary: string } | { error: string }> => {
+    const threadCtx = await resolveContext(ctx)
+
+    // Resolve scope: explicit override > thread context > workspace default
+    const effectiveScope =
+      input.scope ??
+      (threadCtx.portfolioScope === 'portfolio' && threadCtx.portfolioId
+        ? 'portfolio'
+        : 'workspace')
+
+    const portfolioId =
+      effectiveScope === 'portfolio' ? threadCtx.portfolioId : null
+
+    const color = input.color ?? '#6366f1'
+    const name = input.name.charAt(0).toUpperCase() + input.name.slice(1)
+
+    try {
+      const labelId = (await ctx.runMutation(
+        internal.agentChatQueries.createLabelInternal,
+        {
+          workspaceId: threadCtx.workspaceId,
+          name,
+          description: input.description,
+          color,
+          ...(portfolioId ? { portfolioId } : {}),
+        },
+      )) as string
+
+      const scopeLabel = portfolioId ? 'portfolio' : 'workspace'
+      return {
+        labelId,
+        summary: `Label "${name}" created at ${scopeLabel} level.`,
+      }
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? error.message : 'Failed to create label',
+      }
+    }
+  },
+})
