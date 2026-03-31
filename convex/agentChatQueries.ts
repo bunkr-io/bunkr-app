@@ -255,9 +255,16 @@ export const submitApproval = mutation({
       throw new Error('Access denied')
     }
 
+    const denialReason = reason
+      ? `DENIED by user. Reason: ${reason}. Do NOT proceed with the denied action. Follow the user's instruction instead.`
+      : 'DENIED by user. Do NOT proceed with this action. Ask the user what they would like to do instead.'
     const { messageId } = approved
       ? await chatAgent.approveToolCall(ctx, { threadId, approvalId, reason })
-      : await chatAgent.denyToolCall(ctx, { threadId, approvalId, reason })
+      : await chatAgent.denyToolCall(ctx, {
+          threadId,
+          approvalId,
+          reason: denialReason,
+        })
 
     return { messageId }
   },
