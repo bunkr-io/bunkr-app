@@ -294,6 +294,7 @@ export default defineSchema({
 
   agentThreadMetadata: defineTable({
     workspaceId: v.id('workspaces'),
+    userId: v.string(),
     threadId: v.string(),
     portfolioId: v.optional(v.id('portfolios')),
     portfolioScope: v.optional(
@@ -302,7 +303,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_threadId', ['threadId'])
-    .index('by_workspaceId', ['workspaceId']),
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_userId', ['userId']),
 
   auditLogs: defineTable({
     timestamp: v.number(),

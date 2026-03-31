@@ -28,17 +28,9 @@ export const listThreads = query({
   handler: async (ctx) => {
     const userId = await requireAuthUserId(ctx)
 
-    const membership = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_userId', (q) => q.eq('userId', userId))
-      .first()
-    if (!membership) return []
-
     const metadataRows = await ctx.db
       .query('agentThreadMetadata')
-      .withIndex('by_workspaceId', (q) =>
-        q.eq('workspaceId', membership.workspaceId),
-      )
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
       .collect()
 
     const threads = await Promise.all(
@@ -147,6 +139,7 @@ export const createThread = mutation({
 
     await ctx.db.insert('agentThreadMetadata', {
       workspaceId: membership.workspaceId,
+      userId,
       threadId: thread._id,
       portfolioId,
       portfolioScope,
