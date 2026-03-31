@@ -49,6 +49,7 @@ const TOOL_LABELS: Record<string, string> = {
   comparePeriodSpending: 'Comparing spending periods',
   createTransactionRule: 'Creating transaction rule',
   updateTransactionCategory: 'Updating transaction categories',
+  updateTransactionLabels: 'Updating transaction labels',
   findSavingsOpportunities: 'Finding savings opportunities',
   web_search: 'Searching the web',
 }

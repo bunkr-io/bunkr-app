@@ -459,6 +459,22 @@ export const updateTransactionCategoriesInternal = internalMutation({
   },
 })
 
+export const updateTransactionLabelsInternal = internalMutation({
+  args: {
+    updates: v.array(
+      v.object({
+        transactionId: v.id('transactions'),
+        labelIds: v.array(v.id('transactionLabels')),
+      }),
+    ),
+  },
+  handler: async (ctx, { updates }) => {
+    for (const { transactionId, labelIds } of updates) {
+      await ctx.db.patch(transactionId, { labelIds })
+    }
+  },
+})
+
 // --- Thread cleanup ---
 
 export const purgeExpiredThreads = internalMutation({

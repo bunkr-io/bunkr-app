@@ -62,6 +62,7 @@ export function ChatPanel() {
         )}
         <div className="mx-auto w-full max-w-3xl">
           <ChatInput
+            key={activeThreadId}
             onSend={dispatch.sendMessage}
             variant="secondary"
             hasMessages={hasMessages}
@@ -99,6 +100,7 @@ export function ChatPanel() {
         />
       )}
       <ChatInput
+        key={activeThreadId}
         onSend={dispatch.sendMessage}
         hasMessages={hasMessages}
         disabled={loadingContent}

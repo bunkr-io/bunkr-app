@@ -25,6 +25,7 @@ import {
   searchLabels,
   searchTransactions,
   updateTransactionCategory,
+  updateTransactionLabels,
   viewTransactions,
 } from './lib/agentTools'
 import {
@@ -60,6 +61,7 @@ You have access to tools that can query the user's real financial data. Use them
 - Call comparePeriodSpending to compare spending between two periods side-by-side with category-level deltas
 - Call createTransactionRule to create auto-categorization rules. This tool has a built-in approval UI — call it IMMEDIATELY when the user asks to create a rule. Do NOT ask for confirmation in text first. The user will approve or reject via the UI.
 - Call updateTransactionCategory to recategorize transactions. Use searchTransactions first to find IDs, then searchCategories to get the correct category key. This tool has approval UI — call it directly without asking for confirmation.
+- Call updateTransactionLabels to add or remove labels on transactions. Use searchTransactions first to find IDs (results include current labelIds), then searchLabels to resolve label IDs. This tool has approval UI — call it directly.
 - After presenting analysis results, call viewTransactions to offer the user a clickable link to see the matching transactions with pre-filled filters. Do NOT add any text about clicking the button — the UI renders it automatically.
 
 Always use YYYY-MM-DD format for dates. For write tools with approval, call the tool directly — do NOT ask "shall I proceed?" or similar. The approval UI handles confirmation.`
@@ -85,6 +87,7 @@ const baseTools = {
   comparePeriodSpending,
   createTransactionRule,
   updateTransactionCategory,
+  updateTransactionLabels,
   searchTransactions,
   viewTransactions,
   searchCategories,

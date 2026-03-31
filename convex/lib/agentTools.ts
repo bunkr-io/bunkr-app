@@ -342,6 +342,7 @@ export const searchTransactions = createTool({
       amount: number
       category: string
       currency: string
+      labelIds: string[]
     }> = []
 
     for (const tx of transactions) {
@@ -408,6 +409,7 @@ export const searchTransactions = createTool({
         amount: Math.round((Number(decrypted.value) || 0) * 100) / 100,
         category: resolvedKey,
         currency: tx.originalCurrency ?? 'EUR',
+        labelIds: (tx.labelIds as string[] | undefined) ?? [],
       })
     }
 
@@ -2435,6 +2437,93 @@ export const updateTransactionCategory = createTool({
           error instanceof Error
             ? error.message
             : 'Failed to update categories',
+      }
+    }
+  },
+})
+
+export const updateTransactionLabels = createTool({
+  title: 'Update Transaction Labels',
+  description:
+    'Add or remove labels on one or more transactions by their IDs. Use searchTransactions first to find the transaction IDs (results include current labelIds), then searchLabels to resolve the correct label IDs. Enables batch labeling like "tag all July restaurant transactions as vacation".',
+  needsApproval: true,
+  inputSchema: z.object({
+    transactionIds: z
+      .array(z.string())
+      .min(1)
+      .describe('Transaction IDs to update (from searchTransactions results).'),
+    addLabelIds: z
+      .array(z.string())
+      .optional()
+      .describe('Label IDs to add (from searchLabels). Merged with existing.'),
+    removeLabelIds: z
+      .array(z.string())
+      .optional()
+      .describe('Label IDs to remove. Omit to keep all existing labels.'),
+  }),
+  execute: async (
+    ctx,
+    input,
+  ): Promise<{ updated: number; summary: string } | { error: string }> => {
+    if (!input.addLabelIds?.length && !input.removeLabelIds?.length) {
+      return { error: 'Provide at least one of addLabelIds or removeLabelIds' }
+    }
+
+    // Validate thread context (ensures valid workspace scope)
+    await resolveContext(ctx)
+
+    try {
+      const addSet = new Set(input.addLabelIds ?? [])
+      const removeSet = new Set(input.removeLabelIds ?? [])
+
+      const updates: Array<{
+        transactionId: Id<'transactions'>
+        labelIds: Id<'transactionLabels'>[]
+      }> = []
+
+      for (const txId of input.transactionIds) {
+        const tx = await ctx.runQuery(
+          internal.agentChatQueries.getTransactionById,
+          { transactionId: txId as Id<'transactions'> },
+        )
+        if (!tx) continue
+
+        const current = new Set((tx.labelIds as string[] | undefined) ?? [])
+
+        // Add new labels
+        for (const id of addSet) current.add(id)
+        // Remove specified labels
+        for (const id of removeSet) current.delete(id)
+
+        updates.push({
+          transactionId: txId as Id<'transactions'>,
+          labelIds: [...current] as Id<'transactionLabels'>[],
+        })
+      }
+
+      if (updates.length === 0) {
+        return { error: 'No valid transactions found for the given IDs' }
+      }
+
+      await ctx.runMutation(
+        internal.agentChatQueries.updateTransactionLabelsInternal,
+        { updates },
+      )
+
+      const parts: string[] = []
+      if (input.addLabelIds?.length)
+        parts.push(`added ${input.addLabelIds.length} label(s)`)
+      if (input.removeLabelIds?.length)
+        parts.push(`removed ${input.removeLabelIds.length} label(s)`)
+
+      return {
+        updated: updates.length,
+        summary: `Updated ${updates.length} transaction${updates.length > 1 ? 's' : ''}: ${parts.join(', ')}.`,
+      }
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? error.message : 'Failed to update labels',
       }
     }
   },

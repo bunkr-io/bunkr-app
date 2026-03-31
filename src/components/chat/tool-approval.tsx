@@ -28,12 +28,27 @@ function formatCategorySummary(input: Record<string, unknown>): string {
   return `Recategorize ${count} transaction${count !== 1 ? 's' : ''} as "${category ?? 'unknown'}"`
 }
 
+function formatLabelSummary(input: Record<string, unknown>): string {
+  const ids = input.transactionIds as string[] | undefined
+  const count = ids?.length ?? 0
+  const addCount = (input.addLabelIds as string[] | undefined)?.length ?? 0
+  const removeCount =
+    (input.removeLabelIds as string[] | undefined)?.length ?? 0
+  const parts: string[] = []
+  if (addCount > 0)
+    parts.push(`add ${addCount} label${addCount !== 1 ? 's' : ''}`)
+  if (removeCount > 0)
+    parts.push(`remove ${removeCount} label${removeCount !== 1 ? 's' : ''}`)
+  return `${parts.join(', ')} on ${count} transaction${count !== 1 ? 's' : ''}`
+}
+
 const TOOL_SUMMARIES: Record<
   string,
   (input: Record<string, unknown>) => string
 > = {
   createTransactionRule: formatRuleSummary,
   updateTransactionCategory: formatCategorySummary,
+  updateTransactionLabels: formatLabelSummary,
 }
 
 interface ToolApprovalProps {
