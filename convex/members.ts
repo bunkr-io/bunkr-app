@@ -153,8 +153,16 @@ export const sendInvitation = action({
 })
 
 export const revokeInvitation = internalMutation({
-  args: { invitationId: v.id('workspaceInvitations') },
-  handler: async (ctx, { invitationId }) => {
+  args: {
+    invitationId: v.id('workspaceInvitations'),
+    actorId: v.optional(v.string()),
+    actorName: v.optional(v.string()),
+    actorAvatarUrl: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    { invitationId, actorId, actorName, actorAvatarUrl },
+  ) => {
     const invitation = await ctx.db.get('workspaceInvitations', invitationId)
 
     await ctx.db.patch('workspaceInvitations', invitationId, {
@@ -167,6 +175,9 @@ export const revokeInvitation = internalMutation({
         workspaceId: invitation.workspaceId,
         workspaceName: workspace?.name ?? '',
         actorType: 'user',
+        actorId,
+        actorName,
+        actorAvatarUrl,
         event: 'workspace.invitation_revoked',
         resourceType: 'workspace',
         resourceId: invitation.workspaceId,
@@ -192,7 +203,15 @@ export const revokeInvitationAction = action({
       throw new Error('Only workspace owners can revoke invitations')
     }
 
-    await ctx.runMutation(internal.members.revokeInvitation, { invitationId })
+    const identity = await ctx.auth.getUserIdentity()
+    const { actorId, actorName, actorAvatarUrl } = getActorInfo(identity)
+
+    await ctx.runMutation(internal.members.revokeInvitation, {
+      invitationId,
+      actorId,
+      actorName,
+      actorAvatarUrl,
+    })
   },
 })
 
