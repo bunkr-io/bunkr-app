@@ -408,22 +408,21 @@ export function TransactionsContent({
     )
 
     const round = (n: number) => Math.round(n * 100) / 100
-    const deficit = round(totalExpenses - totalIncome)
     const savings = round(totalIncome - totalExpenses)
 
-    // Source nodes on the left
+    // 3-column layout: Income (left) → intermediate (middle) → categories (right)
     const nodes: Array<{
       name: string
       color: string
       categoryKey?: string
-    }> = [{ name: 'Income', color: 'hsl(142 71% 45%)' }]
+      intermediate?: boolean
+    }> = [
+      { name: 'Income', color: 'hsl(142 71% 45%)' },
+      { name: '', color: 'hsl(var(--muted))', intermediate: true },
+    ]
 
-    if (deficit > 0) {
-      nodes.push({ name: 'Deficit', color: 'hsl(0 84% 60%)' })
-    }
-
-    // Target nodes on the right (expense categories + optional Savings)
-    const targetOffset = nodes.length
+    // Right-side nodes: expense categories + optional Savings
+    const targetOffset = 2
     for (const [key] of sortedEntries) {
       const cat = getCategory(key)
       nodes.push({ name: cat.label, color: cat.color, categoryKey: key })
@@ -440,59 +439,34 @@ export function TransactionsContent({
       stroke: string
     }> = []
 
-    if (deficit > 0) {
-      // Expenses exceed income: income covers categories top-down,
-      // deficit covers only the remainder that income can't reach
-      let remainingIncome = totalIncome
+    // Income → intermediate
+    links.push({
+      source: 0,
+      target: 1,
+      value: round(totalIncome),
+      stroke: 'hsl(142 71% 45%)',
+    })
 
-      for (let i = 0; i < sortedEntries.length; i++) {
-        const [key, value] = sortedEntries[i]
-        const cat = getCategory(key)
-        const targetIndex = targetOffset + i
+    // Intermediate → each expense category
+    for (let i = 0; i < sortedEntries.length; i++) {
+      const [key, value] = sortedEntries[i]
+      const cat = getCategory(key)
+      links.push({
+        source: 1,
+        target: targetOffset + i,
+        value: round(value),
+        stroke: cat.color,
+      })
+    }
 
-        const fromIncome = round(Math.min(remainingIncome, value))
-        const fromDeficit = round(value - fromIncome)
-        remainingIncome = round(remainingIncome - fromIncome)
-
-        if (fromIncome > 0) {
-          links.push({
-            source: 0,
-            target: targetIndex,
-            value: fromIncome,
-            stroke: cat.color,
-          })
-        }
-        if (fromDeficit > 0) {
-          links.push({
-            source: 1,
-            target: targetIndex,
-            value: fromDeficit,
-            stroke: 'hsl(0 84% 60%)',
-          })
-        }
-      }
-    } else {
-      // Income covers expenses: link each category from Income
-      for (let i = 0; i < sortedEntries.length; i++) {
-        const [key, value] = sortedEntries[i]
-        const cat = getCategory(key)
-        links.push({
-          source: 0,
-          target: targetOffset + i,
-          value: round(value),
-          stroke: cat.color,
-        })
-      }
-
-      // Surplus flows to Savings
-      if (savings > 0) {
-        links.push({
-          source: 0,
-          target: nodes.length - 1,
-          value: savings,
-          stroke: 'hsl(142 71% 45%)',
-        })
-      }
+    // Intermediate → Savings (if surplus)
+    if (savings > 0) {
+      links.push({
+        source: 1,
+        target: nodes.length - 1,
+        value: savings,
+        stroke: 'hsl(142 71% 45%)',
+      })
     }
 
     return { nodes, links }

@@ -7,6 +7,7 @@ interface SankeyNode {
   name: string
   color?: string
   categoryKey?: string
+  intermediate?: boolean
 }
 
 interface SankeyLink {
@@ -60,6 +61,22 @@ function SankeyNodeComponent({
         : formatCurrencyValue(payload.value, currency)
       : ''
   const clickable = onLabelClick && payload.categoryKey
+
+  if (payload.intermediate) {
+    return (
+      <Layer>
+        <Rectangle
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={payload.color ?? 'var(--color-primary)'}
+          fillOpacity={0.4}
+          radius={2}
+        />
+      </Layer>
+    )
+  }
 
   return (
     <Layer>
