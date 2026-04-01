@@ -4,15 +4,24 @@ import { useTheme } from 'next-themes'
 import * as React from 'react'
 import { AddConnectionDialog } from '~/components/add-connection-dialog'
 import { AppSidebar } from '~/components/app-sidebar'
+
+const ChatPanel = React.lazy(() =>
+  import('~/components/chat/chat-panel').then((m) => ({
+    default: m.ChatPanel,
+  })),
+)
+
 import { CommandPalette } from '~/components/command-palette'
 import { ConnectionAlertBanner } from '~/components/connection-alert-banner'
 import { ShortcutsDrawer } from '~/components/shortcuts-drawer'
+import { SiteFooter } from '~/components/site-footer'
 import { TrialBanner } from '~/components/trial-banner'
 import {
   SidebarInset,
   SidebarProvider,
   useSidebar,
 } from '~/components/ui/sidebar'
+import { ChatProvider, useChatState } from '~/contexts/chat-context'
 import { CommandProvider, useCommandDispatch } from '~/contexts/command-context'
 import { useEncryption } from '~/contexts/encryption-context'
 import { usePrivacy } from '~/contexts/privacy-context'
@@ -101,18 +110,42 @@ function AppLayout() {
 
   return (
     <CommandProvider>
-      <SidebarProvider>
-        <AppCommands />
-        <AppSidebar variant="inset" />
-        <SidebarInset>
-          {subscription?.isTrial && subscription.trialEndsAt && (
-            <TrialBanner trialEndsAt={subscription.trialEndsAt} />
-          )}
-          <ConnectionAlertBanner />
-          <Outlet />
-        </SidebarInset>
-        <CommandPalette />
-      </SidebarProvider>
+      <ChatProvider>
+        <SidebarProvider>
+          <AppCommands />
+          <AppSidebar variant="inset" />
+          <SidebarInset>
+            {subscription?.isTrial && subscription.trialEndsAt && (
+              <TrialBanner trialEndsAt={subscription.trialEndsAt} />
+            )}
+            <ConnectionAlertBanner />
+            <AppMainContent />
+            <SiteFooter />
+          </SidebarInset>
+          <CommandPalette />
+        </SidebarProvider>
+      </ChatProvider>
     </CommandProvider>
+  )
+}
+
+function AppMainContent() {
+  const { panelMode } = useChatState()
+
+  return (
+    <>
+      {panelMode === 'expanded' ? (
+        <React.Suspense>
+          <ChatPanel />
+        </React.Suspense>
+      ) : (
+        <Outlet />
+      )}
+      {panelMode === 'popover' && (
+        <React.Suspense>
+          <ChatPanel />
+        </React.Suspense>
+      )}
+    </>
   )
 }

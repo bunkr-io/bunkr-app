@@ -1,7 +1,6 @@
 import {
   ArrowUpDown,
   Building2,
-  Calendar,
   CircleDot,
   DollarSign,
   EyeOff,
@@ -11,11 +10,7 @@ import {
   Text,
   Users,
 } from 'lucide-react'
-import {
-  DateRangeRenderer,
-  NumberRenderer,
-  SingleDateRenderer,
-} from '~/components/filters/custom-renderers'
+import { NumberRenderer } from '~/components/filters/custom-renderers'
 import type { FilterOption } from '~/components/reui/filters'
 import { resolveTransactionCategoryKey } from '~/lib/categories'
 import type { FieldDescriptor } from './types'
@@ -25,7 +20,6 @@ export type TransactionFilterField =
   | 'category'
   | 'labels'
   | 'amount'
-  | 'date'
   | 'flow'
   | 'wording'
   | 'type'
@@ -138,41 +132,6 @@ export function createTransactionFilterFields(
       },
       accessor: (r) => r.value,
       valueType: 'number',
-    },
-    {
-      fieldKey: 'date',
-      key: 'date',
-      label: 'Date',
-      type: 'custom',
-      icon: <Calendar className="size-3.5" />,
-      operators: [
-        { value: 'between', label: 'between' },
-        { value: 'is', label: 'is' },
-        { value: 'after', label: 'after' },
-        { value: 'before', label: 'before' },
-      ],
-      defaultOperator: 'between',
-      customRenderer: (props) => {
-        if (props.operator === 'between') {
-          return DateRangeRenderer(props)
-        }
-        return SingleDateRenderer(props)
-      },
-      customValueRenderer: (values) => {
-        if (values.length === 2 && values[0] != null && values[1] != null) {
-          return (
-            <span>
-              {String(values[0])} – {String(values[1])}
-            </span>
-          )
-        }
-        if (values.length >= 1 && values[0] != null) {
-          return <span>{String(values[0])}</span>
-        }
-        return null
-      },
-      accessor: (r) => r.date,
-      valueType: 'date',
     },
     {
       fieldKey: 'flow',

@@ -15,4 +15,10 @@ crons.interval(
   internal.batchOperations.purgeExpiredOperations,
 )
 
+crons.interval(
+  'purge expired agent threads',
+  { hours: 24 },
+  internal.agentChatQueries.purgeExpiredThreadsForAllWorkspaces,
+)
+
 export default crons

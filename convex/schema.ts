@@ -33,6 +33,7 @@ export default defineSchema({
     name: v.string(),
     createdBy: v.string(),
     encryptionEnabled: v.optional(v.boolean()),
+    agentEnabled: v.optional(v.boolean()),
     policies: v.optional(
       v.object({
         categoryCreation: v.union(
@@ -283,6 +284,27 @@ export default defineSchema({
   })
     .index('by_workspaceId_status', ['workspaceId', 'status'])
     .index('by_retainUntil', ['retainUntil']),
+
+  agentSettings: defineTable({
+    workspaceId: v.id('workspaces'),
+    webSearchEnabled: v.boolean(),
+    encryptedInstructions: v.optional(v.string()),
+    threadRetentionDays: v.optional(v.number()),
+  }).index('by_workspaceId', ['workspaceId']),
+
+  agentThreadMetadata: defineTable({
+    workspaceId: v.id('workspaces'),
+    userId: v.string(),
+    threadId: v.string(),
+    portfolioId: v.optional(v.id('portfolios')),
+    portfolioScope: v.optional(
+      v.union(v.literal('portfolio'), v.literal('all'), v.literal('team')),
+    ),
+    createdAt: v.number(),
+  })
+    .index('by_threadId', ['threadId'])
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_userId', ['userId']),
 
   auditLogs: defineTable({
     timestamp: v.number(),
