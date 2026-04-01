@@ -414,6 +414,13 @@
   "accountTypes.account": "Account",
   "accountTypes.investment": "Investment",
 
+  "commands.paletteTitle": "Command Palette",
+  "commands.paletteDescription": "Search for pages or use AI to filter data",
+  "commands.searchPlaceholder": "Type a command or search...",
+  "commands.noResults": "No results found.",
+  "commands.aiPlaceholder": "Describe the filters you want...",
+  "commands.aiHint": "Try something like:",
+  "commands.aiExample": "food expenses over 50€ from last month",
   "commands.openCommandPalette": "Open command palette",
   "commands.toggleSidebar": "Toggle sidebar",
   "commands.goToDashboard": "Go to Dashboard",
@@ -630,6 +637,7 @@
 
   "charts.balance": "Balance",
   "charts.cashFlow": "Cash Flow",
+  "charts.incomeFlow": "Income Flow",
   "charts.income": "Income",
   "charts.expenses": "Expenses",
   "charts.allocation": "Allocation",
@@ -790,6 +798,12 @@
   "chat.toolApproval.reincludeInBudget_one": "Re-include {{count}} transaction in budget",
   "chat.toolApproval.reincludeInBudget_other": "Re-include {{count}} transactions in budget",
 
+  "transactions.searchPlaceholder": "Search transactions...",
+  "transactions.headerDescription": "Description",
+  "transactions.headerAccount": "Account",
+  "transactions.headerCategory": "Category",
+  "transactions.headerAmount": "Amount",
+  "transactions.pending": "Pending",
   "transactions.searchLabels": "Search labels...",
   "transactions.noLabelsFound": "No labels found.",
 

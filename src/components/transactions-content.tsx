@@ -32,7 +32,7 @@ import { Skeleton } from '~/components/ui/skeleton'
 import { useCommandDispatch } from '~/contexts/command-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
-import { useCommand } from '~/hooks/use-command'
+
 import { useDateRange } from '~/hooks/use-date-range'
 import { useFilterI18n } from '~/hooks/use-filter-i18n'
 import { useFilters } from '~/hooks/use-filters'
@@ -320,9 +320,6 @@ export function TransactionsContent({
   useAIFilterListener(loadFilters)
 
   const { setPaletteState } = useCommandDispatch()
-  useCommand('ai.filter', {
-    handler: () => setPaletteState({ open: true, aiMode: true }),
-  })
 
   const currency = 'EUR'
 

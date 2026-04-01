@@ -149,8 +149,8 @@ export function CommandPalette() {
     <CommandDialog
       open={open}
       onOpenChange={handleOpenChange}
-      title="Command Palette"
-      description="Search for pages or use AI to filter data"
+      title={t('commands.paletteTitle')}
+      description={t('commands.paletteDescription')}
     >
       {activeCommand?.view ? (
         <div
@@ -180,7 +180,7 @@ export function CommandPalette() {
                   setAIQuery('')
                 }
               }}
-              placeholder="Describe the filters you want..."
+              placeholder={t('commands.aiPlaceholder')}
               className="flex h-10 w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
               disabled={loading}
             />
@@ -190,18 +190,18 @@ export function CommandPalette() {
           </div>
           <div className="flex min-h-[300px] items-center justify-center px-4 py-6 text-center text-sm text-muted-foreground">
             <div>
-              <p>Try something like:</p>
+              <p>{t('commands.aiHint')}</p>
               <p className="mt-1 text-xs italic">
-                &ldquo;food expenses over 50€ from last month&rdquo;
+                &ldquo;{t('commands.aiExample')}&rdquo;
               </p>
             </div>
           </div>
         </>
       ) : (
         <>
-          <CommandInput placeholder="Type a command or search..." />
+          <CommandInput placeholder={t('commands.searchPlaceholder')} />
           <CommandList className="min-h-[300px]">
-            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandEmpty>{t('commands.noResults')}</CommandEmpty>
 
             {[...groupedCommands.entries()].map(([group, cmds]) => (
               <React.Fragment key={group}>

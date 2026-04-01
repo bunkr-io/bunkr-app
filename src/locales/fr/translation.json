@@ -414,6 +414,13 @@
   "accountTypes.account": "Compte",
   "accountTypes.investment": "Investissement",
 
+  "commands.paletteTitle": "Palette de commandes",
+  "commands.paletteDescription": "Rechercher des pages ou utiliser l'IA pour filtrer les données",
+  "commands.searchPlaceholder": "Tapez une commande ou recherchez...",
+  "commands.noResults": "Aucun résultat trouvé.",
+  "commands.aiPlaceholder": "Décrivez les filtres que vous souhaitez...",
+  "commands.aiHint": "Essayez par exemple :",
+  "commands.aiExample": "dépenses alimentaires de plus de 50€ le mois dernier",
   "commands.openCommandPalette": "Ouvrir la palette de commandes",
   "commands.toggleSidebar": "Afficher/masquer la barre latérale",
   "commands.goToDashboard": "Aller au tableau de bord",
@@ -630,6 +637,7 @@
 
   "charts.balance": "Solde",
   "charts.cashFlow": "Flux de trésorerie",
+  "charts.incomeFlow": "Flux de revenus",
   "charts.income": "Revenus",
   "charts.expenses": "Dépenses",
   "charts.allocation": "Répartition",
@@ -790,6 +798,12 @@
   "chat.toolApproval.reincludeInBudget_one": "Réinclure {{count}} transaction dans le budget",
   "chat.toolApproval.reincludeInBudget_other": "Réinclure {{count}} transactions dans le budget",
 
+  "transactions.searchPlaceholder": "Rechercher des transactions...",
+  "transactions.headerDescription": "Description",
+  "transactions.headerAccount": "Compte",
+  "transactions.headerCategory": "Catégorie",
+  "transactions.headerAmount": "Montant",
+  "transactions.pending": "En attente",
   "transactions.searchLabels": "Rechercher des étiquettes...",
   "transactions.noLabelsFound": "Aucune étiquette trouvée.",
 

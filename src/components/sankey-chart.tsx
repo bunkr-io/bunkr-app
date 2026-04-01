@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Layer, Rectangle, Sankey, Tooltip } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '~/components/ui/card'
 import { usePrivacy } from '~/contexts/privacy-context'
@@ -155,6 +156,7 @@ export function SankeyChart({
   currency,
   onLabelClick,
 }: SankeyChartProps) {
+  const { t } = useTranslation()
   const { isPrivate } = usePrivacy()
 
   if (nodes.length === 0 || links.length === 0) {
@@ -166,7 +168,7 @@ export function SankeyChart({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Income Flow</CardTitle>
+        <CardTitle>{t('charts.incomeFlow')}</CardTitle>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         <div className="w-full overflow-x-auto">

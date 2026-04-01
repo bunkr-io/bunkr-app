@@ -142,6 +142,7 @@ export function TransactionsList({
   filterActions,
   activeFilters,
 }: TransactionsListProps) {
+  const { t } = useTranslation()
   const formatCurrency = useFormatCurrency()
   const { categories, getCategory } = useCategories()
   const { workspacePublicKey } = useEncryption()
@@ -270,12 +271,12 @@ export function TransactionsList({
             })
           } catch (error) {
             Sentry.captureException(error)
-            toast.error('Failed to update labels')
+            toast.error(t('toast.failedUpdateLabel'))
           }
         }, 500),
       )
     },
-    [updateTransactionLabels],
+    [updateTransactionLabels, t],
   )
 
   const columns = React.useMemo<Array<ColumnDef<TransactionRow>>>(
@@ -340,7 +341,7 @@ export function TransactionsList({
       },
       {
         accessorKey: 'wording',
-        header: 'Description',
+        header: t('transactions.headerDescription'),
         cell: ({ row }) => {
           const rowLabels = (row.original.labelIds ?? [])
             .map((id) => labelMap.get(id))
@@ -360,7 +361,7 @@ export function TransactionsList({
               </span>
               {row.original.coming && (
                 <Badge variant="outline" className="shrink-0 text-xs">
-                  Pending
+                  {t('transactions.pending')}
                 </Badge>
               )}
               {visibleLabels.map((label) => (
@@ -395,7 +396,7 @@ export function TransactionsList({
       },
       {
         accessorKey: 'accountName',
-        header: 'Account',
+        header: t('transactions.headerAccount'),
         cell: ({ row }) => {
           const name = row.original.accountName
           const number = row.original.accountNumber
@@ -416,7 +417,7 @@ export function TransactionsList({
       },
       {
         id: 'category',
-        header: 'Category',
+        header: t('transactions.headerCategory'),
         accessorFn: (row) =>
           getCategory(resolveTransactionCategoryKey(row)).label,
         cell: ({ row }) => {
@@ -454,7 +455,7 @@ export function TransactionsList({
             className="flex items-center gap-1"
             onClick={() => column.toggleSorting()}
           >
-            Amount
+            {t('transactions.headerAmount')}
             {column.getIsSorted() === 'asc' ? (
               <ArrowUp className="size-3" />
             ) : column.getIsSorted() === 'desc' ? (
@@ -482,7 +483,7 @@ export function TransactionsList({
         },
       },
     ],
-    [currency, formatCurrency, getCategory, handleCreateRule, labelMap],
+    [currency, formatCurrency, getCategory, handleCreateRule, labelMap, t],
   )
 
   const table = useReactTable({
@@ -784,7 +785,7 @@ export function TransactionsList({
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search transactions..."
+            placeholder={t('transactions.searchPlaceholder')}
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
