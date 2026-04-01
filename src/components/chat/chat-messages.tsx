@@ -62,11 +62,15 @@ const TOOL_LABEL_KEYS: Record<string, string> = {
 interface ChatMessagesProps {
   threadId: string
   onSuggestionClick: (suggestion: string) => void
+  pendingMessage?: string | null
+  onWaitingChange?: (waiting: boolean) => void
 }
 
 export function ChatMessages({
   threadId,
   onSuggestionClick,
+  pendingMessage,
+  onWaitingChange,
 }: ChatMessagesProps) {
   const { t } = useTranslation()
   const { results: messages } = useUIMessages(
@@ -101,14 +105,6 @@ export function ChatMessages({
     lastApprovalMessageIdRef.current = messageId
   }, [])
 
-  if (messages.length === 0) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
-        <ChatEmptyState onSuggestionClick={onSuggestionClick} />
-      </div>
-    )
-  }
-
   // Show "Thinking" when waiting for assistant response:
   // - Last message is from the user (assistant hasn't started yet)
   // - Last message is assistant but has no text yet (even if tool parts exist — agent is still working)
@@ -120,11 +116,38 @@ export function ChatMessages({
       (p) => isToolUIPart(p) && p.state === 'approval-requested',
     )
   const isWaitingForReply =
-    !lastHasApprovalPending &&
-    (lastMessage?.role === 'user' ||
-      (lastMessage?.role === 'assistant' &&
-        !lastMessage.text &&
-        lastMessage.status !== 'failed'))
+    messages.length === 0
+      ? !!pendingMessage
+      : !lastHasApprovalPending &&
+        (lastMessage?.role === 'user' ||
+          (lastMessage?.role === 'assistant' &&
+            !lastMessage.text &&
+            lastMessage.status !== 'failed'))
+
+  useEffect(() => {
+    onWaitingChange?.(isWaitingForReply)
+  }, [isWaitingForReply, onWaitingChange])
+
+  if (messages.length === 0) {
+    if (pendingMessage) {
+      return (
+        <ChatContainerRoot className="relative flex-1">
+          <ChatContainerContent className="gap-4 p-4">
+            <ChatDisclaimer />
+            <ChatBubble variant="user">{pendingMessage}</ChatBubble>
+            <div className="flex items-center gap-2 px-1">
+              <Loader variant="text-shimmer" text={t('chat.thinking')} />
+            </div>
+          </ChatContainerContent>
+        </ChatContainerRoot>
+      )
+    }
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+        <ChatEmptyState onSuggestionClick={onSuggestionClick} />
+      </div>
+    )
+  }
 
   return (
     <ChatContainerRoot className="relative flex-1">

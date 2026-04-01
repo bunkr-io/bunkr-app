@@ -1,9 +1,17 @@
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChatBubble } from '~/components/chat/chat-bubble'
+import { ChatDisclaimer } from '~/components/chat/chat-disclaimer'
+import { ChatEmptyState } from '~/components/chat/chat-empty-state'
 import { ChatHeader } from '~/components/chat/chat-header'
 import { ChatInput } from '~/components/chat/chat-input'
 import { ChatMessages } from '~/components/chat/chat-messages'
 import { MockChatMessages } from '~/components/chat/mock-chat-messages'
-import { Skeleton } from '~/components/ui/skeleton'
+import {
+  ChatContainerContent,
+  ChatContainerRoot,
+} from '~/components/ui/chat-container'
+import { Loader } from '~/components/ui/loader'
 import {
   useActiveThread,
   useChatDispatch,
@@ -15,11 +23,26 @@ import { cn } from '~/lib/utils'
 
 export function ChatPanel() {
   const { t } = useTranslation()
-  const { panelMode, activeThreadId, isCreatingThread } = useChatState()
+  const {
+    panelMode,
+    activeThreadId,
+    isCreatingThread,
+    isDraftThread,
+    pendingMessage,
+  } = useChatState()
   const dispatch = useChatDispatch()
   const mockState = useMockState()
   const thread = useActiveThread()
   const mockConversation = useMockActiveConversation()
+  const [isWaiting, setIsWaiting] = useState(false)
+  const [prevThreadId, setPrevThreadId] = useState(activeThreadId)
+  if (activeThreadId !== prevThreadId) {
+    setPrevThreadId(activeThreadId)
+    if (activeThreadId) setIsWaiting(true)
+  }
+  const handleWaitingChange = useCallback((waiting: boolean) => {
+    setIsWaiting(waiting)
+  }, [])
 
   // Mock mode (Storybook)
   if (mockState) {
@@ -35,12 +58,27 @@ export function ChatPanel() {
 
   // Convex mode
   if (panelMode === 'closed') return null
-  if (!activeThreadId && !isCreatingThread) return null
+  if (!activeThreadId && !isCreatingThread && !isDraftThread) return null
 
   const title = thread?.title ?? t('chat.newChat')
-  const hasMessages = !!thread?.title
+  const hasMessages = !!thread?.title || !!pendingMessage
+  const inputDisabled = isCreatingThread || isWaiting
 
-  const loadingContent = isCreatingThread && !activeThreadId
+  const chatContent =
+    pendingMessage && !activeThreadId ? (
+      <PendingMessageView message={pendingMessage} />
+    ) : activeThreadId ? (
+      <ChatMessages
+        threadId={activeThreadId}
+        onSuggestionClick={dispatch.sendMessage}
+        pendingMessage={pendingMessage}
+        onWaitingChange={handleWaitingChange}
+      />
+    ) : (
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
+        <ChatEmptyState onSuggestionClick={dispatch.sendMessage} />
+      </div>
+    )
 
   if (panelMode === 'expanded') {
     return (
@@ -54,21 +92,14 @@ export function ChatPanel() {
           onClose={dispatch.closeChat}
           onDelete={activeThreadId ? dispatch.deleteChat : undefined}
         />
-        {loadingContent ? (
-          <ChatPanelSkeleton />
-        ) : (
-          <ChatMessages
-            threadId={activeThreadId!}
-            onSuggestionClick={dispatch.sendMessage}
-          />
-        )}
+        {chatContent}
         <div className="mx-auto w-full max-w-3xl">
           <ChatInput
             key={activeThreadId}
             onSend={dispatch.sendMessage}
             variant="secondary"
             hasMessages={hasMessages}
-            disabled={loadingContent}
+            disabled={inputDisabled}
           />
         </div>
       </div>
@@ -93,38 +124,29 @@ export function ChatPanel() {
         onClose={dispatch.closeChat}
         onDelete={activeThreadId ? dispatch.deleteChat : undefined}
       />
-      {loadingContent ? (
-        <ChatPanelSkeleton />
-      ) : (
-        <ChatMessages
-          threadId={activeThreadId!}
-          onSuggestionClick={dispatch.sendMessage}
-        />
-      )}
+      {chatContent}
       <ChatInput
         key={activeThreadId}
         onSend={dispatch.sendMessage}
         hasMessages={hasMessages}
-        disabled={loadingContent}
+        disabled={inputDisabled}
       />
     </div>
   )
 }
 
-function ChatPanelSkeleton() {
+function PendingMessageView({ message }: { message: string }) {
+  const { t } = useTranslation()
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-4">
-      <div className="flex flex-col items-center gap-3">
-        <Skeleton className="size-10 rounded-full" />
-        <Skeleton className="h-5 w-48" />
-        <Skeleton className="h-4 w-36" />
-      </div>
-      <div className="flex flex-wrap justify-center gap-2">
-        <Skeleton className="h-8 w-36 rounded-md" />
-        <Skeleton className="h-8 w-44 rounded-md" />
-        <Skeleton className="h-8 w-40 rounded-md" />
-      </div>
-    </div>
+    <ChatContainerRoot className="relative flex-1">
+      <ChatContainerContent className="gap-4 p-4">
+        <ChatDisclaimer />
+        <ChatBubble variant="user">{message}</ChatBubble>
+        <div className="flex items-center gap-2 px-1">
+          <Loader variant="text-shimmer" text={t('chat.thinking')} />
+        </div>
+      </ChatContainerContent>
+    </ChatContainerRoot>
   )
 }
 

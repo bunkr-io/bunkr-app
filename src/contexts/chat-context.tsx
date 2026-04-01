@@ -2,6 +2,7 @@ import { optimisticallySendMessage } from '@convex-dev/agent/react'
 import { useMutation, useQuery } from 'convex/react'
 import * as React from 'react'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import { usePortfolio } from './portfolio-context'
 
 // --- Types ---
@@ -13,6 +14,10 @@ interface ChatState {
   panelMode: ChatPanelMode
   minimizedThreadIds: string[]
   isCreatingThread: boolean
+  isDraftThread: boolean
+  draftPortfolioScope?: 'portfolio' | 'all' | 'team'
+  draftPortfolioId?: Id<'portfolios'>
+  pendingMessage: string | null
 }
 
 interface ChatDispatch {
@@ -80,6 +85,8 @@ const DEFAULT_STATE: ChatState = {
   panelMode: 'closed',
   minimizedThreadIds: [],
   isCreatingThread: false,
+  isDraftThread: false,
+  pendingMessage: null,
 }
 
 export function ChatProvider({
@@ -159,8 +166,10 @@ function ConvexChatProvider({
   }, [state])
 
   const { singlePortfolioId, activePortfolioId } = usePortfolio()
-  const createThreadMutation = useMutation(api.agentChatQueries.createThread)
   const deleteThreadMutation = useMutation(api.agentChatQueries.deleteThread)
+  const createThreadAndSendMessageMutation = useMutation(
+    api.agentChatQueries.createThreadAndSendMessage,
+  )
   const sendMessageMutation = useMutation(
     api.agentChatQueries.sendMessage,
   ).withOptimisticUpdate(
@@ -168,26 +177,21 @@ function ConvexChatProvider({
   )
   const dispatch = React.useMemo<ChatDispatch>(() => {
     const openNewChat = () => {
-      setState((prev) => ({
-        ...prev,
-        panelMode: 'popover',
-        isCreatingThread: true,
-      }))
       const portfolioScope = singlePortfolioId
         ? ('portfolio' as const)
         : activePortfolioId === 'team'
           ? ('team' as const)
           : ('all' as const)
-      void createThreadMutation({
-        portfolioId: singlePortfolioId ?? undefined,
-        portfolioScope,
-      }).then(({ threadId }) => {
-        setState((prev) => ({
-          ...prev,
-          activeThreadId: threadId,
-          isCreatingThread: false,
-        }))
-      })
+      setState((prev) => ({
+        ...prev,
+        panelMode: 'popover',
+        activeThreadId: null,
+        isCreatingThread: false,
+        isDraftThread: true,
+        pendingMessage: null,
+        draftPortfolioScope: portfolioScope,
+        draftPortfolioId: singlePortfolioId ?? undefined,
+      }))
     }
 
     const openThread = (threadId: string) => {
@@ -195,6 +199,7 @@ function ConvexChatProvider({
         ...prev,
         activeThreadId: threadId,
         panelMode: 'popover',
+        pendingMessage: null,
         minimizedThreadIds: prev.minimizedThreadIds.includes(threadId)
           ? prev.minimizedThreadIds
           : [...prev.minimizedThreadIds, threadId],
@@ -206,6 +211,10 @@ function ConvexChatProvider({
         ...prev,
         panelMode: 'closed',
         activeThreadId: null,
+        isDraftThread: false,
+        pendingMessage: null,
+        draftPortfolioScope: undefined,
+        draftPortfolioId: undefined,
       }))
     }
 
@@ -225,6 +234,10 @@ function ConvexChatProvider({
           ? prev.minimizedThreadIds.filter((id) => id !== prev.activeThreadId)
           : prev.minimizedThreadIds,
         activeThreadId: null,
+        isDraftThread: false,
+        pendingMessage: null,
+        draftPortfolioScope: undefined,
+        draftPortfolioId: undefined,
       }))
     }
 
@@ -237,6 +250,8 @@ function ConvexChatProvider({
         activeThreadId:
           prev.activeThreadId === threadId ? null : prev.activeThreadId,
         panelMode: prev.activeThreadId === threadId ? 'closed' : prev.panelMode,
+        pendingMessage:
+          prev.activeThreadId === threadId ? null : prev.pendingMessage,
       }))
     }
 
@@ -248,6 +263,7 @@ function ConvexChatProvider({
         ...prev,
         panelMode: 'closed',
         activeThreadId: null,
+        pendingMessage: null,
         minimizedThreadIds: prev.minimizedThreadIds.filter(
           (id) => id !== threadId,
         ),
@@ -256,14 +272,52 @@ function ConvexChatProvider({
 
     const sendMessage = (content: string) => {
       const threadId = state.activeThreadId
+
+      // Draft thread: create thread + send first message atomically
+      if (!threadId && state.isDraftThread) {
+        if (state.isCreatingThread) return // prevent double-sends
+        setState((prev) => ({
+          ...prev,
+          isCreatingThread: true,
+          pendingMessage: content,
+        }))
+        void createThreadAndSendMessageMutation({
+          portfolioId: state.draftPortfolioId,
+          portfolioScope: state.draftPortfolioScope,
+          prompt: content,
+        })
+          .then(({ threadId: newThreadId }) => {
+            setState((prev) => ({
+              ...prev,
+              activeThreadId: newThreadId,
+              isDraftThread: false,
+              isCreatingThread: false,
+              draftPortfolioScope: undefined,
+              draftPortfolioId: undefined,
+              minimizedThreadIds: [...prev.minimizedThreadIds, newThreadId],
+            }))
+          })
+          .catch(() => {
+            setState((prev) => ({
+              ...prev,
+              isCreatingThread: false,
+              pendingMessage: null,
+            }))
+          })
+        return
+      }
+
       if (!threadId) return
       void sendMessageMutation({ threadId, prompt: content })
-      // Auto-create a tab for this conversation
       setState((prev) => {
-        if (prev.minimizedThreadIds.includes(threadId)) return prev
+        if (!prev.pendingMessage && prev.minimizedThreadIds.includes(threadId))
+          return prev
         return {
           ...prev,
-          minimizedThreadIds: [...prev.minimizedThreadIds, threadId],
+          pendingMessage: null,
+          minimizedThreadIds: prev.minimizedThreadIds.includes(threadId)
+            ? prev.minimizedThreadIds
+            : [...prev.minimizedThreadIds, threadId],
         }
       })
     }
@@ -280,10 +334,14 @@ function ConvexChatProvider({
       sendMessage,
     }
   }, [
-    createThreadMutation,
+    createThreadAndSendMessageMutation,
     deleteThreadMutation,
     sendMessageMutation,
     state.activeThreadId,
+    state.isDraftThread,
+    state.isCreatingThread,
+    state.draftPortfolioScope,
+    state.draftPortfolioId,
     singlePortfolioId,
     activePortfolioId,
   ])
@@ -324,6 +382,8 @@ function MockChatProvider({
     panelMode: mockState.panelMode,
     minimizedThreadIds: mockState.minimizedThreadIds,
     isCreatingThread: false,
+    isDraftThread: false,
+    pendingMessage: null,
   }
 
   const dispatch = React.useMemo<ChatDispatch>(() => {

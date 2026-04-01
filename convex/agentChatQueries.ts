@@ -150,6 +150,64 @@ export const createThread = mutation({
   },
 })
 
+export const createThreadAndSendMessage = mutation({
+  args: {
+    portfolioId: v.optional(v.id('portfolios')),
+    portfolioScope: v.optional(
+      v.union(v.literal('portfolio'), v.literal('all'), v.literal('team')),
+    ),
+    prompt: v.string(),
+  },
+  handler: async (ctx, { portfolioId, portfolioScope, prompt }) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!membership) throw new Error('Workspace membership not found')
+
+    const workspace = await ctx.db.get('workspaces', membership.workspaceId)
+    if (!workspace?.agentEnabled) {
+      throw new Error('Bunkr Agent is not enabled for this workspace')
+    }
+
+    const thread = await ctx.runMutation(
+      components.agent.threads.createThread,
+      { userId },
+    )
+
+    await ctx.db.insert('agentThreadMetadata', {
+      workspaceId: membership.workspaceId,
+      userId,
+      threadId: thread._id,
+      portfolioId,
+      portfolioScope,
+      createdAt: Date.now(),
+    })
+
+    const { messageId } = await chatAgent.saveMessage(ctx, {
+      threadId: thread._id,
+      prompt,
+      skipEmbeddings: true,
+    })
+
+    await ctx.scheduler.runAfter(0, api.agentChat.streamResponse, {
+      threadId: thread._id,
+      promptMessageId: messageId,
+      workspaceId: membership.workspaceId,
+    })
+
+    await ctx.scheduler.runAfter(0, internal.agentChat.generateTitle, {
+      threadId: thread._id,
+      prompt,
+      language: membership.language,
+    })
+
+    return { threadId: thread._id }
+  },
+})
+
 export const sendMessage = mutation({
   args: {
     threadId: v.string(),
