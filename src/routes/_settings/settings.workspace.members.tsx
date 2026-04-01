@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { Bot, Ellipsis, Mail, UserX } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -80,10 +80,15 @@ function MembersPage() {
     isEncryptionEnabled ? {} : 'skip',
   )
 
+  // Stabilize dependency: only re-fetch when the set of member userIds changes
+  const memberUserIds = useMemo(
+    () => data?.members.map((m) => m.userId).join(',') ?? '',
+    [data?.members],
+  )
+
   const fetchUsers = useCallback(async () => {
-    if (!data?.members.length) return
-    const userIds = data.members.map((m) => m.userId)
-    setUsersLoading(true)
+    if (!memberUserIds) return
+    const userIds = memberUserIds.split(',')
     try {
       const resolved = await resolveUsers({ userIds })
       setUsers(resolved)
@@ -92,7 +97,7 @@ function MembersPage() {
     } finally {
       setUsersLoading(false)
     }
-  }, [data?.members, resolveUsers])
+  }, [memberUserIds, resolveUsers])
 
   useEffect(() => {
     fetchUsers()
