@@ -1241,6 +1241,79 @@ function applyTransactionRules(
   return { excludedIds, ruleMatches }
 }
 
+type AllFieldGroups = {
+  encryptedDetails: {
+    wording: string
+    originalWording: string | undefined
+    simplifiedWording: string | undefined
+    counterparty: string | undefined
+    card: string | undefined
+    comment: string | undefined
+    customDescription: string | undefined
+  }
+  encryptedFinancials: {
+    value: number
+    originalValue: number | undefined
+  }
+  encryptedCategories: {
+    category: string | undefined
+    categoryParent: string | undefined
+    userCategoryKey: string | undefined
+  }
+}
+
+type FinancialsOnlyFieldGroups = {
+  encryptedFinancials: {
+    value: number
+    originalValue: number | undefined
+  }
+}
+
+export function buildEncryptionFieldGroups(
+  txn: MappedTransaction,
+  isNew: boolean,
+  ruleMatchedIds: Set<number>,
+): { groups: AllFieldGroups | FinancialsOnlyFieldGroups; allFields: boolean } {
+  const shouldUpdateAllFields =
+    isNew || ruleMatchedIds.has(txn.powensTransactionId)
+
+  if (shouldUpdateAllFields) {
+    return {
+      groups: {
+        encryptedDetails: {
+          wording: txn.wording,
+          originalWording: txn.originalWording,
+          simplifiedWording: txn.simplifiedWording,
+          counterparty: txn.counterparty,
+          card: txn.card,
+          comment: txn.comment,
+          customDescription: txn.customDescription,
+        },
+        encryptedFinancials: {
+          value: txn.value,
+          originalValue: txn.originalValue,
+        },
+        encryptedCategories: {
+          category: txn.category,
+          categoryParent: txn.categoryParent,
+          userCategoryKey: txn.userCategoryKey,
+        },
+      },
+      allFields: true,
+    }
+  }
+
+  return {
+    groups: {
+      encryptedFinancials: {
+        value: txn.value,
+        originalValue: txn.originalValue,
+      },
+    },
+    allFields: false,
+  }
+}
+
 async function emitRuleApplicationAuditLogs(
   ctx: ActionCtx,
   ruleMatches: RuleMatch[],
@@ -1544,56 +1617,27 @@ export const syncTransactionsFromWebhook = internalAction({
           )
           if (!idEntry) continue
 
-          const shouldUpdateAllFields =
-            idEntry.isNew || ruleMatchedIds.has(txn.powensTransactionId)
-
-          if (shouldUpdateAllFields) {
-            const groups = await encryptFieldGroups(
-              {
-                encryptedDetails: {
-                  wording: txn.wording,
-                  originalWording: txn.originalWording,
-                  simplifiedWording: txn.simplifiedWording,
-                  counterparty: txn.counterparty,
-                  card: txn.card,
-                  comment: txn.comment,
-                  customDescription: txn.customDescription,
-                },
-                encryptedFinancials: {
-                  value: txn.value,
-                  originalValue: txn.originalValue,
-                },
-                encryptedCategories: {
-                  category: txn.category,
-                  categoryParent: txn.categoryParent,
-                  userCategoryKey: txn.userCategoryKey,
-                },
-              },
-              publicKey,
-              idEntry.id,
-            )
+          const { groups: fieldGroups, allFields } = buildEncryptionFieldGroups(
+            txn,
+            idEntry.isNew,
+            ruleMatchedIds,
+          )
+          const encrypted = await encryptFieldGroups(
+            fieldGroups,
+            publicKey,
+            idEntry.id,
+          )
+          if (allFields) {
             patches.push({
               id: idEntry.id,
-              encryptedDetails: groups.encryptedDetails,
-              encryptedFinancials: groups.encryptedFinancials,
-              encryptedCategories: groups.encryptedCategories,
+              encryptedDetails: encrypted.encryptedDetails,
+              encryptedFinancials: encrypted.encryptedFinancials,
+              encryptedCategories: encrypted.encryptedCategories,
             })
           } else {
-            // Existing transaction without rule match: only update financials
-            // to preserve user-customized encryptedDetails and encryptedCategories
-            const groups = await encryptFieldGroups(
-              {
-                encryptedFinancials: {
-                  value: txn.value,
-                  originalValue: txn.originalValue,
-                },
-              },
-              publicKey,
-              idEntry.id,
-            )
             patches.push({
               id: idEntry.id,
-              encryptedFinancials: groups.encryptedFinancials,
+              encryptedFinancials: encrypted.encryptedFinancials,
             })
           }
         }
@@ -1772,56 +1816,27 @@ export const backfillTransactions = internalAction({
           )
           if (!idEntry) continue
 
-          const shouldUpdateAllFields =
-            idEntry.isNew || backfillRuleMatchedIds.has(txn.powensTransactionId)
-
-          if (shouldUpdateAllFields) {
-            const groups = await encryptFieldGroups(
-              {
-                encryptedDetails: {
-                  wording: txn.wording,
-                  originalWording: txn.originalWording,
-                  simplifiedWording: txn.simplifiedWording,
-                  counterparty: txn.counterparty,
-                  card: txn.card,
-                  comment: txn.comment,
-                  customDescription: txn.customDescription,
-                },
-                encryptedFinancials: {
-                  value: txn.value,
-                  originalValue: txn.originalValue,
-                },
-                encryptedCategories: {
-                  category: txn.category,
-                  categoryParent: txn.categoryParent,
-                  userCategoryKey: txn.userCategoryKey,
-                },
-              },
-              publicKey,
-              idEntry.id,
-            )
+          const { groups: fieldGroups, allFields } = buildEncryptionFieldGroups(
+            txn,
+            idEntry.isNew,
+            backfillRuleMatchedIds,
+          )
+          const encrypted = await encryptFieldGroups(
+            fieldGroups,
+            publicKey,
+            idEntry.id,
+          )
+          if (allFields) {
             patches.push({
               id: idEntry.id,
-              encryptedDetails: groups.encryptedDetails,
-              encryptedFinancials: groups.encryptedFinancials,
-              encryptedCategories: groups.encryptedCategories,
+              encryptedDetails: encrypted.encryptedDetails,
+              encryptedFinancials: encrypted.encryptedFinancials,
+              encryptedCategories: encrypted.encryptedCategories,
             })
           } else {
-            // Existing transaction without rule match: only update financials
-            // to preserve user-customized encryptedDetails and encryptedCategories
-            const groups = await encryptFieldGroups(
-              {
-                encryptedFinancials: {
-                  value: txn.value,
-                  originalValue: txn.originalValue,
-                },
-              },
-              publicKey,
-              idEntry.id,
-            )
             patches.push({
               id: idEntry.id,
-              encryptedFinancials: groups.encryptedFinancials,
+              encryptedFinancials: encrypted.encryptedFinancials,
             })
           }
         }
