@@ -24,6 +24,15 @@ export default defineConfig({
     projects: [
       {
         extends: true,
+        test: {
+          name: 'convex',
+          include: ['convex/**/*.test.{ts,js}'],
+          exclude: ['**/node_modules/**'],
+          environment: 'edge-runtime',
+        },
+      },
+      {
+        extends: true,
         test: {},
       },
       {
