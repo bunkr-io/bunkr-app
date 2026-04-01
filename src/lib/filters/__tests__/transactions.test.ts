@@ -68,7 +68,7 @@ function filter(field: string, operator: string, values: unknown[]): Filter {
 
 describe('createTransactionFilterFields', () => {
   it('produces correct number of fields', () => {
-    expect(fields).toHaveLength(10)
+    expect(fields).toHaveLength(9)
   })
 
   it('all fields have key and accessor', () => {
@@ -93,21 +93,6 @@ describe('virtual field accessors', () => {
         sampleTransactions[1] as unknown as Record<string, unknown>,
       ),
     ).toBe('income')
-  })
-
-  it('status: derives pending/completed from coming', () => {
-    const statusField = fields.find((f) => f.key === 'status')
-    expect(statusField).toBeDefined()
-    expect(
-      statusField?.accessor(
-        sampleTransactions[0] as unknown as Record<string, unknown>,
-      ),
-    ).toBe('completed')
-    expect(
-      statusField?.accessor(
-        sampleTransactions[2] as unknown as Record<string, unknown>,
-      ),
-    ).toBe('pending')
   })
 })
 
@@ -145,11 +130,10 @@ describe('integration: filtering transactions', () => {
       sampleTransactions,
       [
         filter('account', 'is_any_of', ['acc1']),
-        filter('status', 'is_any_of', ['pending']),
+        filter('flow', 'is_any_of', ['expense']),
       ],
       fields,
     )
-    expect(result).toHaveLength(1)
-    expect((result[0] as Record<string, unknown>).wording).toBe('Rent payment')
+    expect(result).toHaveLength(2)
   })
 })

@@ -29,3 +29,19 @@ export const deleteSeedSnapshots = internalMutation({
     return { deleted: toDelete.length }
   },
 })
+
+// One-time script: delete all pending transactions (coming=true).
+// We no longer sync pending transactions from Powens, so these are stale.
+export const deleteAllPending = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query('transactions').collect()
+    const pending = all.filter((t) => t.coming)
+
+    for (const t of pending) {
+      await ctx.db.delete('transactions', t._id)
+    }
+
+    return { deleted: pending.length }
+  },
+})

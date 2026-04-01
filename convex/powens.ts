@@ -1550,15 +1550,26 @@ export const syncTransactionsFromWebhook = internalAction({
 
         const data = (await response.json()) as PowensTransactionResponse
 
-        const rawTransactions = (data.transactions ?? []).map(
+        const allTransactions = (data.transactions ?? []).map(
           mapPowensTransaction,
         )
 
         console.log(
-          `[powens] Fetched ${rawTransactions.length} transactions for account ${ba.powensBankAccountId} (offset: ${offset})`,
+          `[powens] Fetched ${allTransactions.length} transactions for account ${ba.powensBankAccountId} (offset: ${offset})`,
         )
 
-        if (rawTransactions.length === 0) break
+        if (allTransactions.length === 0) break
+
+        // Skip pending transactions — Powens assigns them a different ID than
+        // the settled version, which causes duplicates. We wait for the settled
+        // transaction to arrive instead.
+        const rawTransactions = allTransactions.filter((t) => !t.coming)
+
+        if (rawTransactions.length === 0) {
+          if (allTransactions.length < limit) break
+          offset += limit
+          continue
+        }
 
         // Apply transaction rules to incoming transactions
         const { excludedIds, ruleMatches } = applyTransactionRules(
@@ -1575,7 +1586,7 @@ export const syncTransactionsFromWebhook = internalAction({
           vdate: txn.vdate,
           originalCurrency: txn.originalCurrency,
           type: txn.type,
-          coming: txn.coming,
+          coming: false,
           active: txn.active,
           deleted: txn.deleted,
           encryptedDetails: '',
@@ -1679,7 +1690,7 @@ export const syncTransactionsFromWebhook = internalAction({
           args.portfolioId,
         )
 
-        if (rawTransactions.length < limit) break
+        if (allTransactions.length < limit) break
         offset += limit
       }
     }
@@ -1755,11 +1766,20 @@ export const backfillTransactions = internalAction({
         if (!response.ok) break
 
         const data = (await response.json()) as PowensTransactionResponse
-        const rawTransactions = (data.transactions ?? []).map(
+        const allTransactions = (data.transactions ?? []).map(
           mapPowensTransaction,
         )
 
-        if (rawTransactions.length === 0) break
+        if (allTransactions.length === 0) break
+
+        // Skip pending transactions (see syncTransactionsFromWebhook comment)
+        const rawTransactions = allTransactions.filter((t) => !t.coming)
+
+        if (rawTransactions.length === 0) {
+          if (allTransactions.length < limit) break
+          offset += limit
+          continue
+        }
 
         const {
           excludedIds: backfillExcludedIds,
@@ -1774,7 +1794,7 @@ export const backfillTransactions = internalAction({
           vdate: txn.vdate,
           originalCurrency: txn.originalCurrency,
           type: txn.type,
-          coming: txn.coming,
+          coming: false,
           active: txn.active,
           deleted: txn.deleted,
           encryptedDetails: '',
@@ -1879,7 +1899,7 @@ export const backfillTransactions = internalAction({
         )
 
         totalSynced += rawTransactions.length
-        if (rawTransactions.length < limit) break
+        if (allTransactions.length < limit) break
         offset += limit
       }
     }

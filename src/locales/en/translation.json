@@ -486,7 +486,6 @@
   "portfolios.deleteTitle": "Delete Portfolio",
   "portfolios.deleteConfirm": "Deleting {{name}} is permanent and cannot be undone. Deleting a portfolio also deletes all associated accounts & connections.",
 
-  "transactionDetail.pending": "Pending transaction",
   "transactionDetail.completed": "Completed transaction",
   "transactionDetail.closePanel": "Close panel",
   "transactionDetail.original": "Original:",
@@ -717,9 +716,6 @@
   "filters.flowExpense": "Expense",
   "filters.description": "Description",
   "filters.type": "Type",
-  "filters.status": "Status",
-  "filters.statusPending": "Pending",
-  "filters.statusCompleted": "Completed",
   "filters.counterparty": "Counterparty",
   "filters.budget": "Budget",
   "filters.budgetIncluded": "Included",
@@ -808,7 +804,6 @@
   "transactions.headerAccount": "Account",
   "transactions.headerCategory": "Category",
   "transactions.headerAmount": "Amount",
-  "transactions.pending": "Pending",
   "transactions.searchLabels": "Search labels...",
   "transactions.noLabelsFound": "No labels found.",
 

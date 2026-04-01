@@ -359,11 +359,7 @@ export function TransactionsList({
               >
                 {row.original.customDescription || row.original.wording}
               </span>
-              {row.original.coming && (
-                <Badge variant="outline" className="shrink-0 text-xs">
-                  {t('transactions.pending')}
-                </Badge>
-              )}
+
               {visibleLabels.map((label) => (
                 <Badge
                   key={label._id}
@@ -1403,9 +1399,7 @@ function TransactionDetailSheet({
                   onUpdate={onDescriptionUpdate}
                 />
                 <SheetDescription className="mt-1">
-                  {transaction.coming
-                    ? t('transactionDetail.pending')
-                    : t('transactionDetail.completed')}
+                  {t('transactionDetail.completed')}
                 </SheetDescription>
               </div>
               <div className="ml-3 flex h-7 items-center">

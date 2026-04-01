@@ -486,7 +486,6 @@
   "portfolios.deleteTitle": "Supprimer le portefeuille",
   "portfolios.deleteConfirm": "La suppression de {{name}} est définitive et irréversible. Supprimer un portefeuille supprime également tous les comptes et connexions associés.",
 
-  "transactionDetail.pending": "Transaction en attente",
   "transactionDetail.completed": "Transaction effectuée",
   "transactionDetail.closePanel": "Fermer le panneau",
   "transactionDetail.original": "Original :",
@@ -717,9 +716,6 @@
   "filters.flowExpense": "Dépenses",
   "filters.description": "Description",
   "filters.type": "Type",
-  "filters.status": "Statut",
-  "filters.statusPending": "En attente",
-  "filters.statusCompleted": "Terminé",
   "filters.counterparty": "Contrepartie",
   "filters.budget": "Budget",
   "filters.budgetIncluded": "Inclus",
@@ -808,7 +804,6 @@
   "transactions.headerAccount": "Compte",
   "transactions.headerCategory": "Catégorie",
   "transactions.headerAmount": "Montant",
-  "transactions.pending": "En attente",
   "transactions.searchLabels": "Rechercher des étiquettes...",
   "transactions.noLabelsFound": "Aucune étiquette trouvée.",
 

@@ -2,7 +2,6 @@ import type { TFunction } from 'i18next'
 import {
   ArrowUpDown,
   Building2,
-  CircleDot,
   DollarSign,
   EyeOff,
   FileType,
@@ -184,23 +183,6 @@ export function createTransactionFilterFields(
       ],
       defaultOperator: 'is_any_of',
       accessor: (r) => r.type,
-      valueType: 'enum',
-    },
-    {
-      fieldKey: 'status',
-      key: 'status',
-      label: t('filters.status'),
-      type: 'multiselect',
-      icon: <CircleDot className="size-3.5" />,
-      options: [
-        { value: 'pending', label: t('filters.statusPending') },
-        { value: 'completed', label: t('filters.statusCompleted') },
-      ],
-      operators: [
-        { value: 'is_any_of', label: t('filters.operators.isAnyOf') },
-      ],
-      defaultOperator: 'is_any_of',
-      accessor: (r) => (r.coming ? 'pending' : 'completed'),
       valueType: 'enum',
     },
     {
