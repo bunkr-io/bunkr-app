@@ -8,7 +8,7 @@
     "dev:web": "vite dev",
     "dev:ts": "tsc -b -w",
     "dev:convex": "npx convex dev",
-    "build": "vite build && cp instrument.server.mjs .output/server && tsc --noEmit",
+    "build": "vite build && cp instrument.server.mjs dist/server && tsc --noEmit",
     "deploy": "npm run build && wrangler deploy",
     "cf-typegen": "wrangler types",
     "start": "node --import ./.output/server/instrument.server.mjs .output/server/index.mjs",
