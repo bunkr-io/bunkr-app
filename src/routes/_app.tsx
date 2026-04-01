@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { useQuery } from 'convex/react'
+import { useAction, useQuery } from 'convex/react'
 import { useTheme } from 'next-themes'
 import * as React from 'react'
-import { AddConnectionDialog } from '~/components/add-connection-dialog'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { AppSidebar } from '~/components/app-sidebar'
 
 const ChatPanel = React.lazy(() =>
@@ -28,6 +29,7 @@ import {
 } from '~/contexts/chat-context'
 import { CommandProvider, useCommandDispatch } from '~/contexts/command-context'
 import { useEncryption } from '~/contexts/encryption-context'
+import { usePortfolio } from '~/contexts/portfolio-context'
 import { usePrivacy } from '~/contexts/privacy-context'
 import { useCommand } from '~/hooks/use-command'
 import { useNavigationCommands } from '~/hooks/use-navigation-commands'
@@ -38,14 +40,16 @@ export const Route = createFileRoute('/_app')({
 })
 
 function AppCommands() {
+  const { t } = useTranslation()
   const { setPaletteState } = useCommandDispatch()
   const { toggleSidebar } = useSidebar()
   const { lock, isUnlocked } = useEncryption()
   const { togglePrivacy } = usePrivacy()
   const { setTheme } = useTheme()
   const { openNewChat } = useChatDispatch()
+  const { singlePortfolioId } = usePortfolio()
+  const generateConnectUrl = useAction(api.powens.generateConnectUrl)
   const [shortcutsOpen, setShortcutsOpen] = React.useState(false)
-  const [connectionDialogOpen, setConnectionDialogOpen] = React.useState(false)
 
   useCommand('palette.toggle', {
     handler: () => setPaletteState((prev) => ({ open: !prev.open })),
@@ -60,7 +64,19 @@ function AppCommands() {
   })
 
   useCommand('connection.add', {
-    handler: () => setConnectionDialogOpen(true),
+    handler: async () => {
+      if (!singlePortfolioId) return
+      try {
+        const url = await generateConnectUrl({
+          portfolioId: singlePortfolioId,
+        })
+        window.location.href = url
+      } catch (err) {
+        console.error('Failed to generate connect URL:', err)
+        toast.error(t('dialogs.addConnection.error'))
+      }
+    },
+    disabled: !singlePortfolioId,
   })
 
   useCommand('vault.lock', {
@@ -93,13 +109,7 @@ function AppCommands() {
   useNavigationCommands()
 
   return (
-    <>
-      <ShortcutsDrawer open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
-      <AddConnectionDialog
-        open={connectionDialogOpen}
-        onOpenChange={setConnectionDialogOpen}
-      />
-    </>
+    <ShortcutsDrawer open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
   )
 }
 
