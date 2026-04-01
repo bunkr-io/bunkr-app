@@ -63,6 +63,9 @@ type MemberRow = {
     publicKey: string | null
   }
   isCurrentUser: boolean
+  joinedAt?: number
+  online?: boolean
+  lastDisconnected?: number
 }
 
 function MembersPage() {
@@ -78,6 +81,10 @@ function MembersPage() {
   const membersStatus = useQuery(
     api.encryptionKeys.listMembersEncryptionStatus,
     isEncryptionEnabled ? {} : 'skip',
+  )
+  const presenceData = useQuery(
+    api.presence.listRoom,
+    data?.workspaceId ? { roomId: data.workspaceId } : 'skip',
   )
 
   // Stabilize dependency: only re-fetch when the set of member userIds changes
@@ -122,6 +129,8 @@ function MembersPage() {
     membersStatus?.map((m) => [m.userId, m]) ?? [],
   )
 
+  const presenceMap = new Map(presenceData?.map((p) => [p.userId, p]) ?? [])
+
   const isOwner = role === 'owner'
 
   // Build unified rows
@@ -134,6 +143,7 @@ function MembersPage() {
         ? [user.firstName, user.lastName].filter(Boolean).join(' ')
         : member.userId
       const encStatus = encryptionStatusMap.get(member.userId)
+      const memberPresence = presenceMap.get(member.userId)
 
       rows.push({
         _id: member._id,
@@ -151,6 +161,9 @@ function MembersPage() {
             }
           : undefined,
         isCurrentUser: member.userId === data.currentUserId,
+        joinedAt: member._creationTime,
+        online: memberPresence?.online ?? false,
+        lastDisconnected: memberPresence?.lastDisconnected ?? 0,
       })
     }
 
@@ -312,17 +325,87 @@ function createMemberColumns(
     },
     {
       id: 'status',
-      header: '',
-      size: 180,
+      header: t('settings.members.statusHeader'),
       cell: ({ row }) => <MemberStatusCell row={row.original} />,
+    },
+    {
+      id: 'joined',
+      header: t('settings.members.joinedHeader'),
+      cell: ({ row }) => <MemberJoinedCell row={row.original} />,
+    },
+    {
+      id: 'lastSeen',
+      header: t('settings.members.lastSeenHeader'),
+      cell: ({ row }) => <MemberPresenceCell row={row.original} />,
     },
     {
       id: 'actions',
       header: '',
-      size: 50,
+      size: 28,
       cell: ({ row }) => <MemberActionsCell row={row.original} />,
     },
   ]
+}
+
+function formatRelativeTime(timestamp: number, locale: string): string {
+  const now = Date.now()
+  const diffSeconds = Math.floor((now - timestamp) / 1000)
+
+  if (diffSeconds < 60) return locale === 'fr' ? "À l'instant" : 'Just now'
+
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+
+  if (diffSeconds < 3600) {
+    return rtf.format(-Math.floor(diffSeconds / 60), 'minute')
+  }
+  if (diffSeconds < 86400) {
+    return rtf.format(-Math.floor(diffSeconds / 3600), 'hour')
+  }
+  return rtf.format(-Math.floor(diffSeconds / 86400), 'day')
+}
+
+function MemberPresenceCell({ row }: { row: MemberRow }) {
+  const { t, i18n } = useTranslation()
+
+  if (row.type !== 'human') return null
+
+  if (row.online) {
+    return (
+      <div className="flex items-center gap-2 text-sm">
+        <span className="inline-block size-2 rounded-full bg-green-500" />
+        <span className="text-muted-foreground">
+          {t('settings.members.online')}
+        </span>
+      </div>
+    )
+  }
+
+  if (row.lastDisconnected && row.lastDisconnected > 0) {
+    return (
+      <span className="text-muted-foreground text-sm">
+        {formatRelativeTime(row.lastDisconnected, i18n.language)}
+      </span>
+    )
+  }
+
+  return null
+}
+
+function MemberJoinedCell({ row }: { row: MemberRow }) {
+  const { i18n } = useTranslation()
+
+  if (row.type !== 'human' || !row.joinedAt) return null
+
+  const date = new Date(row.joinedAt)
+  return (
+    <span className="text-muted-foreground text-sm">
+      {date.toLocaleDateString(i18n.language, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })}
+    </span>
+  )
 }
 
 function MemberStatusCell({ row }: { row: MemberRow }) {
@@ -376,7 +459,7 @@ function MemberActionsCell({ row }: { row: MemberRow }) {
   }
 
   if (row.type === 'invitation') {
-    return <RevokeInvitationButton invitationId={row._id} />
+    return <RevokeInvitationMenu invitationId={row._id} />
   }
 
   if (row.type === 'human' && isOwner && !row.isCurrentUser) {
@@ -425,7 +508,11 @@ function DeactivateAgentMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 opacity-0 transition-opacity group-hover/row:opacity-100 data-[state=open]:opacity-100"
+          >
             <Ellipsis className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -483,7 +570,11 @@ function RemoveMemberMenu({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 opacity-0 transition-opacity group-hover/row:opacity-100 data-[state=open]:opacity-100"
+          >
             <Ellipsis className="size-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -512,15 +603,13 @@ function RemoveMemberMenu({
   )
 }
 
-// --- Revoke Invitation Button ---
+// --- Revoke Invitation Menu ---
 
-function RevokeInvitationButton({ invitationId }: { invitationId: string }) {
+function RevokeInvitationMenu({ invitationId }: { invitationId: string }) {
   const { t } = useTranslation()
   const revokeInvitation = useAction(api.members.revokeInvitationAction)
-  const [revoking, setRevoking] = useState(false)
 
   async function handleRevoke() {
-    setRevoking(true)
     try {
       await revokeInvitation({
         invitationId: invitationId as never,
@@ -529,20 +618,26 @@ function RevokeInvitationButton({ invitationId }: { invitationId: string }) {
     } catch (error) {
       Sentry.captureException(error)
       toast.error(t('toast.failedRevokeInvitation'))
-    } finally {
-      setRevoking(false)
     }
   }
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handleRevoke}
-      disabled={revoking}
-    >
-      {t('settings.members.revoke')}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 opacity-0 transition-opacity group-hover/row:opacity-100 data-[state=open]:opacity-100"
+        >
+          <Ellipsis className="size-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem variant="destructive" onClick={handleRevoke}>
+          {t('settings.members.revoke')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

@@ -37,6 +37,7 @@ import type * as onboarding from "../onboarding.js";
 import type * as portfolios from "../portfolios.js";
 import type * as powens from "../powens.js";
 import type * as preferences from "../preferences.js";
+import type * as presence from "../presence.js";
 import type * as seed from "../seed.js";
 import type * as stripe from "../stripe.js";
 import type * as team from "../team.js";
@@ -81,6 +82,7 @@ declare const fullApi: ApiFromModules<{
   portfolios: typeof portfolios;
   powens: typeof powens;
   preferences: typeof preferences;
+  presence: typeof presence;
   seed: typeof seed;
   stripe: typeof stripe;
   team: typeof team;
@@ -4946,6 +4948,68 @@ export declare const components: {
           null
         >;
       };
+    };
+  };
+  presence: {
+    public: {
+      disconnect: FunctionReference<
+        "mutation",
+        "internal",
+        { sessionToken: string },
+        null
+      >;
+      heartbeat: FunctionReference<
+        "mutation",
+        "internal",
+        {
+          interval?: number;
+          roomId: string;
+          sessionId: string;
+          userId: string;
+        },
+        { roomToken: string; sessionToken: string }
+      >;
+      list: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; roomToken: string },
+        Array<{
+          data?: any;
+          lastDisconnected: number;
+          online: boolean;
+          userId: string;
+        }>
+      >;
+      listRoom: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; onlineOnly?: boolean; roomId: string },
+        Array<{ lastDisconnected: number; online: boolean; userId: string }>
+      >;
+      listUser: FunctionReference<
+        "query",
+        "internal",
+        { limit?: number; onlineOnly?: boolean; userId: string },
+        Array<{ lastDisconnected: number; online: boolean; roomId: string }>
+      >;
+      removeRoom: FunctionReference<
+        "mutation",
+        "internal",
+        { roomId: string },
+        null
+      >;
+      removeRoomUser: FunctionReference<
+        "mutation",
+        "internal",
+        { roomId: string; userId: string },
+        null
+      >;
+      updateRoomUser: FunctionReference<
+        "mutation",
+        "internal",
+        { data?: any; roomId: string; userId: string },
+        null
+      >;
     };
   };
   resend: {

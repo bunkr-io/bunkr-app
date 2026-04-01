@@ -26,9 +26,10 @@ import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
 import { BulkOperationProvider } from '~/contexts/bulk-operation-context'
 import { EncryptionProvider } from '~/contexts/encryption-context'
-import { PortfolioProvider } from '~/contexts/portfolio-context'
+import { PortfolioProvider, usePortfolio } from '~/contexts/portfolio-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
 import { useLanguageSync } from '~/hooks/use-language-sync'
+import { usePresenceHeartbeat } from '~/hooks/use-presence-heartbeat'
 import appCss from '~/styles/app.css?url'
 import { api } from '../../convex/_generated/api'
 
@@ -179,17 +180,19 @@ function RootComponent() {
         <LanguageSyncWrapper>
           <TooltipProvider>
             <PortfolioProvider>
-              <EncryptionProvider>
-                <BulkOperationProvider>
-                  <PrivacyProvider>
-                    <RootDocument>
-                      <OnboardingGuard>
-                        <Outlet />
-                      </OnboardingGuard>
-                    </RootDocument>
-                  </PrivacyProvider>
-                </BulkOperationProvider>
-              </EncryptionProvider>
+              <PresenceHeartbeat>
+                <EncryptionProvider>
+                  <BulkOperationProvider>
+                    <PrivacyProvider>
+                      <RootDocument>
+                        <OnboardingGuard>
+                          <Outlet />
+                        </OnboardingGuard>
+                      </RootDocument>
+                    </PrivacyProvider>
+                  </BulkOperationProvider>
+                </EncryptionProvider>
+              </PresenceHeartbeat>
             </PortfolioProvider>
           </TooltipProvider>
         </LanguageSyncWrapper>
@@ -201,6 +204,36 @@ function RootComponent() {
 function LanguageSyncWrapper({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useConvexAuth()
   useLanguageSync(isAuthenticated)
+  return <>{children}</>
+}
+
+function PresenceHeartbeat({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated } = useConvexAuth()
+  const { portfolios } = usePortfolio()
+  const userId = useAuth().userId
+  const workspaceId = portfolios?.[0]?.workspaceId
+
+  if (isAuthenticated && userId && workspaceId) {
+    return (
+      <PresenceHeartbeatInner roomId={workspaceId} userId={userId}>
+        {children}
+      </PresenceHeartbeatInner>
+    )
+  }
+
+  return <>{children}</>
+}
+
+function PresenceHeartbeatInner({
+  roomId,
+  userId,
+  children,
+}: {
+  roomId: string
+  userId: string
+  children: React.ReactNode
+}) {
+  usePresenceHeartbeat(roomId, userId)
   return <>{children}</>
 }
 

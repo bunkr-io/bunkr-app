@@ -162,34 +162,32 @@ export function DataTable<TData, TValue>({
         )}
         <div className="ml-auto flex items-center gap-2">{actions}</div>
       </div>
-      <Table className="shrink-0">
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="border-b-0">
-              {headerGroup.headers.map((header) => (
-                <TableHead
-                  key={header.id}
-                  className="text-muted-foreground"
-                  style={
-                    header.column.columnDef.size
-                      ? { width: header.column.columnDef.size }
-                      : undefined
-                  }
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-      </Table>
       <ScrollArea className="min-h-0 flex-1">
         <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="border-b-0">
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    className="text-muted-foreground"
+                    style={
+                      header.column.columnDef.size
+                        ? { width: header.column.columnDef.size }
+                        : undefined
+                    }
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
               groups ? (
@@ -232,7 +230,7 @@ export function DataTable<TData, TValue>({
                         <TableRow
                           key={row.id}
                           data-state={row.getIsSelected() && 'selected'}
-                          className="h-12 border-b border-border/50"
+                          className="group/row h-12 border-b border-border/50"
                         >
                           {row.getVisibleCells().map((cell) => (
                             <TableCell
@@ -259,7 +257,7 @@ export function DataTable<TData, TValue>({
                   <TableRow
                     key={row.id}
                     data-state={row.getIsSelected() && 'selected'}
-                    className="h-12 border-b border-border/50"
+                    className="group/row h-12 border-b border-border/50"
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
