@@ -76,8 +76,7 @@ export function PassphraseDialog({
     setNewPassphraseConfirm('')
   }
 
-  async function handlePassphraseSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitPassphrase() {
     if (!passphrase) return
     setError(null)
     setUnlocking(true)
@@ -92,8 +91,7 @@ export function PassphraseDialog({
     }
   }
 
-  async function handleRecoverySubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitRecovery() {
     const normalized = normalizeRecoveryCode(recoveryCode)
     if (!normalized) return
     setError(null)
@@ -128,8 +126,7 @@ export function PassphraseDialog({
     }
   }
 
-  async function handleNewPassphraseSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  async function submitNewPassphrase() {
     if (
       !recoveredKeyJwk ||
       newPassphrase.length < 8 ||
@@ -169,6 +166,15 @@ export function PassphraseDialog({
     }
   }
 
+  function handleFormSubmit(
+    handler: () => Promise<void>,
+  ): (e: React.FormEvent) => void {
+    return (e) => {
+      e.preventDefault()
+      handler()
+    }
+  }
+
   function handleOpenChange(open: boolean) {
     if (!open) resetState()
     onOpenChange(open)
@@ -183,7 +189,7 @@ export function PassphraseDialog({
               <DialogTitle>{t('dialogs.passphrase.title')}</DialogTitle>
               <DialogDescription>{resolvedDescription}</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handlePassphraseSubmit}>
+            <form onSubmit={handleFormSubmit(submitPassphrase)}>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="passphrase-input">
@@ -215,6 +221,7 @@ export function PassphraseDialog({
               </div>
               <PassphraseFooter
                 onCancel={() => handleOpenChange(false)}
+                onSubmit={submitPassphrase}
                 disabled={!passphrase}
                 unlocking={unlocking}
                 submitLabel={resolvedSubmitLabel}
@@ -231,7 +238,7 @@ export function PassphraseDialog({
                 {t('recoveryCodes.enterCodeDescription')}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleRecoverySubmit}>
+            <form onSubmit={handleFormSubmit(submitRecovery)}>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="recovery-code-input">
@@ -265,6 +272,7 @@ export function PassphraseDialog({
               </div>
               <PassphraseFooter
                 onCancel={() => handleOpenChange(false)}
+                onSubmit={submitRecovery}
                 disabled={!normalizeRecoveryCode(recoveryCode)}
                 unlocking={unlocking}
                 submitLabel={t('recoveryCodes.recover')}
@@ -283,7 +291,7 @@ export function PassphraseDialog({
                 {t('recoveryCodes.setNewPassphraseDescription')}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleNewPassphraseSubmit}>
+            <form onSubmit={handleFormSubmit(submitNewPassphrase)}>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
                   <Label htmlFor="new-passphrase-input">
@@ -326,6 +334,7 @@ export function PassphraseDialog({
               </div>
               <PassphraseFooter
                 onCancel={() => handleOpenChange(false)}
+                onSubmit={submitNewPassphrase}
                 disabled={
                   newPassphrase.length < 8 ||
                   newPassphrase !== newPassphraseConfirm
@@ -343,17 +352,24 @@ export function PassphraseDialog({
 
 function PassphraseFooter({
   onCancel,
+  onSubmit,
   disabled,
   unlocking,
   submitLabel,
 }: {
   onCancel: () => void
+  onSubmit: () => void
   disabled: boolean
   unlocking: boolean
   submitLabel: string
 }) {
   const { t } = useTranslation()
   useHotkeys('escape', onCancel, {
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+  useHotkeys('mod+enter', onSubmit, {
+    enabled: !disabled && !unlocking,
     enableOnFormTags: true,
     preventDefault: true,
   })
