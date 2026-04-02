@@ -24,20 +24,13 @@ import {
 } from '~/components/ui/sidebar'
 import { useCommandRegistry } from '~/contexts/command-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
+import { useConnectionsNeedingAttention } from '~/hooks/use-connections-needing-attention'
 import {
   ACCOUNT_CATEGORIES,
   getAccountCategoryLabel,
   getCategoryKey,
 } from '~/lib/account-categories'
 import { api } from '../../convex/_generated/api'
-
-const CONNECTION_ALERT_STATES = new Set([
-  'SCARequired',
-  'additionalInformationNeeded',
-  'decoupled',
-  'wrongpass',
-  'bug',
-])
 
 export function NavMain({
   items,
@@ -65,24 +58,8 @@ export function NavMain({
   )
   const bankAccounts = isAllPortfolios ? bankAccountsAll : bankAccountsSingle
 
-  const connectionsSingle = useQuery(
-    api.powens.listConnections,
-    singlePortfolioId ? { portfolioId: singlePortfolioId } : 'skip',
-  )
-  const connectionsAll = useQuery(
-    api.powens.listAllConnections,
-    isAllPortfolios && allPortfolioIds.length > 0
-      ? { portfolioIds: allPortfolioIds }
-      : 'skip',
-  )
-  const connections = isAllPortfolios ? connectionsAll : connectionsSingle
-
-  const hasConnectionAlert = React.useMemo(
-    () =>
-      connections?.some((c) => CONNECTION_ALERT_STATES.has(c.state ?? '')) ??
-      false,
-    [connections],
-  )
+  const { count: connectionAlertCount } = useConnectionsNeedingAttention()
+  const hasConnectionAlert = connectionAlertCount > 0
 
   const activeCategories = React.useMemo(() => {
     if (!bankAccounts) return []
