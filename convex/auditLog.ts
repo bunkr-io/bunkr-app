@@ -173,6 +173,10 @@ export type AuditMetadata =
       type: 'connection.state_changed'
       data: { connectionId: string; previousState?: string; newState: string }
     }
+  | { type: 'recovery_codes.generated'; data: { slotCount: number } }
+  | { type: 'recovery_codes.used'; data: { slotIndex: number } }
+  | { type: 'recovery_codes.regenerated'; data: { slotCount: number } }
+  | { type: 'encryption.passphrase_changed'; data: { via: 'recovery_code' } }
 
 export const insertAuditLog = internalMutation({
   args: {

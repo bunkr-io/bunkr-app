@@ -27,6 +27,7 @@ interface EncryptionContextValue {
   isLoading: boolean
   privateKey: CryptoKey | null
   unlock: (passphrase: string) => Promise<void>
+  unlockWithPersonalKey: (personalPrivateKeyJwk: string) => Promise<void>
   lock: () => Promise<void>
   hasPersonalKey: boolean
   hasWorkspaceAccess: boolean
@@ -148,6 +149,30 @@ export function EncryptionProvider({
     [wsEncryption],
   )
 
+  const unlockWithPersonalKey = React.useCallback(
+    async (personalPrivateKeyJwk: string) => {
+      if (!wsEncryption) throw new Error('Encryption not enabled')
+      if (!wsEncryption.keySlot) throw new Error('No workspace access granted')
+
+      const personalPrivateKey = await importPrivateKey(personalPrivateKeyJwk)
+
+      // Decrypt workspace private key using personal private key (ECIES)
+      const wsPrivateKeyJwk = await decryptString(
+        wsEncryption.keySlot.encryptedPrivateKey,
+        personalPrivateKey,
+      )
+
+      // Import workspace private key (extractable for workers) and store in IndexedDB
+      const wsKey = await importPrivateKey(wsPrivateKeyJwk, true)
+      await storePrivateKey(wsKey)
+      setWorkspacePrivateKeyJwk(wsPrivateKeyJwk)
+      setWorkerKeyJwk(wsPrivateKeyJwk)
+      if (isWorkerAvailable()) initWorkerKey(wsPrivateKeyJwk)
+      setPrivateKey(wsKey)
+    },
+    [wsEncryption],
+  )
+
   const lock = React.useCallback(async () => {
     await clearStoredPrivateKey()
     setPrivateKey(null)
@@ -163,6 +188,7 @@ export function EncryptionProvider({
       isLoading,
       privateKey,
       unlock,
+      unlockWithPersonalKey,
       lock,
       hasPersonalKey,
       hasWorkspaceAccess,
@@ -178,6 +204,7 @@ export function EncryptionProvider({
       isLoading,
       privateKey,
       unlock,
+      unlockWithPersonalKey,
       lock,
       hasPersonalKey,
       hasWorkspaceAccess,

@@ -2,21 +2,40 @@ import { useMutation, useQuery } from 'convex/react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { RecoveryCodesDisplay } from '~/components/recovery-codes-display'
 import { Input } from '~/components/ui/input'
 import { Label } from '~/components/ui/label'
 import {
   deriveKeyFromPassphrase,
   encryptPrivateKey,
+  encryptPrivateKeyWithRecoveryCode,
   encryptString,
   exportPrivateKey,
   exportPublicKey,
   generateKeyPair,
+  generateRecoveryCodes,
   importPrivateKey,
   storePrivateKey,
 } from '~/lib/crypto'
 import { api } from '../../../convex/_generated/api'
 import { StepLayout } from './step-layout'
 import type { OnboardingStepProps } from './types'
+
+interface PendingOwnerSetup {
+  personalPublicKeyJwk: string
+  personalEncryptedPrivateKey: string
+  personalPbkdf2Salt: string
+  workspacePublicKey: string
+  ownerKeySlotEncryptedPrivateKey: string
+  wsPrivateKeyJwk: string
+  recoveryCodes: string[]
+  recoveryCodeSlots: Array<{
+    codeHash: string
+    encryptedPrivateKey: string
+    pbkdf2Salt: string
+    slotIndex: number
+  }>
+}
 
 export function VaultStep({
   goToStep,
@@ -27,6 +46,10 @@ export function VaultStep({
   const [passphrase, setPassphrase] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
+  const [phase, setPhase] = useState<'passphrase' | 'codes'>('passphrase')
+  const [pendingSetup, setPendingSetup] = useState<PendingOwnerSetup | null>(
+    null,
+  )
   const enableEncryption = useMutation(
     api.encryptionKeys.enableWorkspaceEncryption,
   )
@@ -43,7 +66,7 @@ export function VaultStep({
 
   const backStep = isInvited ? 'legal' : 'invite'
 
-  async function handleSetup() {
+  async function handlePassphraseSubmit() {
     setSaving(true)
     setSubmitting(true)
     try {
@@ -75,6 +98,8 @@ export function VaultStep({
           encryptedPrivateKey: JSON.stringify(encryptedPersonalPk),
           pbkdf2Salt: saltB64,
         })
+        await updateStep({ step: 'portfolio' })
+        goToStep('portfolio')
       } else {
         const wsKeyPair = await generateKeyPair()
         const wsPublicKeyJwk = await exportPublicKey(wsKeyPair.publicKey)
@@ -85,17 +110,65 @@ export function VaultStep({
           personalKeyPair.publicKey,
         )
 
-        await enableEncryption({
-          personalPublicKey: personalPublicKeyJwk,
+        // Generate recovery codes and encrypt personal private key with each
+        const codes = generateRecoveryCodes()
+        const recoverySlots = await Promise.all(
+          codes.map(async (code, i) => {
+            const result = await encryptPrivateKeyWithRecoveryCode(
+              personalPrivateKeyJwk,
+              code,
+            )
+            return {
+              codeHash: result.codeHash,
+              encryptedPrivateKey: JSON.stringify({
+                ct: result.ct,
+                iv: result.iv,
+              }),
+              pbkdf2Salt: result.salt,
+              slotIndex: i,
+            }
+          }),
+        )
+
+        setPendingSetup({
+          personalPublicKeyJwk,
           personalEncryptedPrivateKey: JSON.stringify(encryptedPersonalPk),
           personalPbkdf2Salt: saltB64,
           workspacePublicKey: wsPublicKeyJwk,
           ownerKeySlotEncryptedPrivateKey: ownerKeySlotEncrypted,
+          wsPrivateKeyJwk,
+          recoveryCodes: codes,
+          recoveryCodeSlots: recoverySlots,
         })
-
-        const wsKey = await importPrivateKey(wsPrivateKeyJwk)
-        await storePrivateKey(wsKey)
+        setPhase('codes')
+        setSaving(false)
+        setSubmitting(false)
       }
+    } catch (err) {
+      toast.error(t('toast.failedSetupEncryption'))
+      console.error(err)
+      setSaving(false)
+      setSubmitting(false)
+    }
+  }
+
+  async function handleCodesConfirm() {
+    if (!pendingSetup) return
+    setSaving(true)
+    setSubmitting(true)
+    try {
+      await enableEncryption({
+        personalPublicKey: pendingSetup.personalPublicKeyJwk,
+        personalEncryptedPrivateKey: pendingSetup.personalEncryptedPrivateKey,
+        personalPbkdf2Salt: pendingSetup.personalPbkdf2Salt,
+        workspacePublicKey: pendingSetup.workspacePublicKey,
+        ownerKeySlotEncryptedPrivateKey:
+          pendingSetup.ownerKeySlotEncryptedPrivateKey,
+        recoveryCodeSlots: pendingSetup.recoveryCodeSlots,
+      })
+
+      const wsKey = await importPrivateKey(pendingSetup.wsPrivateKeyJwk)
+      await storePrivateKey(wsKey)
 
       await updateStep({ step: 'portfolio' })
       goToStep('portfolio')
@@ -113,10 +186,28 @@ export function VaultStep({
         title={t('onboarding.vault.alreadySetupTitle')}
         subtitle={t('onboarding.vault.alreadySetupSubtitle')}
         onBack={() => goToStep(backStep)}
-        onSubmit={handleSetup}
+        onSubmit={handlePassphraseSubmit}
         submitLabel={t('common.continue')}
         loading={saving}
       />
+    )
+  }
+
+  if (phase === 'codes' && pendingSetup) {
+    return (
+      <StepLayout
+        title={t('recoveryCodes.title')}
+        subtitle={t('recoveryCodes.subtitle')}
+        onBack={() => {
+          setPhase('passphrase')
+          setPendingSetup(null)
+        }}
+        onSubmit={handleCodesConfirm}
+        submitLabel={t('recoveryCodes.iveSavedMyCodes')}
+        loading={saving}
+      >
+        <RecoveryCodesDisplay codes={pendingSetup.recoveryCodes} />
+      </StepLayout>
     )
   }
 
@@ -125,7 +216,7 @@ export function VaultStep({
       title={t('onboarding.vault.title')}
       subtitle={t('onboarding.vault.subtitle')}
       onBack={() => goToStep(backStep)}
-      onSubmit={handleSetup}
+      onSubmit={handlePassphraseSubmit}
       submitLabel={t('button.createVault')}
       submitDisabled={!valid}
       loading={saving}

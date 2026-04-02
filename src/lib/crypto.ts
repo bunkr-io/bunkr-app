@@ -408,6 +408,64 @@ export async function decryptFieldGroups(
   return merged
 }
 
+// --- Recovery code utilities ---
+
+export function generateRecoveryCodes(count = 8): string[] {
+  const codes: string[] = []
+  for (let i = 0; i < count; i++) {
+    // 5 bytes = 40 bits of entropy, rendered as 10 hex chars
+    const bytes = crypto.getRandomValues(new Uint8Array(5))
+    const hex = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+    codes.push(hex)
+  }
+  return codes
+}
+
+export function formatRecoveryCode(code: string): string {
+  const c = normalizeRecoveryCode(code)
+  return `${c.slice(0, 5)}-${c.slice(5, 10)}`
+}
+
+export function normalizeRecoveryCode(input: string): string {
+  return input.replace(/[-\s]/g, '').toLowerCase()
+}
+
+export async function hashRecoveryCode(code: string): Promise<string> {
+  const normalized = normalizeRecoveryCode(code)
+  const data = new TextEncoder().encode(normalized.normalize('NFKC'))
+  const hash = await crypto.subtle.digest('SHA-256', data)
+  return toBase64(hash)
+}
+
+export async function encryptPrivateKeyWithRecoveryCode(
+  privateKeyJwk: string,
+  recoveryCode: string,
+): Promise<{ ct: string; iv: string; salt: string; codeHash: string }> {
+  const normalized = normalizeRecoveryCode(recoveryCode)
+  const salt = crypto.getRandomValues(new Uint8Array(32))
+  const derivedKey = await deriveKeyFromPassphrase(normalized, salt)
+  const encrypted = await encryptPrivateKey(privateKeyJwk, derivedKey)
+  const codeHash = await hashRecoveryCode(normalized)
+  return {
+    ct: encrypted.ct,
+    iv: encrypted.iv,
+    salt: toBase64(salt.buffer),
+    codeHash,
+  }
+}
+
+export async function decryptPrivateKeyWithRecoveryCode(
+  encrypted: { ct: string; iv: string; salt: string },
+  recoveryCode: string,
+): Promise<string> {
+  const normalized = normalizeRecoveryCode(recoveryCode)
+  const salt = new Uint8Array(fromBase64(encrypted.salt))
+  const derivedKey = await deriveKeyFromPassphrase(normalized, salt)
+  return decryptPrivateKey({ ct: encrypted.ct, iv: encrypted.iv }, derivedKey)
+}
+
 // --- IndexedDB-based key storage using Dexie ---
 
 const keyDb = new Dexie('BunkrKeyStore') as Dexie & {

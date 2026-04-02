@@ -29,6 +29,18 @@ export default defineSchema({
     .index('by_workspaceId_userId', ['workspaceId', 'userId'])
     .index('by_workspaceId', ['workspaceId']),
 
+  recoveryCodeSlots: defineTable({
+    userId: v.string(),
+    codeHash: v.string(),
+    encryptedPrivateKey: v.string(),
+    pbkdf2Salt: v.string(),
+    slotIndex: v.number(),
+    usedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index('by_userId', ['userId'])
+    .index('by_userId_codeHash', ['userId', 'codeHash']),
+
   workspaces: defineTable({
     name: v.string(),
     createdBy: v.string(),

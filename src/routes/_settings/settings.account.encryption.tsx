@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { KeyRound, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { KeyRound, ShieldAlert, ShieldCheck, TriangleAlert } from 'lucide-react'
 import { useCallback, useRef, useState } from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
 import { useTranslation } from 'react-i18next'
@@ -14,6 +14,7 @@ import {
   ItemCardItems,
   ItemCardItemTitle,
 } from '~/components/item-card'
+import { RecoveryCodesDisplay } from '~/components/recovery-codes-display'
 import { Alert, AlertDescription, AlertTitle } from '~/components/ui/alert'
 import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
@@ -34,12 +35,16 @@ import { usePortfolio } from '~/contexts/portfolio-context'
 import {
   decryptData,
   decryptFieldGroups,
+  decryptPrivateKey,
+  deriveKeyFromPassphrase,
   encryptData,
   encryptFieldGroups,
+  encryptPrivateKeyWithRecoveryCode,
   encryptString,
   exportPrivateKey,
   exportPublicKey,
   generateKeyPair,
+  generateRecoveryCodes,
   importPrivateKey,
   importPublicKey,
   storePrivateKey,
@@ -61,6 +66,8 @@ function EncryptionPage() {
     role,
   } = useEncryption()
   const [rotateOpen, setRotateOpen] = useState(false)
+  const [regenerateOpen, setRegenerateOpen] = useState(false)
+  const recoveryStatus = useQuery(api.encryptionKeys.getRecoveryCodeStatus)
 
   if (isLoading) {
     return (
@@ -150,12 +157,53 @@ function EncryptionPage() {
                 </ItemCardItemAction>
               </ItemCardItem>
             )}
+
+            {isEncryptionEnabled && role === 'owner' && (
+              <ItemCardItem>
+                <ItemCardItemContent>
+                  <ItemCardItemTitle>
+                    {t('recoveryCodes.settingsTitle')}
+                    {recoveryStatus && recoveryStatus.remainingCodes === 0 && (
+                      <Badge variant="destructive" className="ml-2">
+                        <ShieldAlert className="size-3" />
+                        {t('recoveryCodes.noneRemaining')}
+                      </Badge>
+                    )}
+                  </ItemCardItemTitle>
+                  <ItemCardItemDescription>
+                    {recoveryStatus
+                      ? t('recoveryCodes.remainingCount', {
+                          remaining: recoveryStatus.remainingCodes,
+                          total: recoveryStatus.totalCodes,
+                        })
+                      : t('recoveryCodes.noCodesGenerated')}
+                  </ItemCardItemDescription>
+                </ItemCardItemContent>
+                <ItemCardItemAction>
+                  <Button
+                    variant="outline"
+                    onClick={() => setRegenerateOpen(true)}
+                  >
+                    {recoveryStatus
+                      ? t('recoveryCodes.regenerate')
+                      : t('recoveryCodes.generate')}
+                  </Button>
+                </ItemCardItemAction>
+              </ItemCardItem>
+            )}
           </ItemCardItems>
         </ItemCard>
       </div>
 
       {rotateOpen && (
         <KeyRotationDialog open={rotateOpen} onOpenChange={setRotateOpen} />
+      )}
+      {regenerateOpen && (
+        <RegenerateRecoveryCodesDialog
+          open={regenerateOpen}
+          onOpenChange={setRegenerateOpen}
+          hasExistingCodes={recoveryStatus !== null}
+        />
       )}
     </div>
   )
@@ -552,6 +600,188 @@ function KeyRotationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function RegenerateRecoveryCodesDialog({
+  open,
+  onOpenChange,
+  hasExistingCodes,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  hasExistingCodes: boolean
+}) {
+  const { t } = useTranslation()
+  const [passphrase, setPassphrase] = useState('')
+  const [phase, setPhase] = useState<'passphrase' | 'codes'>('passphrase')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [codes, setCodes] = useState<string[]>([])
+
+  const encryptionState = useQuery(api.encryptionKeys.getWorkspaceEncryption)
+  const regenerate = useMutation(api.encryptionKeys.regenerateRecoveryCodes)
+
+  async function handlePassphraseSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!passphrase || !encryptionState?.personalKey) return
+    setError(null)
+    setLoading(true)
+    try {
+      const salt = Uint8Array.from(
+        atob(encryptionState.personalKey.pbkdf2Salt),
+        (c) => c.charCodeAt(0),
+      )
+      const passphraseKey = await deriveKeyFromPassphrase(passphrase, salt)
+      const { ct, iv } = JSON.parse(
+        encryptionState.personalKey.encryptedPrivateKey,
+      ) as { ct: string; iv: string }
+      const pkJwk = await decryptPrivateKey({ ct, iv }, passphraseKey)
+
+      const newCodes = generateRecoveryCodes()
+      const slots = await Promise.all(
+        newCodes.map(async (code, i) => {
+          const result = await encryptPrivateKeyWithRecoveryCode(pkJwk, code)
+          return {
+            codeHash: result.codeHash,
+            encryptedPrivateKey: JSON.stringify({
+              ct: result.ct,
+              iv: result.iv,
+            }),
+            pbkdf2Salt: result.salt,
+            slotIndex: i,
+          }
+        }),
+      )
+
+      await regenerate({ slots })
+
+      setCodes(newCodes)
+      setPhase('codes')
+    } catch {
+      setError(t('toast.invalidPassphrase'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleClose() {
+    setPassphrase('')
+    setError(null)
+    setPhase('passphrase')
+    setCodes([])
+    onOpenChange(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent showCloseButton={false}>
+        {phase === 'passphrase' && (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {hasExistingCodes
+                  ? t('recoveryCodes.regenerateTitle')
+                  : t('recoveryCodes.generateTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {hasExistingCodes
+                  ? t('recoveryCodes.regenerateDescription')
+                  : t('recoveryCodes.generateDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handlePassphraseSubmit}>
+              <div className="space-y-4 py-2">
+                {hasExistingCodes && (
+                  <Alert variant="destructive">
+                    <TriangleAlert />
+                    <AlertDescription>
+                      {t('recoveryCodes.regenerateWarning')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <label
+                    htmlFor="regen-passphrase"
+                    className="text-sm font-medium"
+                  >
+                    {t('dialogs.passphrase.label')}
+                  </label>
+                  <Input
+                    id="regen-passphrase"
+                    type="password"
+                    placeholder={t('dialogs.passphrase.placeholder')}
+                    value={passphrase}
+                    onChange={(e) => setPassphrase(e.target.value)}
+                    autoFocus
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                  />
+                  {error && <p className="text-sm text-destructive">{error}</p>}
+                </div>
+              </div>
+              <RegeneratePassphraseFooter
+                onCancel={handleClose}
+                disabled={!passphrase}
+                loading={loading}
+                hasExistingCodes={hasExistingCodes}
+              />
+            </form>
+          </>
+        )}
+
+        {phase === 'codes' && codes.length > 0 && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t('recoveryCodes.title')}</DialogTitle>
+              <DialogDescription>
+                {t('recoveryCodes.subtitle')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+              <RecoveryCodesDisplay
+                codes={codes}
+                onConfirm={handleClose}
+                confirmLabel={t('common.done')}
+              />
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RegeneratePassphraseFooter({
+  onCancel,
+  disabled,
+  loading,
+  hasExistingCodes,
+}: {
+  onCancel: () => void
+  disabled: boolean
+  loading: boolean
+  hasExistingCodes: boolean
+}) {
+  const { t } = useTranslation()
+  useHotkeys('escape', onCancel, {
+    enableOnFormTags: true,
+    preventDefault: true,
+  })
+
+  return (
+    <DialogFooter className="mt-4">
+      <Button type="button" variant="outline" onClick={onCancel}>
+        {t('common.cancel')} <Kbd>Esc</Kbd>
+      </Button>
+      <Button type="submit" disabled={disabled} loading={loading}>
+        {hasExistingCodes
+          ? t('recoveryCodes.regenerate')
+          : t('recoveryCodes.generate')}{' '}
+        <HotkeyDisplay hotkey={{ keys: 'mod+enter' }} />
+      </Button>
+    </DialogFooter>
   )
 }
 

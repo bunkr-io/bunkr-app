@@ -5,7 +5,8 @@ import {
   mutation,
   query,
 } from './_generated/server'
-import { getAuthUserId, requireAuthUserId } from './lib/auth'
+import { insertAuditLogDirect } from './auditLog'
+import { getActorInfo, getAuthUserId, requireAuthUserId } from './lib/auth'
 
 // Returns workspace encryption status + current user's key slot
 export const getWorkspaceEncryption = query({
@@ -134,6 +135,16 @@ export const enableWorkspaceEncryption = mutation({
     personalPbkdf2Salt: v.string(),
     workspacePublicKey: v.string(),
     ownerKeySlotEncryptedPrivateKey: v.string(),
+    recoveryCodeSlots: v.optional(
+      v.array(
+        v.object({
+          codeHash: v.string(),
+          encryptedPrivateKey: v.string(),
+          pbkdf2Salt: v.string(),
+          slotIndex: v.number(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireAuthUserId(ctx)
@@ -190,6 +201,33 @@ export const enableWorkspaceEncryption = mutation({
       encryptedPrivateKey: args.ownerKeySlotEncryptedPrivateKey,
       createdAt: Date.now(),
     })
+
+    // Store recovery code slots
+    if (args.recoveryCodeSlots) {
+      const now = Date.now()
+      for (const slot of args.recoveryCodeSlots) {
+        await ctx.db.insert('recoveryCodeSlots', {
+          userId,
+          codeHash: slot.codeHash,
+          encryptedPrivateKey: slot.encryptedPrivateKey,
+          pbkdf2Salt: slot.pbkdf2Salt,
+          slotIndex: slot.slotIndex,
+          createdAt: now,
+        })
+      }
+
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: membership.workspaceId,
+        workspaceName: workspace.name,
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'recovery_codes.generated',
+        metadata: JSON.stringify({
+          slotCount: args.recoveryCodeSlots.length,
+        }),
+      })
+    }
   },
 })
 
@@ -280,6 +318,184 @@ export const getPublicKeyForPortfolio = internalQuery({
       )
       .first()
     return wsEnc?.publicKey ?? null
+  },
+})
+
+// --- Recovery code queries/mutations ---
+
+export const getRecoveryCodeStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+
+    const slots = await ctx.db
+      .query('recoveryCodeSlots')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .collect()
+
+    if (slots.length === 0) return null
+
+    return {
+      totalCodes: slots.length,
+      remainingCodes: slots.filter((s) => !s.usedAt).length,
+      slots: slots.map((s) => ({
+        slotIndex: s.slotIndex,
+        usedAt: s.usedAt ?? null,
+      })),
+    }
+  },
+})
+
+export const getRecoveryCodeSlotByHash = query({
+  args: { codeHash: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+
+    const slot = await ctx.db
+      .query('recoveryCodeSlots')
+      .withIndex('by_userId_codeHash', (q) =>
+        q.eq('userId', userId).eq('codeHash', args.codeHash),
+      )
+      .first()
+
+    if (!slot) return null
+
+    return {
+      encryptedPrivateKey: slot.encryptedPrivateKey,
+      pbkdf2Salt: slot.pbkdf2Salt,
+      usedAt: slot.usedAt ?? null,
+      slotIndex: slot.slotIndex,
+    }
+  },
+})
+
+export const invalidateRecoveryCode = mutation({
+  args: { codeHash: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const slot = await ctx.db
+      .query('recoveryCodeSlots')
+      .withIndex('by_userId_codeHash', (q) =>
+        q.eq('userId', userId).eq('codeHash', args.codeHash),
+      )
+      .first()
+    if (!slot) throw new Error('Recovery code slot not found')
+    if (slot.usedAt) throw new Error('Recovery code already used')
+
+    await ctx.db.patch(slot._id, { usedAt: Date.now() })
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (membership) {
+      const workspace = await ctx.db.get(membership.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: membership.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'recovery_codes.used',
+        metadata: JSON.stringify({ slotIndex: slot.slotIndex }),
+      })
+    }
+  },
+})
+
+export const updatePersonalEncryptedKey = mutation({
+  args: {
+    encryptedPrivateKey: v.string(),
+    pbkdf2Salt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    const existing = await ctx.db
+      .query('encryptionKeys')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (!existing) throw new Error('No personal encryption key found')
+
+    await ctx.db.patch(existing._id, {
+      encryptedPrivateKey: args.encryptedPrivateKey,
+      pbkdf2Salt: args.pbkdf2Salt,
+    })
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (membership) {
+      const workspace = await ctx.db.get(membership.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: membership.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'encryption.passphrase_changed',
+        metadata: JSON.stringify({ via: 'recovery_code' }),
+      })
+    }
+  },
+})
+
+export const regenerateRecoveryCodes = mutation({
+  args: {
+    slots: v.array(
+      v.object({
+        codeHash: v.string(),
+        encryptedPrivateKey: v.string(),
+        pbkdf2Salt: v.string(),
+        slotIndex: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireAuthUserId(ctx)
+
+    // Delete all existing recovery code slots
+    const existing = await ctx.db
+      .query('recoveryCodeSlots')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .collect()
+    for (const slot of existing) {
+      await ctx.db.delete(slot._id)
+    }
+
+    // Insert new slots
+    const now = Date.now()
+    for (const slot of args.slots) {
+      await ctx.db.insert('recoveryCodeSlots', {
+        userId,
+        codeHash: slot.codeHash,
+        encryptedPrivateKey: slot.encryptedPrivateKey,
+        pbkdf2Salt: slot.pbkdf2Salt,
+        slotIndex: slot.slotIndex,
+        createdAt: now,
+      })
+    }
+
+    const membership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', userId))
+      .first()
+    if (membership) {
+      const workspace = await ctx.db.get(membership.workspaceId)
+      const identity = await ctx.auth.getUserIdentity()
+      await insertAuditLogDirect(ctx.db, {
+        workspaceId: membership.workspaceId,
+        workspaceName: workspace?.name ?? '',
+        actorType: 'user',
+        ...getActorInfo(identity),
+        event: 'recovery_codes.regenerated',
+        metadata: JSON.stringify({ slotCount: args.slots.length }),
+      })
+    }
   },
 })
 
