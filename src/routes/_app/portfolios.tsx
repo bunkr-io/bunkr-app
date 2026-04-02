@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
 import { MoreVertical } from 'lucide-react'
 import * as React from 'react'
 import { useHotkeys } from 'react-hotkeys-hook'
@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useBilling } from '~/contexts/billing-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
@@ -75,7 +76,7 @@ function PortfoliosPage() {
   const updatePortfolio = useMutation(api.portfolios.updatePortfolio)
   const deletePortfolio = useMutation(api.portfolios.deletePortfolio)
   const updateSharing = useMutation(api.portfolios.updatePortfolioSharing)
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
   const isTeamPlan = subscription?.isActive && subscription?.plan === 'team'
 
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)

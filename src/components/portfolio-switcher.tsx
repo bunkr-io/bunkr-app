@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router'
-import { useQuery } from 'convex/react'
 import { ChevronsUpDown, Layers, Plus, Settings, Users } from 'lucide-react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -20,8 +19,8 @@ import {
   useSidebar,
 } from '~/components/ui/sidebar'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useBilling } from '~/contexts/billing-context'
 import { usePortfolio } from '~/contexts/portfolio-context'
-import { api } from '../../convex/_generated/api'
 
 export function PortfolioSwitcher() {
   const { t } = useTranslation()
@@ -33,7 +32,7 @@ export function PortfolioSwitcher() {
     isLoading,
     isTeamView,
   } = usePortfolio()
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
   const showTeamOption = subscription?.plan === 'team' && subscription?.isActive

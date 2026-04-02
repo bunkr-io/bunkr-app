@@ -26,6 +26,7 @@ import {
 } from '~/components/ui/dropdown-menu'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { formatShortDate } from '~/lib/utils'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
@@ -63,7 +64,7 @@ function LabelsPage() {
 
 function LabelsList() {
   const { t } = useTranslation()
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
   const labels = useQuery(
     api.transactionLabels.listWorkspaceLabels,
     workspace ? { workspaceId: workspace._id } : 'skip',

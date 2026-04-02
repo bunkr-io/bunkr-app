@@ -34,6 +34,7 @@ import { HotkeyDisplay, Kbd } from '~/components/ui/kbd'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Textarea } from '~/components/ui/textarea'
+import { useBilling } from '~/contexts/billing-context'
 import { useEncryption } from '~/contexts/encryption-context'
 import { encryptString, importPublicKey } from '~/lib/crypto'
 import { api } from '../../../convex/_generated/api'
@@ -71,7 +72,7 @@ type MemberRow = {
 function MembersPage() {
   const { t } = useTranslation()
   const data = useQuery(api.members.listMembers)
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
   const agentStatus = useQuery(api.agent.getAgentStatus)
   const resolveUsers = useAction(api.members.resolveUsers)
   const [users, setUsers] = useState<Record<string, ResolvedUser>>({})

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction } from 'convex/react'
 import { Check } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Badge } from '~/components/ui/badge'
@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '~/components/ui/card'
+import { useBilling } from '~/contexts/billing-context'
 import { cn } from '~/lib/utils'
 import { api } from '../../convex/_generated/api'
 import { PLANS, type PlanKey } from '../../convex/stripe'
@@ -48,7 +49,7 @@ const PLAN_FEATURES: Record<PlanKey, string[]> = {
 function CheckoutPage() {
   const [isYearly, setIsYearly] = useState(false)
   const [loading, setLoading] = useState<PlanKey | null>(null)
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
   const createCheckout = useAction(api.billing.createCheckout)
   const navigate = useNavigate()
 

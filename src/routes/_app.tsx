@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction } from 'convex/react'
 import { useTheme } from 'next-themes'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
@@ -22,6 +22,7 @@ import {
   SidebarProvider,
   useSidebar,
 } from '~/components/ui/sidebar'
+import { useBilling } from '~/contexts/billing-context'
 import {
   ChatProvider,
   useChatDispatch,
@@ -114,7 +115,7 @@ function AppCommands() {
 }
 
 function AppLayout() {
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
 
   React.useEffect(() => {
     // subscription is undefined while loading — do nothing

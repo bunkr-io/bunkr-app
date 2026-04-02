@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { useAction, useMutation } from 'convex/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -19,6 +19,7 @@ import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { api } from '../../../convex/_generated/api'
 
 export const Route = createFileRoute('/_settings/settings/workspace/')({
@@ -27,7 +28,7 @@ export const Route = createFileRoute('/_settings/settings/workspace/')({
 
 function GeneralPage() {
   const { t } = useTranslation()
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
 
   if (workspace === undefined) {
     return (

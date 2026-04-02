@@ -1,5 +1,4 @@
-import { useQuery } from 'convex/react'
-import { api } from '../../convex/_generated/api'
+import { useBilling } from '~/contexts/billing-context'
 
 export function RequireTeamPlan({
   children,
@@ -8,7 +7,7 @@ export function RequireTeamPlan({
   children: React.ReactNode
   fallback?: React.ReactNode
 }) {
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
 
   if (subscription === undefined) return null
   if (subscription?.plan !== 'team') return fallback ?? null

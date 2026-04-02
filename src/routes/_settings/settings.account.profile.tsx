@@ -1,7 +1,7 @@
 import { useUser } from '@clerk/tanstack-react-start'
 import * as Sentry from '@sentry/tanstackstart-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction } from 'convex/react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -21,6 +21,7 @@ import { Input } from '~/components/ui/input'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
 import { useEncryption } from '~/contexts/encryption-context'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { api } from '../../../convex/_generated/api'
 
 export const Route = createFileRoute('/_settings/settings/account/profile')({
@@ -171,7 +172,7 @@ function FullNameItem() {
 
 function WorkspaceSection() {
   const { role } = useEncryption()
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
 
   if (role === null || !workspace) return null
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
+import { useMutation } from 'convex/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import {
@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '~/components/ui/select'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { api } from '../../../convex/_generated/api'
 
 export const Route = createFileRoute(
@@ -50,7 +51,7 @@ function PermissionsPage() {
 
 function PermissionsSettings() {
   const { t } = useTranslation()
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
   const updatePolicies = useMutation(api.workspaces.updateWorkspacePolicies)
 
   if (workspace === undefined) {

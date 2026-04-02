@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction } from 'convex/react'
 import { ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +18,7 @@ import { Badge } from '~/components/ui/badge'
 import { Button } from '~/components/ui/button'
 import { PageHeader } from '~/components/ui/page-header'
 import { Skeleton } from '~/components/ui/skeleton'
+import { useBilling } from '~/contexts/billing-context'
 import { api } from '../../../convex/_generated/api'
 import { PLANS } from '../../../convex/stripe'
 
@@ -50,7 +51,7 @@ interface Invoice {
 
 function BillingPage() {
   const { t } = useTranslation()
-  const subscription = useQuery(api.billing.getSubscriptionStatus)
+  const { subscription } = useBilling()
   const createPortalSession = useAction(api.billing.createPortalSession)
   const listRecentInvoices = useAction(api.billing.listRecentInvoices)
   const [invoices, setInvoices] = useState<Array<Invoice> | undefined>(

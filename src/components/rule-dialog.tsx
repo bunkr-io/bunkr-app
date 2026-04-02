@@ -32,6 +32,7 @@ import {
 } from '~/components/ui/popover'
 import { Switch } from '~/components/ui/switch'
 import { usePortfolio } from '~/contexts/portfolio-context'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { useRetroactiveRuleApplication } from '~/hooks/use-retroactive-rule-application'
 import { type PreviewMatch, useRulePreview } from '~/hooks/use-rule-preview'
@@ -86,7 +87,7 @@ export function RuleDialog({
   const [applyRetroactively, setApplyRetroactively] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
 
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
   const { allPortfolioIds } = usePortfolio()
   const labels = useQuery(
     api.transactionLabels.listWorkspaceLabels,

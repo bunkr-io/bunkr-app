@@ -24,10 +24,12 @@ import { useTranslation } from 'react-i18next'
 import { PassphrasePrompt } from '~/components/passphrase-prompt'
 import { Toaster } from '~/components/ui/sonner'
 import { TooltipProvider } from '~/components/ui/tooltip'
+import { BillingProvider } from '~/contexts/billing-context'
 import { BulkOperationProvider } from '~/contexts/bulk-operation-context'
 import { EncryptionProvider } from '~/contexts/encryption-context'
 import { PortfolioProvider, usePortfolio } from '~/contexts/portfolio-context'
 import { PrivacyProvider } from '~/contexts/privacy-context'
+import { WorkspaceProvider } from '~/contexts/workspace-context'
 import { useLanguageSync } from '~/hooks/use-language-sync'
 import { usePresenceHeartbeat } from '~/hooks/use-presence-heartbeat'
 import appCss from '~/styles/app.css?url'
@@ -179,21 +181,25 @@ function RootComponent() {
       <ConvexProviderWithClerk client={context.convexClient} useAuth={useAuth}>
         <LanguageSyncWrapper>
           <TooltipProvider>
-            <PortfolioProvider>
-              <PresenceHeartbeat>
-                <EncryptionProvider>
-                  <BulkOperationProvider>
-                    <PrivacyProvider>
-                      <RootDocument>
-                        <OnboardingGuard>
-                          <Outlet />
-                        </OnboardingGuard>
-                      </RootDocument>
-                    </PrivacyProvider>
-                  </BulkOperationProvider>
-                </EncryptionProvider>
-              </PresenceHeartbeat>
-            </PortfolioProvider>
+            <BillingProvider>
+              <WorkspaceProvider>
+                <PortfolioProvider>
+                  <PresenceHeartbeat>
+                    <EncryptionProvider>
+                      <BulkOperationProvider>
+                        <PrivacyProvider>
+                          <RootDocument>
+                            <OnboardingGuard>
+                              <Outlet />
+                            </OnboardingGuard>
+                          </RootDocument>
+                        </PrivacyProvider>
+                      </BulkOperationProvider>
+                    </EncryptionProvider>
+                  </PresenceHeartbeat>
+                </PortfolioProvider>
+              </WorkspaceProvider>
+            </BillingProvider>
           </TooltipProvider>
         </LanguageSyncWrapper>
       </ConvexProviderWithClerk>

@@ -22,6 +22,7 @@ import { PageHeader } from '~/components/ui/page-header'
 import { ScrollArea } from '~/components/ui/scroll-area'
 import { Skeleton } from '~/components/ui/skeleton'
 import { Sortable, SortableItem } from '~/components/ui/sortable'
+import { useWorkspace } from '~/contexts/workspace-context'
 import { useCachedDecryptRecords } from '~/hooks/use-cached-decrypt'
 import { api } from '../../../convex/_generated/api'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
@@ -80,7 +81,7 @@ function PortfolioRulesList({
   const { t } = useTranslation()
   const rules = useQuery(api.transactionRules.listRules, { portfolioId })
   const categories = useQuery(api.categories.listCategories, { portfolioId })
-  const workspace = useQuery(api.workspaces.getMyWorkspace)
+  const { workspace } = useWorkspace()
   const labels = useQuery(
     api.transactionLabels.listWorkspaceLabels,
     workspace ? { workspaceId: workspace._id } : 'skip',
