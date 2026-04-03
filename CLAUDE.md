@@ -22,6 +22,7 @@ Bunkr is a self-hosted personal finance app (Finary clone). It aggregates bankin
 - `npm run check:fix` — Biome check with auto-fix
 - `npm run lint` — Biome lint only
 - `npm run format` — Biome format
+- `npm run test` — Run tests (Vitest)
 
 ## Project Structure
 
